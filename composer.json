@@ -1,0 +1,51 @@
+{
+    "name": "arturas88/finvalda-sdk",
+    "description": "PHP SDK for Finvalda (FVS) accounting software web service API",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["finvalda", "fvs", "accounting", "api", "sdk", "erp", "laravel", "php"],
+    "authors": [
+        {
+            "name": "Arturas",
+            "homepage": "https://github.com/arturas88"
+        }
+    ],
+    "homepage": "https://github.com/arturas88/finvalda-sdk",
+    "support": {
+        "issues": "https://github.com/arturas88/finvalda-sdk/issues",
+        "source": "https://github.com/arturas88/finvalda-sdk"
+    },
+    "require": {
+        "php": "^8.3",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Finvalda\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Finvalda\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Finvalda\\Laravel\\FinvaldaServiceProvider"
+            ],
+            "aliases": {
+                "Finvalda": "Finvalda\\Laravel\\Facades\\Finvalda"
+            }
+        }
+    }
+}
