@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Filters;
 
 use DateTimeInterface;
+use Finvalda\Concerns\FormatsDate;
 
 /**
  * Common filter for financial transaction detail queries.
@@ -14,6 +15,8 @@ use DateTimeInterface;
  */
 final class TransactionFilter
 {
+    use FormatsDate;
+
     public function __construct(
         /** Journal code (e.g., 'PARD', 'PIRK'). */
         public readonly ?string $journal = null,
@@ -55,14 +58,5 @@ final class TransactionFilter
             'tOpDateTill' => $this->formatDate($this->dateTo),
             'tDateEdited' => $this->formatDate($this->modifiedSince),
         ];
-    }
-
-    private function formatDate(DateTimeInterface|string|null $date): ?string
-    {
-        if ($date instanceof DateTimeInterface) {
-            return $date->format('Y-m-d');
-        }
-
-        return $date;
     }
 }

@@ -4,27 +4,16 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
-use DateTimeInterface;
+use Finvalda\Concerns\FormatsDate;
 use Finvalda\HttpClient;
 
 abstract class Resource
 {
+    use FormatsDate;
+
     public function __construct(
         protected readonly HttpClient $http,
     ) {}
-
-    /**
-     * Format a date parameter for the API.
-     * Accepts DateTimeInterface objects or date strings in Y-m-d format.
-     */
-    protected function formatDate(DateTimeInterface|string|null $date): ?string
-    {
-        if ($date instanceof DateTimeInterface) {
-            return $date->format('Y-m-d');
-        }
-
-        return $date;
-    }
 
     /**
      * Safely encode data to JSON, throwing on failure.

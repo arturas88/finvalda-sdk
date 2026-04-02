@@ -8,3 +8,4 @@ composer.lock
 *.swp
 *.swo
 Thumbs.db
+.claude/

@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace Finvalda;
 
+use Finvalda\Builders\DisbursementBuilder;
+use Finvalda\Builders\InflowBuilder;
+use Finvalda\Builders\InternalTransferBuilder;
+use Finvalda\Builders\PurchaseBuilder;
+use Finvalda\Builders\PurchaseReturnBuilder;
+use Finvalda\Builders\SaleBuilder;
+use Finvalda\Builders\SalesReturnBuilder;
 use Finvalda\Resources\Clients;
 use Finvalda\Resources\Descriptions;
 use Finvalda\Resources\Documents;
@@ -18,24 +25,10 @@ use Finvalda\Resources\Reports;
 use Finvalda\Resources\Services;
 use Finvalda\Resources\Stock;
 use Finvalda\Resources\Transactions;
+use Psr\Log\LoggerInterface;
 
 /**
  * Finvalda API client - main entry point for all resource endpoints.
- *
- * @method Stock stock() Stock and inventory balance operations
- * @method Clients clients() Client (customer/supplier) operations
- * @method Products products() Product catalog and inventory operations
- * @method Services services() Service catalog operations
- * @method Objects objects() Analytical object operations (6 hierarchical levels)
- * @method References references() Reference data (warehouses, units, taxes, banks, payment terms)
- * @method Pricing pricing() Pricing, discounts, and additional prices
- * @method Operations operations() CRUD for sales, purchases, transfers, payments, and other operations
- * @method OrderManagement orderManagement() UVM order management (sales reservations and tracking)
- * @method Documents documents() Document upload, attachment, and management
- * @method Reports reports() Invoice and report PDF generation
- * @method Descriptions descriptions() Universal query endpoint (GetDescriptions) with convenience methods
- * @method Permissions permissions() User permission queries for entity-level access control
- * @method Transactions transactions() Accounting transaction operations
  */
 final class Finvalda
 {
@@ -65,6 +58,19 @@ final class Finvalda
     public function __construct(FinvaldaConfig $config, ?HttpClient $httpClient = null)
     {
         $this->http = $httpClient ?? new HttpClient($config);
+    }
+
+    /**
+     * Set the logger instance for request/response logging.
+     *
+     * @param  LoggerInterface|null  $logger  PSR-3 logger instance, or null to disable logging
+     * @return $this
+     */
+    public function setLogger(?LoggerInterface $logger): self
+    {
+        $this->http->setLogger($logger);
+
+        return $this;
     }
 
     /**
@@ -205,5 +211,63 @@ final class Finvalda
     public function transactions(): Transactions
     {
         return $this->transactions ??= new Transactions($this->http);
+    }
+
+    // --- Fluent Operation Builders ---
+
+    /**
+     * Create a new sale operation builder.
+     */
+    public function sale(): SaleBuilder
+    {
+        return (new SaleBuilder())->using($this);
+    }
+
+    /**
+     * Create a new purchase operation builder.
+     */
+    public function purchase(): PurchaseBuilder
+    {
+        return (new PurchaseBuilder())->using($this);
+    }
+
+    /**
+     * Create a new internal transfer operation builder.
+     */
+    public function internalTransfer(): InternalTransferBuilder
+    {
+        return (new InternalTransferBuilder())->using($this);
+    }
+
+    /**
+     * Create a new sales return operation builder.
+     */
+    public function salesReturn(): SalesReturnBuilder
+    {
+        return (new SalesReturnBuilder())->using($this);
+    }
+
+    /**
+     * Create a new purchase return operation builder.
+     */
+    public function purchaseReturn(): PurchaseReturnBuilder
+    {
+        return (new PurchaseReturnBuilder())->using($this);
+    }
+
+    /**
+     * Create a new inflow (payment received) operation builder.
+     */
+    public function inflow(): InflowBuilder
+    {
+        return (new InflowBuilder())->using($this);
+    }
+
+    /**
+     * Create a new disbursement (payment out) operation builder.
+     */
+    public function disbursement(): DisbursementBuilder
+    {
+        return (new DisbursementBuilder())->using($this);
     }
 }

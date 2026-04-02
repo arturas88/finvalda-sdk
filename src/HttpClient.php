@@ -7,15 +7,25 @@ namespace Finvalda;
 use Finvalda\Enums\AccessResult;
 use Finvalda\Exceptions\AccessDeniedException;
 use Finvalda\Exceptions\FinvaldaException;
+use Finvalda\Exceptions\NetworkException;
+use Finvalda\Exceptions\ServerException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
+use Finvalda\Retry\RetryHandler;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+use Psr\Log\LoggerInterface;
 
 final class HttpClient
 {
     private ClientInterface $client;
+
+    private ?LoggerInterface $logger;
+
+    private ?RetryHandler $retryHandler;
 
     /**
      * @param FinvaldaConfig $config SDK configuration
@@ -30,6 +40,18 @@ final class HttpClient
             'timeout' => $this->config->timeout,
             'headers' => $this->buildHeaders(),
         ]);
+        $this->logger = $this->config->logger;
+        $this->retryHandler = $this->config->retry !== null
+            ? new RetryHandler($this->config->retry, $this->logger)
+            : null;
+    }
+
+    /**
+     * Set the logger instance for request/response logging.
+     */
+    public function setLogger(?LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
     }
 
     public function get(string $endpoint, array $params = []): Response
@@ -65,7 +87,7 @@ final class HttpClient
 
             return $this->parseOperationResult($response);
         } catch (GuzzleException $e) {
-            throw new FinvaldaException('HTTP request failed: ' . $e->getMessage(), 0, $e);
+            throw $this->wrapGuzzleException($e);
         }
     }
 
@@ -76,7 +98,7 @@ final class HttpClient
                 'query' => $this->cleanParams($params),
             ]);
         } catch (GuzzleException $e) {
-            throw new FinvaldaException('HTTP request failed: ' . $e->getMessage(), 0, $e);
+            throw $this->wrapGuzzleException($e);
         }
     }
 
@@ -87,15 +109,59 @@ final class HttpClient
 
             return $this->parseResponse($body);
         } catch (GuzzleException $e) {
-            throw new FinvaldaException('HTTP request failed: ' . $e->getMessage(), 0, $e);
+            throw $this->wrapGuzzleException($e);
         }
     }
 
     private function sendRequest(string $method, string $endpoint, array $options): string
     {
-        $response = $this->client->request($method, $endpoint, $options);
+        $doRequest = function () use ($method, $endpoint, $options): string {
+            $startTime = microtime(true);
 
-        return (string) $response->getBody();
+            $this->logRequest($method, $endpoint, $options);
+
+            $response = $this->client->request($method, $endpoint, $options);
+            $body = (string) $response->getBody();
+
+            $duration = microtime(true) - $startTime;
+            $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration);
+
+            return $body;
+        };
+
+        if ($this->retryHandler !== null) {
+            return $this->retryHandler->execute($doRequest);
+        }
+
+        return $doRequest();
+    }
+
+    private function logRequest(string $method, string $endpoint, array $options): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $this->logger->debug('Finvalda API request', [
+            'method' => $method,
+            'endpoint' => $endpoint,
+            'params' => $options['query'] ?? [],
+            'has_body' => isset($options['body']) || isset($options['json']),
+        ]);
+    }
+
+    private function logResponse(string $method, string $endpoint, int $statusCode, float $duration): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $this->logger->debug('Finvalda API response', [
+            'method' => $method,
+            'endpoint' => $endpoint,
+            'status_code' => $statusCode,
+            'duration_ms' => round($duration * 1000, 2),
+        ]);
     }
 
     private function parseResponse(string $body): Response
@@ -217,5 +283,41 @@ final class HttpClient
     private function cleanParams(array $params): array
     {
         return array_filter($params, fn ($value) => $value !== null);
+    }
+
+    /**
+     * Convert Guzzle exceptions to appropriate SDK exception types.
+     */
+    private function wrapGuzzleException(GuzzleException $e): FinvaldaException
+    {
+        // Connection/network errors (DNS failure, timeout, connection refused)
+        if ($e instanceof ConnectException) {
+            return new NetworkException(
+                'Network error: ' . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+
+        // HTTP errors with response
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            $statusCode = $e->getResponse()->getStatusCode();
+
+            // Server errors (5xx)
+            if ($statusCode >= 500) {
+                return new ServerException(
+                    "Server error ({$statusCode}): " . $e->getMessage(),
+                    $statusCode,
+                    $e
+                );
+            }
+        }
+
+        // Default fallback
+        return new FinvaldaException(
+            'HTTP request failed: ' . $e->getMessage(),
+            0,
+            $e
+        );
     }
 }

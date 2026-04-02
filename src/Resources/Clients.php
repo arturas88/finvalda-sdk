@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
+use Finvalda\Collections\ClientCollection;
+use Finvalda\Data\Client;
+use Finvalda\Enums\ClientTypeId;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
 
@@ -17,19 +22,18 @@ final class Clients extends Resource
      * Get clients as a dataset with optional filtering. Calls GetKlientusSet.
      *
      * @param  string|null  $clientCode  Filter by client code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function list(
         ?string $clientCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetKlientusSet', [
             'sKliKod' => $clientCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -47,19 +51,59 @@ final class Clients extends Resource
     }
 
     /**
+     * Find a single client by code and return as typed DTO.
+     *
+     * @param  string  $clientCode  The client code
+     * @return Client
+     *
+     * @throws NotFoundException
+     */
+    public function find(string $clientCode): Client
+    {
+        $response = $this->get($clientCode);
+
+        if (! $response->successful() || empty($response->data)) {
+            throw new NotFoundException("Client '{$clientCode}' not found");
+        }
+
+        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
+
+        return Client::fromArray($data);
+    }
+
+    /**
+     * Get all clients as a typed collection.
+     *
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
+     * @return ClientCollection
+     */
+    public function collect(
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): ClientCollection {
+        $response = $this->all($modifiedSince, $createdSince);
+
+        if (! $response->successful()) {
+            return new ClientCollection();
+        }
+
+        return ClientCollection::fromArray($response->data);
+    }
+
+    /**
      * Get all clients with optional date filters. Calls GetKlientus.
      *
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function all(
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetKlientus', [
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -79,13 +123,15 @@ final class Clients extends Resource
     /**
      * Get client types or tags. Calls GetKlientuRusisPozymius.
      *
-     * @param  int  $typeId  22=client type, 12=tag 1, 13=tag 2, 14=tag 3
+     * @param  ClientTypeId|int  $typeId  Use ClientTypeId enum or: 22=client type, 12=tag 1, 13=tag 2, 14=tag 3
      * @return Response
      */
-    public function typesAndTags(int $typeId = 22): Response
+    public function typesAndTags(ClientTypeId|int $typeId = ClientTypeId::Type): Response
     {
+        $id = $typeId instanceof ClientTypeId ? $typeId->value : $typeId;
+
         return $this->http->get('GetKlientuRusisPozymius', [
-            'nID' => $typeId,
+            'nID' => $id,
         ]);
     }
 
@@ -112,9 +158,8 @@ final class Clients extends Resource
      * @param  string|null  $journalGroup  Filter by journal group code
      * @param  string|null  $series  Filter by document series
      * @param  int|null  $operationType  Filter by operation type
-     * @param  string|null  $documentDateFrom  Date in Y-m-d format, document date range start
-     * @param  string|null  $documentDateTo  Date in Y-m-d format, document date range end
-     * @return Response
+     * @param  DateTimeInterface|string|null  $documentDateFrom  Document date range start
+     * @param  DateTimeInterface|string|null  $documentDateTo  Document date range end
      */
     public function accounts(
         ?string $clientCode = null,
@@ -124,8 +169,8 @@ final class Clients extends Resource
         ?string $journalGroup = null,
         ?string $series = null,
         ?int $operationType = null,
-        ?string $documentDateFrom = null,
-        ?string $documentDateTo = null,
+        DateTimeInterface|string|null $documentDateFrom = null,
+        DateTimeInterface|string|null $documentDateTo = null,
     ): Response {
         return $this->http->get('GetKlientoSaskaitas', [
             'sKlientas' => $clientCode,
@@ -135,8 +180,8 @@ final class Clients extends Resource
             'sZurnaluGrupe' => $journalGroup,
             'sSerija' => $series,
             'nOperacijosTipas' => $operationType,
-            'tDokumentoDataNuo' => $documentDateFrom,
-            'tDokumentoDataIki' => $documentDateTo,
+            'tDokumentoDataNuo' => $this->formatDate($documentDateFrom),
+            'tDokumentoDataIki' => $this->formatDate($documentDateTo),
         ]);
     }
 
@@ -242,9 +287,8 @@ final class Clients extends Resource
      * @param  int|null  $number  Document number
      * @param  int|null  $operationId  Filter by operation ID
      * @param  int|null  $operationClass  Filter by operation class
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      */
     public function settlementsFromDate(
         ?string $series = null,
@@ -253,8 +297,8 @@ final class Clients extends Resource
         ?int $number = null,
         ?int $operationId = null,
         ?int $operationClass = null,
-        ?string $createdSince = null,
-        ?string $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
     ): Response {
         return $this->http->get('GetAtsiskaitymaiUzDokDataNuoDet', [
             'sSerija' => $series,
@@ -263,8 +307,8 @@ final class Clients extends Resource
             'nNumeris' => $number,
             'nOperacijosID' => $operationId,
             'nOperacijosKlase' => $operationClass,
-            'tSukurimoData' => $createdSince,
-            'tKoregavimoData' => $modifiedSince,
+            'tSukurimoData' => $this->formatDate($createdSince),
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
         ]);
     }
 
@@ -284,28 +328,33 @@ final class Clients extends Resource
     /**
      * Create a new client. Calls InsertNewItem with Fvs.Klientas class.
      *
-     * @param  array  $data  Client data (keys: Kodas, Pavadinimas, ImonesKodas, PVMKodas, Adresas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Client data (keys: sKodas, sPavadinimas, sImonesKodas, sPVMKodas, sAdresas, etc.)
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function create(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Client->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::Client->value => $data]),
         ]);
     }
 
     /**
      * Update an existing client. Calls EditItem with Fvs.Klientas class.
      *
-     * @param  array  $data  Client data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Client data with sKodas identifying the record to update.
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function update(array $data): OperationResult
     {
+        $code = $data['sKodas'] ?? '';
+
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Client->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([ItemClass::Client->value => $data]),
         ]);
     }
 
@@ -313,7 +362,6 @@ final class Clients extends Resource
      * Delete a client by code. Calls DeleteItem with Fvs.Klientas class.
      *
      * @param  string  $clientCode  The client code to delete
-     * @return OperationResult
      */
     public function delete(string $clientCode): OperationResult
     {

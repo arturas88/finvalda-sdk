@@ -84,98 +84,97 @@ final class References extends Resource
     /**
      * Create a new bank record. Calls InsertNewItem with Fvs.Bankas class.
      *
-     * @param  array  $data  Bank data (keys: Kodas, Pavadinimas, SWIFTKodas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Bank data (keys: sKodas, sPavadinimas, sSWIFTKodas, etc.)
      */
     public function createBank(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Bank->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::Bank->value => $data]),
         ]);
     }
 
     /**
      * Create a new warehouse. Calls InsertNewItem with Fvs.Sandelis class.
      *
-     * @param  array  $data  Warehouse data (keys: Kodas, Pavadinimas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Warehouse data (keys: sKodas, sPavadinimas, etc.)
      */
     public function createWarehouse(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Warehouse->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
         ]);
     }
 
     /**
      * Update an existing warehouse. Calls EditItem with Fvs.Sandelis class.
      *
-     * @param  array  $data  Warehouse data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Warehouse data with sKodas identifying the record to update
      */
     public function updateWarehouse(array $data): OperationResult
     {
+        $code = $data['sKodas'] ?? '';
+
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Warehouse->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
         ]);
     }
 
     /**
      * Create a new payment term. Calls InsertNewItem with Fvs.AtsTerminas class.
      *
-     * @param  array  $data  Payment term data (keys: Kodas, Pavadinimas, Dienos, etc.)
-     * @return OperationResult
+     * @param  array  $data  Payment term data (keys: sKodas, sPavadinimas, nDienos, etc.)
      */
     public function createPaymentTerm(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::PaymentTerm->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
         ]);
     }
 
     /**
      * Update an existing payment term. Calls EditItem with Fvs.AtsTerminas class.
      *
-     * @param  array  $data  Payment term data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Payment term data with sKodas identifying the record to update
      */
     public function updatePaymentTerm(array $data): OperationResult
     {
+        $code = $data['sKodas'] ?? '';
+
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::PaymentTerm->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
         ]);
     }
 
     /**
      * Create a new client type. Calls InsertNewItem with Fvs.KlientoRusis class.
      *
-     * @param  array  $data  Client type data (keys: Kodas, Pavadinimas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Client type data (keys: sKodas, sPavadinimas, etc.)
      */
     public function createClientType(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::ClientType->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::ClientType->value => $data]),
         ]);
     }
 
     /**
      * Create a new product type. Calls InsertNewItem with Fvs.PrekesRusis class.
      *
-     * @param  array  $data  Product type data (keys: Kodas, Pavadinimas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Product type data (keys: sKodas, sPavadinimas, etc.)
      */
     public function createProductType(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::ProductType->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::ProductType->value => $data]),
         ]);
     }
 

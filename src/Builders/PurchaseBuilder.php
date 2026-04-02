@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Finvalda\Builders;
+
+use DateTimeInterface;
+use Finvalda\Enums\OperationClass;
+
+/**
+ * Fluent builder for purchase operations (PirkDok).
+ *
+ * Usage:
+ * ```php
+ * $result = $finvalda->purchase()
+ *     ->client('SUP001')
+ *     ->date('2024-01-15')
+ *     ->warehouse('MAIN')
+ *     ->supplierInvoice('INV-2024-001')
+ *     ->addProduct('PRD001', quantity: 100, price: 9.99)
+ *     ->save('STANDARD');
+ * ```
+ */
+final class PurchaseBuilder extends OperationBuilder
+{
+    public function getOperationClass(): OperationClass
+    {
+        return OperationClass::Purchase;
+    }
+
+    protected function getHeaderKey(): string
+    {
+        return 'PirkDok';
+    }
+
+    protected function getProductLinesKey(): string
+    {
+        return 'PirkDokPrekeDetEil';
+    }
+
+    protected function getServiceLinesKey(): string
+    {
+        return 'PirkDokPaslaugaDetEil';
+    }
+
+    // --- Purchase-specific methods ---
+
+    /**
+     * Set the supplier invoice number.
+     */
+    public function supplierInvoice(string $invoiceNumber): self
+    {
+        $this->header['sTiekejoSF'] = $invoiceNumber;
+
+        return $this;
+    }
+
+    /**
+     * Set the supplier invoice date.
+     */
+    public function supplierInvoiceDate(DateTimeInterface|string $date): self
+    {
+        $this->header['tTiekejoSFData'] = $this->formatDate($date);
+
+        return $this;
+    }
+
+    /**
+     * Set the payment days.
+     */
+    public function paymentDays(int $days): self
+    {
+        $this->header['nAtsiskDien'] = $days;
+
+        return $this;
+    }
+
+    /**
+     * Set the payment due date.
+     */
+    public function dueDate(DateTimeInterface|string $date): self
+    {
+        $this->header['tAtsiskData'] = $this->formatDate($date);
+
+        return $this;
+    }
+
+    /**
+     * Set if the operation is a prepayment/advance.
+     */
+    public function isAdvance(bool $isAdvance = true): self
+    {
+        $this->header['bAvansas'] = $isAdvance;
+
+        return $this;
+    }
+
+    /**
+     * Set the responsible person code.
+     */
+    public function responsiblePerson(string $personCode): self
+    {
+        $this->header['sAtsakingasAsmuo'] = $personCode;
+
+        return $this;
+    }
+
+    /**
+     * Set VAT included flag.
+     */
+    public function vatIncluded(bool $included = true): self
+    {
+        $this->header['bPVMSkaiciuotiIKaina'] = $included;
+
+        return $this;
+    }
+}

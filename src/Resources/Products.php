@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
+use Finvalda\Collections\ProductCollection;
+use Finvalda\Data\Product;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Enums\ProductTypeId;
+use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
 
@@ -17,19 +22,18 @@ final class Products extends Resource
      * Get products as a dataset with optional filtering. Calls GetPrekesSet.
      *
      * @param  string|null  $productCode  Filter by product code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function list(
         ?string $productCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPrekesSet', [
             'sPreKod' => $productCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -54,9 +58,8 @@ final class Products extends Resource
      * @param  string|null  $object4  Filter by object level 4 code
      * @param  string|null  $object5  Filter by object level 5 code
      * @param  string|null  $object6  Filter by object level 6 code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function listExtended(
         ?string $productCode = null,
@@ -77,8 +80,8 @@ final class Products extends Resource
         ?string $object4 = null,
         ?string $object5 = null,
         ?string $object6 = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPrekesSetExt', [
             'sPreKod' => $productCode,
@@ -99,8 +102,8 @@ final class Products extends Resource
             'sObj4' => $object4,
             'sObj5' => $object5,
             'sObj6' => $object6,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -118,19 +121,59 @@ final class Products extends Resource
     }
 
     /**
+     * Find a single product by code and return as typed DTO.
+     *
+     * @param  string  $productCode  The product code
+     * @return Product
+     *
+     * @throws NotFoundException
+     */
+    public function find(string $productCode): Product
+    {
+        $response = $this->get($productCode);
+
+        if (! $response->successful() || empty($response->data)) {
+            throw new NotFoundException("Product '{$productCode}' not found");
+        }
+
+        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
+
+        return Product::fromArray($data);
+    }
+
+    /**
+     * Get all products as a typed collection.
+     *
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
+     * @return ProductCollection
+     */
+    public function collect(
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): ProductCollection {
+        $response = $this->all($modifiedSince, $createdSince);
+
+        if (! $response->successful()) {
+            return new ProductCollection();
+        }
+
+        return ProductCollection::fromArray($response->data);
+    }
+
+    /**
      * Get all products with optional date filters. Calls GetPrekes.
      *
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function all(
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPrekes', [
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -138,14 +181,13 @@ final class Products extends Resource
      * Get product image data. Calls GetPrekesImage.
      *
      * @param  string  $productCode  The product code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return only if modified since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return only if modified since this date
      */
-    public function image(string $productCode, ?string $modifiedSince = null): Response
+    public function image(string $productCode, DateTimeInterface|string|null $modifiedSince = null): Response
     {
         return $this->http->get('GetPrekesImage', [
             'sPreKod' => $productCode,
-            'tKoregavimoData' => $modifiedSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
         ]);
     }
 
@@ -153,19 +195,18 @@ final class Products extends Resource
      * Get products available in a specific warehouse. Calls GetPrekesSandelyje.
      *
      * @param  string  $warehouseCode  The warehouse code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function inWarehouse(
         string $warehouseCode,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPrekesSandelyje', [
             'sSandKod' => $warehouseCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -174,34 +215,35 @@ final class Products extends Resource
      *
      * @param  string  $warehouseCode  The warehouse code
      * @param  int|null  $order  Sort column index (determines result ordering)
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function inWarehouseOrdered(
         string $warehouseCode,
         ?int $order = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPrekesSandelyjeOrder', [
             'sSandKod' => $warehouseCode,
             'nOrder' => $order,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
     /**
      * Get product types or tags. Calls GetPrekiuRusisPozymius.
      *
-     * @param  int  $typeId  0=product type, 1-6=tags 1-6, 9-11=tags 9-11
+     * @param  ProductTypeId|int  $typeId  Use ProductTypeId enum or: 0=product type, 1-6=tags 1-6, 9-11=tags 9-11
      * @return Response
      */
-    public function typesAndTags(int $typeId = 0): Response
+    public function typesAndTags(ProductTypeId|int $typeId = ProductTypeId::Type): Response
     {
+        $id = $typeId instanceof ProductTypeId ? $typeId->value : $typeId;
+
         return $this->http->get('GetPrekiuRusisPozymius', [
-            'nID' => $typeId,
+            'nID' => $id,
         ]);
     }
 
@@ -246,18 +288,17 @@ final class Products extends Resource
      *
      * @param  string  $productCode  The product code
      * @param  string|null  $warehouseCode  Filter by warehouse code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, history start date
-     * @return Response
+     * @param  DateTimeInterface|string|null  $dateFrom  History start date
      */
     public function history(
         string $productCode,
         ?string $warehouseCode = null,
-        ?string $dateFrom = null,
+        DateTimeInterface|string|null $dateFrom = null,
     ): Response {
         return $this->http->get('GetPrekesIstorija', [
             'sPreKod' => $productCode,
             'sSandKod' => $warehouseCode,
-            'tDataNuo' => $dateFrom,
+            'tDataNuo' => $this->formatDate($dateFrom),
         ]);
     }
 
@@ -266,23 +307,22 @@ final class Products extends Resource
      *
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseCode  Filter by warehouse code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, period start
-     * @param  string|null  $dateTo  Date in Y-m-d format, period end
+     * @param  DateTimeInterface|string|null  $dateFrom  Period start date
+     * @param  DateTimeInterface|string|null  $dateTo  Period end date
      * @param  string|null  $salesJournalCode  Filter by sales journal code
-     * @return Response
      */
     public function soldPerPeriod(
         ?string $productCode = null,
         ?string $warehouseCode = null,
-        ?string $dateFrom = null,
-        ?string $dateTo = null,
+        DateTimeInterface|string|null $dateFrom = null,
+        DateTimeInterface|string|null $dateTo = null,
         ?string $salesJournalCode = null,
     ): Response {
         return $this->http->get('GetPardPrekPerPerioda', [
             'sPrekesKodas' => $productCode,
             'sSandelioKodas' => $warehouseCode,
-            'tDataNuo' => $dateFrom,
-            'tDataIki' => $dateTo,
+            'tDataNuo' => $this->formatDate($dateFrom),
+            'tDataIki' => $this->formatDate($dateTo),
             'sPardZurKodas' => $salesJournalCode,
         ]);
     }
@@ -290,28 +330,33 @@ final class Products extends Resource
     /**
      * Create a new product. Calls InsertNewItem with Fvs.Preke class.
      *
-     * @param  array  $data  Product data (keys: Kodas, Pavadinimas, MatVnt, Kaina, PVMKodas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Product data (keys: sKodas, sPavadinimas, sMatVnt, dKaina, sPVMKodas, etc.)
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function create(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Product->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::Product->value => $data]),
         ]);
     }
 
     /**
      * Update an existing product. Calls EditItem with Fvs.Preke class.
      *
-     * @param  array  $data  Product data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Product data with sKodas identifying the record to update.
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function update(array $data): OperationResult
     {
+        $code = $data['sKodas'] ?? '';
+
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Product->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([ItemClass::Product->value => $data]),
         ]);
     }
 
@@ -320,14 +365,13 @@ final class Products extends Resource
      *
      * @param  string  $productCode  The product code to edit
      * @param  array  $properties  Key-value pairs of properties to update
-     * @return OperationResult
      */
     public function editProperties(string $productCode, array $properties): OperationResult
     {
         return $this->http->postOperation('EditItemProps', [
             'ItemClassName' => ItemClass::Product->value,
             'sKodas' => $productCode,
-            'xmlstring' => $this->jsonEncode($properties),
+            'xmlString' => $this->jsonEncode($properties),
         ]);
     }
 
@@ -335,7 +379,6 @@ final class Products extends Resource
      * Delete a product by code. Calls DeleteItem with Fvs.Preke class.
      *
      * @param  string  $productCode  The product code to delete
-     * @return OperationResult
      */
     public function delete(string $productCode): OperationResult
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -27,22 +28,21 @@ final class Objects extends Resource
      *
      * @param  int  $level  Object level (1-6)
      * @param  string|null  $objectCode  Filter by object code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function list(
         int $level,
         ?string $objectCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         $this->validateLevel($level);
 
         return $this->http->get("GetObjektai{$level}Set", [
             "sObj{$level}Kod" => $objectCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -66,16 +66,18 @@ final class Objects extends Resource
      * Create a new object at the given level. Calls InsertNewItem with the corresponding object class.
      *
      * @param  int  $level  Object level (1-6)
-     * @param  array  $data  Object data (keys: Kodas, Pavadinimas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Object data (keys: sKodas, sPavadinimas, etc.)
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function create(int $level, array $data): OperationResult
     {
         $this->validateLevel($level);
+        $className = self::LEVEL_CLASS_MAP[$level]->value;
 
         return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => self::LEVEL_CLASS_MAP[$level]->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'ItemClassName' => $className,
+            'xmlString' => $this->jsonEncode([$className => $data]),
         ]);
     }
 
@@ -83,16 +85,20 @@ final class Objects extends Resource
      * Update an existing object at the given level. Calls EditItem with the corresponding object class.
      *
      * @param  int  $level  Object level (1-6)
-     * @param  array  $data  Object data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Object data with sKodas identifying the record to update.
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function update(int $level, array $data): OperationResult
     {
         $this->validateLevel($level);
+        $className = self::LEVEL_CLASS_MAP[$level]->value;
+        $code = $data['sKodas'] ?? '';
 
         return $this->http->postOperation('EditItem', [
-            'ItemClassName' => self::LEVEL_CLASS_MAP[$level]->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'ItemClassName' => $className,
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([$className => $data]),
         ]);
     }
 

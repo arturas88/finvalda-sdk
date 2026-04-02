@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Finvalda;
 
 use Finvalda\Enums\Language;
+use Finvalda\Retry\RetryPolicy;
 use InvalidArgumentException;
+use Psr\Log\LoggerInterface;
 
 final class FinvaldaConfig
 {
@@ -20,6 +22,8 @@ final class FinvaldaConfig
         public readonly bool $removeZeroNumberTags = false,
         public readonly bool $removeNewLines = false,
         public readonly int $timeout = 30,
+        public readonly ?LoggerInterface $logger = null,
+        public readonly ?RetryPolicy $retry = null,
     ) {
         if ($this->baseUrl === '') {
             throw new InvalidArgumentException('Finvalda base URL is required');

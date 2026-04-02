@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
+use Finvalda\Collections\ServiceCollection;
+use Finvalda\Data\Service;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Enums\ServiceTypeId;
+use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
 
@@ -17,19 +22,18 @@ final class Services extends Resource
      * Get services as a dataset with optional filtering. Calls GetPaslaugosSet.
      *
      * @param  string|null  $serviceCode  Filter by service code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function list(
         ?string $serviceCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPaslaugosSet', [
             'sPasKod' => $serviceCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -47,32 +51,74 @@ final class Services extends Resource
     }
 
     /**
+     * Find a single service by code and return as typed DTO.
+     *
+     * @param  string  $serviceCode  The service code
+     * @return Service
+     *
+     * @throws NotFoundException
+     */
+    public function find(string $serviceCode): Service
+    {
+        $response = $this->get($serviceCode);
+
+        if (! $response->successful() || empty($response->data)) {
+            throw new NotFoundException("Service '{$serviceCode}' not found");
+        }
+
+        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
+
+        return Service::fromArray($data);
+    }
+
+    /**
+     * Get all services as a typed collection.
+     *
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
+     * @return ServiceCollection
+     */
+    public function collect(
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): ServiceCollection {
+        $response = $this->all($modifiedSince, $createdSince);
+
+        if (! $response->successful()) {
+            return new ServiceCollection();
+        }
+
+        return ServiceCollection::fromArray($response->data);
+    }
+
+    /**
      * Get all services with optional date filters. Calls GetPaslaugos.
      *
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function all(
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetPaslaugos', [
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
     /**
      * Get service types or tags. Calls GetPaslauguRusisPozymius.
      *
-     * @param  int  $typeId  18=service type, 15=tag 1, 16=tag 2, 17=tag 3
+     * @param  ServiceTypeId|int  $typeId  Use ServiceTypeId enum or: 18=service type, 15=tag 1, 16=tag 2, 17=tag 3
      * @return Response
      */
-    public function typesAndTags(int $typeId = 18): Response
+    public function typesAndTags(ServiceTypeId|int $typeId = ServiceTypeId::Type): Response
     {
+        $id = $typeId instanceof ServiceTypeId ? $typeId->value : $typeId;
+
         return $this->http->get('GetPaslauguRusisPozymius', [
-            'nID' => $typeId,
+            'nID' => $id,
         ]);
     }
 
@@ -92,28 +138,33 @@ final class Services extends Resource
     /**
      * Create a new service. Calls InsertNewItem with Fvs.Paslauga class.
      *
-     * @param  array  $data  Service data (keys: Kodas, Pavadinimas, Kaina, PVMKodas, etc.)
-     * @return OperationResult
+     * @param  array  $data  Service data (keys: sKodas, sPavadinimas, dKaina, sPVMKodas, etc.)
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function create(array $data): OperationResult
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Service->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'xmlString' => $this->jsonEncode([ItemClass::Service->value => $data]),
         ]);
     }
 
     /**
      * Update an existing service. Calls EditItem with Fvs.Paslauga class.
      *
-     * @param  array  $data  Service data with Kodas identifying the record to update
-     * @return OperationResult
+     * @param  array  $data  Service data with sKodas identifying the record to update.
+     *                       If your server requires it, include sFvsImportoParametras in the data array.
+     *                       This is a server-configured import handler parameter.
      */
     public function update(array $data): OperationResult
     {
+        $code = $data['sKodas'] ?? '';
+
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Service->value,
-            'xmlstring' => $this->jsonEncode($data),
+            'sItemCode' => $code,
+            'xmlString' => $this->jsonEncode([ItemClass::Service->value => $data]),
         ]);
     }
 
@@ -121,7 +172,6 @@ final class Services extends Resource
      * Delete a service by code. Calls DeleteItem with Fvs.Paslauga class.
      *
      * @param  string  $serviceCode  The service code to delete
-     * @return OperationResult
      */
     public function delete(string $serviceCode): OperationResult
     {

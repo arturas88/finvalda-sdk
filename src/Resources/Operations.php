@@ -21,14 +21,17 @@ final class Operations extends Resource
      *
      * @param  OperationClass  $class  The operation class (e.g., Sale, Purchase, InternalTransfer)
      * @param  array|string  $data  Operation data as array or pre-encoded JSON string
-     * @return OperationResult
+     * @param  string  $parameter  Server-configured journal/import parameter (sParametras).
+     *                             This value is defined in your Finvalda server configuration
+     *                             and tells the server which journal config to use.
      */
-    public function create(OperationClass $class, array|string $data): OperationResult
+    public function create(OperationClass $class, array|string $data, string $parameter): OperationResult
     {
         $body = is_array($data) ? $this->jsonEncode($data) : $data;
 
         return $this->http->postOperation('InsertNewOperation', [
             'ItemClassName' => $class->value,
+            'sParametras' => $parameter,
         ], $body);
     }
 
@@ -38,14 +41,16 @@ final class Operations extends Resource
      * @param  DeleteOperationClass  $class  The operation class for deletion
      * @param  string  $journal  Journal code
      * @param  int  $number  Operation number within the journal
-     * @return OperationResult
+     * @param  string  $parameter  Server-configured journal/import parameter (sParametras).
+     *                             This value is defined in your Finvalda server configuration.
      */
-    public function delete(DeleteOperationClass $class, string $journal, int $number): OperationResult
+    public function delete(DeleteOperationClass $class, string $journal, int $number, string $parameter): OperationResult
     {
         return $this->http->postOperation('DeleteOperation', [
             'ItemClassName' => $class->value,
             'sZurnalas' => $journal,
             'nNumeris' => $number,
+            'sParametras' => $parameter,
         ]);
     }
 
@@ -54,14 +59,16 @@ final class Operations extends Resource
      *
      * @param  UpdateOperationClass  $class  The operation class for update
      * @param  array|string  $data  Operation data as array or pre-encoded JSON string
-     * @return OperationResult
+     * @param  string  $parameter  Server-configured journal/import parameter (sParametras).
+     *                             This value is defined in your Finvalda server configuration.
      */
-    public function update(UpdateOperationClass $class, array|string $data): OperationResult
+    public function update(UpdateOperationClass $class, array|string $data, string $parameter): OperationResult
     {
         $body = is_array($data) ? $this->jsonEncode($data) : $data;
 
         return $this->http->postOperation('UpdateOperation', [
             'ItemClassName' => $class->value,
+            'sParametras' => $parameter,
         ], $body);
     }
 

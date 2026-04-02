@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
 use Finvalda\Responses\Response;
 
 /**
@@ -16,21 +17,20 @@ final class Stock extends Resource
      *
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseCode  Filter by warehouse code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function balances(
         ?string $productCode = null,
         ?string $warehouseCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetEinamiejiLikuciai', [
             'sPrekesKodas' => $productCode,
             'sSandelioKodas' => $warehouseCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -39,21 +39,20 @@ final class Stock extends Resource
      *
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseCode  Filter by warehouse code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function balancesExtended(
         ?string $productCode = null,
         ?string $warehouseCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetEinamiejiLikuciaiExt', [
             'sPrekesKodas' => $productCode,
             'sSandelioKodas' => $warehouseCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -63,23 +62,22 @@ final class Stock extends Resource
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseCode  Filter by warehouse code
      * @param  bool|null  $includeZeroQuantity  Whether to include items with zero stock
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function balancesWithPrices(
         ?string $productCode = null,
         ?string $warehouseCode = null,
         ?bool $includeZeroQuantity = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetEinamiejiLikuciaiExtSuKainom', [
             'sPrekesKodas' => $productCode,
             'sSandelioKodas' => $warehouseCode,
             'bNuliniaiLikuciai' => $includeZeroQuantity !== null ? ($includeZeroQuantity ? 'true' : 'false') : null,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -88,21 +86,20 @@ final class Stock extends Resource
      *
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseGroupCode  Filter by warehouse group code
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function balancesByGroup(
         ?string $productCode = null,
         ?string $warehouseGroupCode = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetEinamiejiLikuciaiGrp', [
             'sPrekesKodas' => $productCode,
             'sSandelioGrupesKodas' => $warehouseGroupCode,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
