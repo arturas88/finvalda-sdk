@@ -336,7 +336,7 @@ final class Clients extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Client->value,
-            'xmlString' => $this->jsonEncode([ItemClass::Client->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
         ]);
     }
 
@@ -354,7 +354,7 @@ final class Clients extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Client->value,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([ItemClass::Client->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
         ]);
     }
 

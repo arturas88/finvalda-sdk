@@ -90,7 +90,7 @@ final class References extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Bank->value,
-            'xmlString' => $this->jsonEncode([ItemClass::Bank->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Bank->value => $data]),
         ]);
     }
 
@@ -103,7 +103,7 @@ final class References extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Warehouse->value,
-            'xmlString' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
         ]);
     }
 
@@ -119,7 +119,7 @@ final class References extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Warehouse->value,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
         ]);
     }
 
@@ -132,7 +132,7 @@ final class References extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::PaymentTerm->value,
-            'xmlString' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
         ]);
     }
 
@@ -148,7 +148,7 @@ final class References extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::PaymentTerm->value,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
         ]);
     }
 
@@ -161,7 +161,7 @@ final class References extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::ClientType->value,
-            'xmlString' => $this->jsonEncode([ItemClass::ClientType->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::ClientType->value => $data]),
         ]);
     }
 
@@ -174,7 +174,7 @@ final class References extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::ProductType->value,
-            'xmlString' => $this->jsonEncode([ItemClass::ProductType->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::ProductType->value => $data]),
         ]);
     }
 

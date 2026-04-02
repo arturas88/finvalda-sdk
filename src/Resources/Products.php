@@ -338,7 +338,7 @@ final class Products extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Product->value,
-            'xmlString' => $this->jsonEncode([ItemClass::Product->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
         ]);
     }
 
@@ -356,7 +356,7 @@ final class Products extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Product->value,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([ItemClass::Product->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
         ]);
     }
 
@@ -371,7 +371,7 @@ final class Products extends Resource
         return $this->http->postOperation('EditItemProps', [
             'ItemClassName' => ItemClass::Product->value,
             'sKodas' => $productCode,
-            'xmlString' => $this->jsonEncode($properties),
+            'xmlstring' => $this->jsonEncode($properties),
         ]);
     }
 

@@ -146,7 +146,7 @@ final class Services extends Resource
     {
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => ItemClass::Service->value,
-            'xmlString' => $this->jsonEncode([ItemClass::Service->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
         ]);
     }
 
@@ -164,7 +164,7 @@ final class Services extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => ItemClass::Service->value,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([ItemClass::Service->value => $data]),
+            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
         ]);
     }
 

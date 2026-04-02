@@ -77,7 +77,7 @@ final class Objects extends Resource
 
         return $this->http->postOperation('InsertNewItem', [
             'ItemClassName' => $className,
-            'xmlString' => $this->jsonEncode([$className => $data]),
+            'xmlstring' => $this->jsonEncode([$className => $data]),
         ]);
     }
 
@@ -98,7 +98,7 @@ final class Objects extends Resource
         return $this->http->postOperation('EditItem', [
             'ItemClassName' => $className,
             'sItemCode' => $code,
-            'xmlString' => $this->jsonEncode([$className => $data]),
+            'xmlstring' => $this->jsonEncode([$className => $data]),
         ]);
     }
 
