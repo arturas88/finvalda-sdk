@@ -1,0 +1,550 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Finvalda\Tests;
+
+use Finvalda\Builders\CapitalizationBuilder;
+use Finvalda\Builders\ClearingBuilder;
+use Finvalda\Builders\DisbursementBuilder;
+use Finvalda\Builders\InflowBuilder;
+use Finvalda\Builders\InternalTransferBuilder;
+use Finvalda\Builders\InventoryCountBuilder;
+use Finvalda\Builders\NonAnalyticalBuilder;
+use Finvalda\Builders\ProductionBuilder;
+use Finvalda\Builders\PurchaseBuilder;
+use Finvalda\Builders\PurchaseOrderBuilder;
+use Finvalda\Builders\PurchaseReturnBuilder;
+use Finvalda\Builders\SaleBuilder;
+use Finvalda\Builders\SalesReservationBuilder;
+use Finvalda\Builders\SalesReturnBuilder;
+use Finvalda\Builders\UvmCancellationBuilder;
+use Finvalda\Builders\UvmPurchaseOrderBuilder;
+use Finvalda\Builders\UvmSalesReservationBuilder;
+use Finvalda\Builders\WriteOffBuilder;
+use Finvalda\Enums\OperationClass;
+use Finvalda\Finvalda;
+use Finvalda\FinvaldaConfig;
+use PHPUnit\Framework\TestCase;
+
+class BuilderTest extends TestCase
+{
+    private Finvalda $finvalda;
+
+    protected function setUp(): void
+    {
+        $config = new FinvaldaConfig(
+            baseUrl: 'https://example.com',
+            username: 'user',
+            password: 'pass',
+        );
+
+        $this->finvalda = new Finvalda($config);
+    }
+
+    // --- Factory method tests ---
+
+    public function test_sale_returns_sale_builder(): void
+    {
+        $this->assertInstanceOf(SaleBuilder::class, $this->finvalda->sale());
+    }
+
+    public function test_sales_reservation_returns_builder(): void
+    {
+        $this->assertInstanceOf(SalesReservationBuilder::class, $this->finvalda->salesReservation());
+    }
+
+    public function test_sales_return_returns_builder(): void
+    {
+        $this->assertInstanceOf(SalesReturnBuilder::class, $this->finvalda->salesReturn());
+    }
+
+    public function test_purchase_returns_builder(): void
+    {
+        $this->assertInstanceOf(PurchaseBuilder::class, $this->finvalda->purchase());
+    }
+
+    public function test_purchase_order_returns_builder(): void
+    {
+        $this->assertInstanceOf(PurchaseOrderBuilder::class, $this->finvalda->purchaseOrder());
+    }
+
+    public function test_purchase_return_returns_builder(): void
+    {
+        $this->assertInstanceOf(PurchaseReturnBuilder::class, $this->finvalda->purchaseReturn());
+    }
+
+    public function test_internal_transfer_returns_builder(): void
+    {
+        $this->assertInstanceOf(InternalTransferBuilder::class, $this->finvalda->internalTransfer());
+    }
+
+    public function test_inflow_returns_builder(): void
+    {
+        $this->assertInstanceOf(InflowBuilder::class, $this->finvalda->inflow());
+    }
+
+    public function test_disbursement_returns_builder(): void
+    {
+        $this->assertInstanceOf(DisbursementBuilder::class, $this->finvalda->disbursement());
+    }
+
+    public function test_write_off_returns_builder(): void
+    {
+        $this->assertInstanceOf(WriteOffBuilder::class, $this->finvalda->writeOff());
+    }
+
+    public function test_capitalization_returns_builder(): void
+    {
+        $this->assertInstanceOf(CapitalizationBuilder::class, $this->finvalda->capitalization());
+    }
+
+    public function test_clearing_returns_builder(): void
+    {
+        $this->assertInstanceOf(ClearingBuilder::class, $this->finvalda->clearing());
+    }
+
+    public function test_production_returns_builder(): void
+    {
+        $this->assertInstanceOf(ProductionBuilder::class, $this->finvalda->production());
+    }
+
+    public function test_non_analytical_returns_builder(): void
+    {
+        $this->assertInstanceOf(NonAnalyticalBuilder::class, $this->finvalda->nonAnalytical());
+    }
+
+    public function test_inventory_count_returns_builder(): void
+    {
+        $this->assertInstanceOf(InventoryCountBuilder::class, $this->finvalda->inventoryCount());
+    }
+
+    public function test_uvm_sales_reservation_returns_builder(): void
+    {
+        $this->assertInstanceOf(UvmSalesReservationBuilder::class, $this->finvalda->uvmSalesReservation());
+    }
+
+    public function test_uvm_cancellation_returns_builder(): void
+    {
+        $this->assertInstanceOf(UvmCancellationBuilder::class, $this->finvalda->uvmCancellation());
+    }
+
+    public function test_uvm_purchase_order_returns_builder(): void
+    {
+        $this->assertInstanceOf(UvmPurchaseOrderBuilder::class, $this->finvalda->uvmPurchaseOrder());
+    }
+
+    // --- Operation class tests ---
+
+    public function test_sale_builder_operation_class(): void
+    {
+        $builder = new SaleBuilder();
+        $this->assertSame(OperationClass::Sale, $builder->getOperationClass());
+    }
+
+    public function test_sale_builder_short_operation_class(): void
+    {
+        $builder = new SaleBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::SaleShort, $builder->getOperationClass());
+    }
+
+    public function test_sales_reservation_builder_short_operation_class(): void
+    {
+        $builder = new SalesReservationBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::SalesReservationShort, $builder->getOperationClass());
+    }
+
+    public function test_sales_return_builder_short_operation_class(): void
+    {
+        $builder = new SalesReturnBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::SalesReturnShort, $builder->getOperationClass());
+    }
+
+    public function test_purchase_builder_short_operation_class(): void
+    {
+        $builder = new PurchaseBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::PurchaseShort, $builder->getOperationClass());
+    }
+
+    public function test_purchase_order_builder_short_operation_class(): void
+    {
+        $builder = new PurchaseOrderBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::PurchaseOrderShort, $builder->getOperationClass());
+    }
+
+    public function test_purchase_return_builder_short_operation_class(): void
+    {
+        $builder = new PurchaseReturnBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::PurchaseReturnShort, $builder->getOperationClass());
+    }
+
+    public function test_short_can_be_toggled_off(): void
+    {
+        $builder = new SaleBuilder();
+        $builder->short();
+        $this->assertSame(OperationClass::SaleShort, $builder->getOperationClass());
+
+        $builder->short(false);
+        $this->assertSame(OperationClass::Sale, $builder->getOperationClass());
+    }
+
+    // --- Build output tests ---
+
+    public function test_sale_builder_builds_correct_structure(): void
+    {
+        $data = (new SaleBuilder())
+            ->client('CLI001')
+            ->date('2024-01-15')
+            ->warehouse('MAIN')
+            ->currency('EUR')
+            ->paymentDays(30)
+            ->discount(5.0)
+            ->vatIncluded()
+            ->series('SF')
+            ->fulfillmentDate('2024-01-20')
+            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->addService('SVC001', quantity: 1, amount: 50.00)
+            ->build();
+
+        $this->assertArrayHasKey('PardDok', $data);
+        $this->assertSame('CLI001', $data['PardDok']['sKlientas']);
+        $this->assertSame('2024-01-15', $data['PardDok']['tData']);
+        $this->assertSame('MAIN', $data['PardDok']['sSandelis']);
+        $this->assertSame('EUR', $data['PardDok']['sValiuta']);
+        $this->assertSame(30, $data['PardDok']['nAtsiskDien']);
+        $this->assertSame(5.0, $data['PardDok']['dNuolaida']);
+        $this->assertTrue($data['PardDok']['bPVMSkaiciuotiIKaina']);
+        $this->assertSame('SF', $data['PardDok']['sSerija']);
+        $this->assertSame('2024-01-20', $data['PardDok']['tIvykdymoData']);
+
+        $this->assertArrayHasKey('PardDokPrekeDetEil', $data);
+        $this->assertCount(1, $data['PardDokPrekeDetEil']);
+        $this->assertSame('PRD001', $data['PardDokPrekeDetEil'][0]['sKodas']);
+
+        $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data);
+        $this->assertCount(1, $data['PardDokPaslaugaDetEil']);
+        $this->assertSame('SVC001', $data['PardDokPaslaugaDetEil'][0]['sKodas']);
+    }
+
+    public function test_sale_short_builds_with_short_header_key(): void
+    {
+        $data = (new SaleBuilder())
+            ->short()
+            ->client('CLI001')
+            ->date('2024-01-15')
+            ->series('SF')
+            ->documentType('S')
+            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->build();
+
+        $this->assertArrayHasKey('TrumpasPardDok', $data);
+        $this->assertArrayNotHasKey('PardDok', $data);
+        $this->assertSame('CLI001', $data['TrumpasPardDok']['sKlientas']);
+        $this->assertSame('SF', $data['TrumpasPardDok']['sSerija']);
+        $this->assertSame('S', $data['TrumpasPardDok']['sDokRusis']);
+    }
+
+    public function test_sales_return_short_uses_pard_dok_line_keys(): void
+    {
+        $data = (new SalesReturnBuilder())
+            ->short()
+            ->client('CLI001')
+            ->date('2024-01-20')
+            ->addProduct('PRD001', quantity: 2, price: 19.99)
+            ->build();
+
+        $this->assertArrayHasKey('TrumpasPardGrazDok', $data);
+        $this->assertArrayHasKey('PardDokPrekeDetEil', $data);
+        $this->assertArrayNotHasKey('PardGrazDokPrekeDetEil', $data);
+    }
+
+    public function test_sales_return_full_uses_graz_dok_line_keys(): void
+    {
+        $data = (new SalesReturnBuilder())
+            ->client('CLI001')
+            ->date('2024-01-20')
+            ->addProduct('PRD001', quantity: 2, price: 19.99)
+            ->build();
+
+        $this->assertArrayHasKey('PardGrazDok', $data);
+        $this->assertArrayHasKey('PardGrazDokPrekeDetEil', $data);
+    }
+
+    public function test_purchase_return_short_uses_pirk_dok_line_keys(): void
+    {
+        $data = (new PurchaseReturnBuilder())
+            ->short()
+            ->client('SUP001')
+            ->date('2024-01-20')
+            ->addProduct('PRD001', quantity: 10, price: 9.99)
+            ->build();
+
+        $this->assertArrayHasKey('TrumpasPirkGrazDok', $data);
+        $this->assertArrayHasKey('PirkDokPrekeDetEil', $data);
+        $this->assertArrayNotHasKey('PirkGrazDokPrekeDetEil', $data);
+    }
+
+    public function test_write_off_builder_builds_correct_structure(): void
+    {
+        $data = (new WriteOffBuilder())
+            ->date('2024-01-15')
+            ->name('Monthly write-off')
+            ->note('Damaged goods')
+            ->employee('John')
+            ->addItem('PRD001', quantity: 5, warehouse: 'MAIN', account: '6110')
+            ->build();
+
+        $this->assertArrayHasKey('NurasymasDok', $data);
+        $this->assertSame('Monthly write-off', $data['NurasymasDok']['sPavadinimas']);
+        $this->assertSame('Damaged goods', $data['NurasymasDok']['sPastaba']);
+        $this->assertSame('John', $data['NurasymasDok']['sDarbuotojas']);
+
+        $this->assertArrayHasKey('NurasymasDokDetEil', $data);
+        $this->assertCount(1, $data['NurasymasDokDetEil']);
+        $this->assertSame('PRD001', $data['NurasymasDokDetEil'][0]['sKodas']);
+        $this->assertSame(5.0, $data['NurasymasDokDetEil'][0]['nKiekis']);
+        $this->assertSame('MAIN', $data['NurasymasDokDetEil'][0]['sSandelis']);
+        $this->assertSame('6110', $data['NurasymasDokDetEil'][0]['sSaskaita']);
+    }
+
+    public function test_capitalization_builder_builds_correct_structure(): void
+    {
+        $data = (new CapitalizationBuilder())
+            ->date('2024-01-15')
+            ->name('Receiving')
+            ->addItem('PRD001', quantity: 10, amount: 199.90, warehouse: 'MAIN', account: '2010')
+            ->build();
+
+        $this->assertArrayHasKey('PajamavimasDok', $data);
+        $this->assertArrayHasKey('PajamavimasDokDetEil', $data);
+        $this->assertSame(199.90, $data['PajamavimasDokDetEil'][0]['dSuma']);
+    }
+
+    public function test_clearing_builder_builds_correct_structure(): void
+    {
+        $data = (new ClearingBuilder())
+            ->date('2024-01-15')
+            ->name('Monthly clearing')
+            ->debtor('CLI001')
+            ->creditor('CLI002')
+            ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: 3)
+            ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: 2)
+            ->addDebitAccount(amount: 100.00, account: '241000')
+            ->addCreditAccount(amount: 100.00, account: '241001')
+            ->build();
+
+        $this->assertArrayHasKey('UzskaitaDok', $data);
+        $this->assertSame('CLI001', $data['UzskaitaDok']['sDebitorius']);
+        $this->assertSame('CLI002', $data['UzskaitaDok']['sKreditorius']);
+
+        $this->assertArrayHasKey('UzskaitaDebitDetEil', $data);
+        $this->assertCount(2, $data['UzskaitaDebitDetEil']);
+        $this->assertSame(3, $data['UzskaitaDebitDetEil'][0]['nTipas']);
+        $this->assertSame(6, $data['UzskaitaDebitDetEil'][1]['nTipas']);
+        $this->assertSame('241000', $data['UzskaitaDebitDetEil'][1]['sSaskaita']);
+
+        $this->assertArrayHasKey('UzskaitaKreditDetEil', $data);
+        $this->assertCount(2, $data['UzskaitaKreditDetEil']);
+    }
+
+    public function test_production_builder_builds_correct_structure(): void
+    {
+        $data = (new ProductionBuilder())
+            ->date('2024-01-15')
+            ->product('FINISHED001')
+            ->documentNumber('PROD-001')
+            ->description('Daily production')
+            ->addFinishedGood('FINISHED001', warehouse: 'MAIN', quantity: 100, amount: 500.00)
+            ->addRawMaterial('RAW001', warehouse: 'MAIN', quantity: 200)
+            ->addProductionService('SVC001', amount: 100.00, quantity: 1)
+            ->build();
+
+        $this->assertArrayHasKey('GamybaDok', $data);
+        $this->assertSame('FINISHED001', $data['GamybaDok']['sGaminys']);
+
+        $this->assertArrayHasKey('GamybaGDetEil', $data);
+        $this->assertCount(1, $data['GamybaGDetEil']);
+        $this->assertSame(500.00, $data['GamybaGDetEil'][0]['dSuma']);
+
+        $this->assertArrayHasKey('GamybaZDetEil', $data);
+        $this->assertCount(1, $data['GamybaZDetEil']);
+
+        $this->assertArrayHasKey('GamybaPDetEil', $data);
+        $this->assertCount(1, $data['GamybaPDetEil']);
+    }
+
+    public function test_non_analytical_builder_builds_correct_structure(): void
+    {
+        $data = (new NonAnalyticalBuilder())
+            ->date('2024-01-15')
+            ->currency('EUR')
+            ->documentNumber('TEST1')
+            ->description1('Depreciation')
+            ->addEntry('6110', 'Equipment', debitLocal: 500.00, creditLocal: 0)
+            ->addEntry('1240', 'Accumulated', debitLocal: 0, creditLocal: 500.00)
+            ->build();
+
+        $this->assertArrayHasKey('KtNeanalitDok', $data);
+        $this->assertSame('Depreciation', $data['KtNeanalitDok']['sPavadinimas1']);
+
+        $this->assertArrayHasKey('KtNeanalitDetEil', $data);
+        $this->assertCount(2, $data['KtNeanalitDetEil']);
+        $this->assertSame(500.00, $data['KtNeanalitDetEil'][0]['dDebetasL']);
+        $this->assertSame(0.0, $data['KtNeanalitDetEil'][0]['dKreditasL']);
+    }
+
+    public function test_uvm_cancellation_builder_builds_correct_structure(): void
+    {
+        $data = (new UvmCancellationBuilder())
+            ->date('2024-01-15')
+            ->name('Cancel reservation')
+            ->documentNumber('ANUL-001')
+            ->addCancellation(journal: 'UVMPARD', number: 123)
+            ->addCancellation(journal: 'UVMPARD', number: 124)
+            ->build();
+
+        $this->assertArrayHasKey('UVMAnulDok', $data);
+        $this->assertSame('Cancel reservation', $data['UVMAnulDok']['sPavadinimas']);
+
+        $this->assertArrayHasKey('UVMAnulDokDetEil', $data);
+        $this->assertCount(2, $data['UVMAnulDokDetEil']);
+        $this->assertSame('UVMPARD', $data['UVMAnulDokDetEil'][0]['sZurnalas']);
+        $this->assertSame(123, $data['UVMAnulDokDetEil'][0]['nNumeris']);
+    }
+
+    public function test_inventory_count_builder_builds_correct_structure(): void
+    {
+        $data = (new InventoryCountBuilder())
+            ->journal('INVENT')
+            ->warehouse('01')
+            ->date('2024-03-03')
+            ->addItem('B.BENZINAS', quantity: 15.45, account: '1275')
+            ->addItem('B.DYZELINAS', quantity: 20.00)
+            ->build();
+
+        $this->assertSame(0, $data['mode']);
+        $this->assertArrayHasKey('Inventorizacija', $data);
+        $this->assertCount(2, $data['Inventorizacija']);
+
+        // Common header fields are merged into each item
+        $this->assertSame('INVENT', $data['Inventorizacija'][0]['sZurnalas']);
+        $this->assertSame('01', $data['Inventorizacija'][0]['sSandelis']);
+        $this->assertSame('2024-03-03', $data['Inventorizacija'][0]['tData']);
+        $this->assertSame('B.BENZINAS', $data['Inventorizacija'][0]['sKodas']);
+        $this->assertSame(15.45, $data['Inventorizacija'][0]['dKiekis']);
+        $this->assertSame('1275', $data['Inventorizacija'][0]['sSaskaita']);
+
+        $this->assertSame('B.DYZELINAS', $data['Inventorizacija'][1]['sKodas']);
+        $this->assertArrayNotHasKey('sSaskaita', $data['Inventorizacija'][1]);
+    }
+
+    public function test_inventory_count_builder_mode(): void
+    {
+        $data = (new InventoryCountBuilder())
+            ->mode(1)
+            ->date('2024-03-03')
+            ->addItem('B.BENZINAS', quantity: 15.45)
+            ->build();
+
+        $this->assertSame(1, $data['mode']);
+    }
+
+    public function test_uvm_sales_reservation_builder_builds_correct_structure(): void
+    {
+        $data = (new UvmSalesReservationBuilder())
+            ->client('HTNT')
+            ->date('2024-01-15')
+            ->operationType('PARDSERV')
+            ->fulfillmentDate('2024-01-20')
+            ->currency('EUR')
+            ->vatIncluded()
+            ->addService('5054', quantity: 1, price: 0, additionalData: [
+                'sAprasymas' => 'Test description',
+            ])
+            ->build();
+
+        $this->assertArrayHasKey('UVMPardRezDok', $data);
+        $this->assertSame('PARDSERV', $data['UVMPardRezDok']['sOpTipas']);
+        $this->assertSame('2024-01-20', $data['UVMPardRezDok']['tIvykdymoData']);
+        $this->assertTrue($data['UVMPardRezDok']['bPVMSkaiciuotiIKaina']);
+
+        $this->assertArrayHasKey('UVMPardRezDokPaslaugaDetEil', $data);
+        $this->assertSame('Test description', $data['UVMPardRezDokPaslaugaDetEil'][0]['sAprasymas']);
+    }
+
+    public function test_purchase_order_builder_builds_correct_structure(): void
+    {
+        $data = (new PurchaseOrderBuilder())
+            ->client('SUP001')
+            ->date('2024-01-15')
+            ->currency('EUR')
+            ->name('Order for supplies')
+            ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+            ->build();
+
+        $this->assertArrayHasKey('PirkUzsDok', $data);
+        $this->assertSame('Order for supplies', $data['PirkUzsDok']['sPavadinimas']);
+
+        $this->assertArrayHasKey('PirkDokPrekeDetEil', $data);
+    }
+
+    public function test_purchase_order_short_builds_with_short_header_key(): void
+    {
+        $data = (new PurchaseOrderBuilder())
+            ->short()
+            ->client('SUP001')
+            ->currency('EUR')
+            ->series('UZS')
+            ->addProduct('PRD001', quantity: 50, price: 5.00)
+            ->build();
+
+        $this->assertArrayHasKey('TrumpasPirkUzsDok', $data);
+        $this->assertArrayNotHasKey('PirkUzsDok', $data);
+    }
+
+    // --- Save throws without finvalda or parameter ---
+
+    public function test_save_throws_without_finvalda_instance(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Finvalda instance not set');
+
+        (new SaleBuilder())->save('STANDARD');
+    }
+
+    public function test_save_throws_without_parameter(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Parameter not set');
+
+        $this->finvalda->sale()->save();
+    }
+
+    // --- Empty build produces empty array ---
+
+    public function test_empty_builder_produces_empty_array(): void
+    {
+        $data = (new SaleBuilder())->build();
+        $this->assertSame([], $data);
+    }
+
+    // --- Object helpers ---
+
+    public function test_objects_sets_multiple_levels(): void
+    {
+        $data = (new SaleBuilder())
+            ->objects([1 => 'OBJ1', 3 => 'OBJ3', 6 => 'OBJ6'])
+            ->build();
+
+        $this->assertSame('OBJ1', $data['PardDok']['sObj1']);
+        $this->assertSame('OBJ3', $data['PardDok']['sObj3']);
+        $this->assertSame('OBJ6', $data['PardDok']['sObj6']);
+        $this->assertArrayNotHasKey('sObj2', $data['PardDok']);
+    }
+}

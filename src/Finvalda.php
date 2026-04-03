@@ -4,13 +4,24 @@ declare(strict_types=1);
 
 namespace Finvalda;
 
+use Finvalda\Builders\CapitalizationBuilder;
+use Finvalda\Builders\ClearingBuilder;
 use Finvalda\Builders\DisbursementBuilder;
 use Finvalda\Builders\InflowBuilder;
 use Finvalda\Builders\InternalTransferBuilder;
+use Finvalda\Builders\InventoryCountBuilder;
+use Finvalda\Builders\NonAnalyticalBuilder;
+use Finvalda\Builders\ProductionBuilder;
 use Finvalda\Builders\PurchaseBuilder;
+use Finvalda\Builders\PurchaseOrderBuilder;
 use Finvalda\Builders\PurchaseReturnBuilder;
 use Finvalda\Builders\SaleBuilder;
+use Finvalda\Builders\SalesReservationBuilder;
 use Finvalda\Builders\SalesReturnBuilder;
+use Finvalda\Builders\UvmCancellationBuilder;
+use Finvalda\Builders\UvmPurchaseOrderBuilder;
+use Finvalda\Builders\UvmSalesReservationBuilder;
+use Finvalda\Builders\WriteOffBuilder;
 use Finvalda\Resources\Clients;
 use Finvalda\Resources\Descriptions;
 use Finvalda\Resources\Documents;
@@ -213,7 +224,7 @@ final class Finvalda
         return $this->transactions ??= new Transactions($this->http);
     }
 
-    // --- Fluent Operation Builders ---
+    // --- Fluent Operation Builders: Sales ---
 
     /**
      * Create a new sale operation builder.
@@ -224,19 +235,11 @@ final class Finvalda
     }
 
     /**
-     * Create a new purchase operation builder.
+     * Create a new sales reservation operation builder.
      */
-    public function purchase(): PurchaseBuilder
+    public function salesReservation(): SalesReservationBuilder
     {
-        return (new PurchaseBuilder())->using($this);
-    }
-
-    /**
-     * Create a new internal transfer operation builder.
-     */
-    public function internalTransfer(): InternalTransferBuilder
-    {
-        return (new InternalTransferBuilder())->using($this);
+        return (new SalesReservationBuilder())->using($this);
     }
 
     /**
@@ -247,6 +250,24 @@ final class Finvalda
         return (new SalesReturnBuilder())->using($this);
     }
 
+    // --- Fluent Operation Builders: Purchases ---
+
+    /**
+     * Create a new purchase operation builder.
+     */
+    public function purchase(): PurchaseBuilder
+    {
+        return (new PurchaseBuilder())->using($this);
+    }
+
+    /**
+     * Create a new purchase order operation builder.
+     */
+    public function purchaseOrder(): PurchaseOrderBuilder
+    {
+        return (new PurchaseOrderBuilder())->using($this);
+    }
+
     /**
      * Create a new purchase return operation builder.
      */
@@ -254,6 +275,42 @@ final class Finvalda
     {
         return (new PurchaseReturnBuilder())->using($this);
     }
+
+    // --- Fluent Operation Builders: Transfers & Adjustments ---
+
+    /**
+     * Create a new internal transfer operation builder.
+     */
+    public function internalTransfer(): InternalTransferBuilder
+    {
+        return (new InternalTransferBuilder())->using($this);
+    }
+
+    /**
+     * Create a new write-off/disposal operation builder.
+     */
+    public function writeOff(): WriteOffBuilder
+    {
+        return (new WriteOffBuilder())->using($this);
+    }
+
+    /**
+     * Create a new capitalization/receiving operation builder.
+     */
+    public function capitalization(): CapitalizationBuilder
+    {
+        return (new CapitalizationBuilder())->using($this);
+    }
+
+    /**
+     * Create a new inventory count operation builder.
+     */
+    public function inventoryCount(): InventoryCountBuilder
+    {
+        return (new InventoryCountBuilder())->using($this);
+    }
+
+    // --- Fluent Operation Builders: Payments ---
 
     /**
      * Create a new inflow (payment received) operation builder.
@@ -269,5 +326,59 @@ final class Finvalda
     public function disbursement(): DisbursementBuilder
     {
         return (new DisbursementBuilder())->using($this);
+    }
+
+    /**
+     * Create a new clearing/set-off operation builder.
+     */
+    public function clearing(): ClearingBuilder
+    {
+        return (new ClearingBuilder())->using($this);
+    }
+
+    // --- Fluent Operation Builders: Production ---
+
+    /**
+     * Create a new production operation builder.
+     */
+    public function production(): ProductionBuilder
+    {
+        return (new ProductionBuilder())->using($this);
+    }
+
+    // --- Fluent Operation Builders: Other ---
+
+    /**
+     * Create a new non-analytical accounting operation builder.
+     */
+    public function nonAnalytical(): NonAnalyticalBuilder
+    {
+        return (new NonAnalyticalBuilder())->using($this);
+    }
+
+    // --- Fluent Operation Builders: UVM (Order Management) ---
+
+    /**
+     * Create a new UVM sales reservation (workshop/service order) builder.
+     */
+    public function uvmSalesReservation(): UvmSalesReservationBuilder
+    {
+        return (new UvmSalesReservationBuilder())->using($this);
+    }
+
+    /**
+     * Create a new UVM cancellation operation builder.
+     */
+    public function uvmCancellation(): UvmCancellationBuilder
+    {
+        return (new UvmCancellationBuilder())->using($this);
+    }
+
+    /**
+     * Create a new UVM purchase order operation builder.
+     */
+    public function uvmPurchaseOrder(): UvmPurchaseOrderBuilder
+    {
+        return (new UvmPurchaseOrderBuilder())->using($this);
     }
 }

@@ -23,27 +23,69 @@ use Finvalda\Enums\OperationClass;
  */
 final class SalesReturnBuilder extends OperationBuilder
 {
+    protected bool $short = false;
+
     public function getOperationClass(): OperationClass
     {
-        return OperationClass::SalesReturn;
+        return $this->short ? OperationClass::SalesReturnShort : OperationClass::SalesReturn;
     }
 
     protected function getHeaderKey(): string
     {
-        return 'PardGrazDok';
+        return $this->short ? 'TrumpasPardGrazDok' : 'PardGrazDok';
     }
 
     protected function getProductLinesKey(): string
     {
-        return 'PardGrazDokPrekeDetEil';
+        return $this->short ? 'PardDokPrekeDetEil' : 'PardGrazDokPrekeDetEil';
     }
 
     protected function getServiceLinesKey(): string
     {
-        return 'PardGrazDokPaslaugaDetEil';
+        return $this->short ? 'PardDokPaslaugaDetEil' : 'PardGrazDokPaslaugaDetEil';
+    }
+
+    /**
+     * Use the short/simplified operation variant (TrumpasPardGrazDok).
+     */
+    public function short(bool $short = true): self
+    {
+        $this->short = $short;
+
+        return $this;
     }
 
     // --- Return-specific methods ---
+
+    /**
+     * Set the document series.
+     */
+    public function series(string $series): self
+    {
+        $this->header['sSerija'] = $series;
+
+        return $this;
+    }
+
+    /**
+     * Set the document type/kind.
+     */
+    public function documentType(string $type): self
+    {
+        $this->header['sDokRusis'] = $type;
+
+        return $this;
+    }
+
+    /**
+     * Set the fulfillment/execution date.
+     */
+    public function fulfillmentDate(DateTimeInterface|string $date): self
+    {
+        $this->header['tIvykdymoData'] = $this->formatDate($date);
+
+        return $this;
+    }
 
     /**
      * Set the original document reference.

@@ -24,6 +24,13 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [Internal Transfers](#creating-an-internal-transfer)
   - [Returns](#creating-returns)
   - [Payments](#creating-payments)
+  - [Write-Offs & Capitalization](#write-offs--capitalization)
+  - [Production](#creating-a-production-operation)
+  - [Non-Analytical Operations](#non-analytical-operations)
+  - [Inventory Count](#inventory-count)
+  - [Clearing / Set-Off](#clearing--set-off)
+  - [UVM (Order Management)](#uvm-order-management)
+  - [Short / Simplified Operations](#short--simplified-operations)
 - [Query Builders](#query-builders)
   - [Transaction Query](#transaction-query)
   - [Operation Query](#operation-query)
@@ -520,6 +527,161 @@ print_r($data);
 // Save
 $result = $sale->save();
 ```
+
+### Write-Offs & Capitalization
+
+```php
+// Write-off (disposal of inventory)
+$result = $finvalda->writeOff()
+    ->date('2024-01-15')
+    ->name('Monthly write-off')
+    ->note('Damaged goods')
+    ->employee('Jonas')
+    ->addItem('PRD001', quantity: 5, warehouse: 'MAIN', account: '6110')
+    ->addItem('PRD002', quantity: 3, warehouse: 'MAIN', account: '6110')
+    ->save('WRITEOFF');
+
+// Capitalization (receiving inventory)
+$result = $finvalda->capitalization()
+    ->date('2024-01-15')
+    ->name('Inventory receiving')
+    ->addItem('PRD001', quantity: 10, amount: 199.90, warehouse: 'MAIN', account: '2010')
+    ->save('CAPITALIZE');
+```
+
+### Creating a Production Operation
+
+```php
+$result = $finvalda->production()
+    ->date('2024-01-15')
+    ->product('FINISHED001')
+    ->documentNumber('PROD-001')
+    ->description('Daily production run')
+    ->addFinishedGood('FINISHED001', warehouse: 'MAIN', quantity: 100, amount: 500.00)
+    ->addRawMaterial('RAW001', warehouse: 'MAIN', quantity: 200)
+    ->addRawMaterial('RAW002', warehouse: 'MAIN', quantity: 50)
+    ->addProductionService('SVC001', amount: 100.00, quantity: 1)
+    ->save('PRODUCTION');
+```
+
+### Non-Analytical Operations
+
+```php
+$result = $finvalda->nonAnalytical()
+    ->date('2024-01-15')
+    ->currency('EUR')
+    ->documentNumber('DEP-001')
+    ->description1('Depreciation entry')
+    ->addEntry('6110', 'Equipment depreciation', debitLocal: 500.00, creditLocal: 0)
+    ->addEntry('1240', 'Accumulated depreciation', debitLocal: 0, creditLocal: 500.00)
+    ->save('JOURNAL');
+```
+
+### Inventory Count
+
+```php
+$result = $finvalda->inventoryCount()
+    ->journal('INVENT')
+    ->warehouse('01')
+    ->date('2024-03-03')
+    ->addItem('B.BENZINAS', quantity: 15.45, account: '1275')
+    ->addItem('B.DYZELINAS', quantity: 20.00, account: '1275')
+    ->save('INVENTORY');
+
+// Append to an existing inventory count
+$result = $finvalda->inventoryCount()
+    ->mode(1)
+    ->journal('INVENT')
+    ->warehouse('01')
+    ->date('2024-03-03')
+    ->addItem('B.PROPANAS', quantity: 8.00, account: '1275')
+    ->save('INVENTORY');
+```
+
+### Clearing / Set-Off
+
+```php
+$result = $finvalda->clearing()
+    ->date('2024-01-15')
+    ->name('Monthly clearing')
+    ->debtor('CLI001')
+    ->creditor('CLI002')
+    ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: 3)
+    ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: 2)
+    ->save('CLEARING');
+
+// Using account entries (type 6)
+$result = $finvalda->clearing()
+    ->date('2024-01-15')
+    ->debtor('CLI001')
+    ->creditor('CLI002')
+    ->addDebitAccount(amount: 270.00, account: '241000')
+    ->addCreditAccount(amount: 270.00, account: '241001')
+    ->save('CLEARING');
+```
+
+### UVM (Order Management)
+
+```php
+// UVM sales reservation (workshop/service order)
+$result = $finvalda->uvmSalesReservation()
+    ->client('HTNT')
+    ->date('2024-01-15')
+    ->operationType('PARDSERV')
+    ->fulfillmentDate('2024-01-20')
+    ->currency('EUR')
+    ->object1('SERVISAS')
+    ->description('Workshop order #30608')
+    ->addService('5054', quantity: 1, price: 0, additionalData: [
+        'sAprasymas' => 'Service description',
+    ])
+    ->save('WORKSHOP');
+
+// UVM purchase order
+$result = $finvalda->uvmPurchaseOrder()
+    ->client('SUP001')
+    ->date('2024-01-15')
+    ->currency('EUR')
+    ->operationType('PIRK')
+    ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+    ->save('ORDER');
+
+// UVM cancellation
+$result = $finvalda->uvmCancellation()
+    ->date('2024-01-15')
+    ->name('Cancel reservations')
+    ->documentNumber('ANUL-001')
+    ->addCancellation(journal: 'UVMPARD', number: 123)
+    ->addCancellation(journal: 'UVMPARD', number: 124)
+    ->save('CANCEL');
+```
+
+### Short / Simplified Operations
+
+All sales, purchase, and return builders support a `short()` mode that uses simplified operation variants. Short operations send minimal headers and let the server fill in defaults.
+
+```php
+// Short sale — server applies default settings
+$result = $finvalda->sale()
+    ->short()
+    ->client('CLI001')
+    ->date('2024-01-15')
+    ->series('SF')
+    ->currency('EUR')
+    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->save('STANDARD');
+
+// Short purchase return
+$result = $finvalda->purchaseReturn()
+    ->short()
+    ->client('SUP001')
+    ->currency('EUR')
+    ->series('GR')
+    ->addProduct('PRD001', quantity: 10, price: 9.99)
+    ->save('RETURN');
+```
+
+Builders supporting `short()`: `sale()`, `salesReservation()`, `salesReturn()`, `purchase()`, `purchaseOrder()`, `purchaseReturn()`.
 
 ## Query Builders
 

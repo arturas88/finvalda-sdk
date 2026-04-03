@@ -8,45 +8,44 @@ use DateTimeInterface;
 use Finvalda\Enums\OperationClass;
 
 /**
- * Fluent builder for purchase return operations (PirkGrazDok).
+ * Fluent builder for purchase order operations (PirkUzsDok).
  *
  * Usage:
  * ```php
- * $result = $finvalda->purchaseReturn()
+ * $result = $finvalda->purchaseOrder()
  *     ->client('SUP001')
- *     ->date('2024-01-20')
- *     ->warehouse('MAIN')
- *     ->originalDocument('SF-001', 'PIRK', 456)
- *     ->addProduct('PRD001', quantity: 10, price: 9.99)
- *     ->save('RETURN');
+ *     ->date('2024-01-15')
+ *     ->currency('EUR')
+ *     ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+ *     ->save('ORDER');
  * ```
  */
-final class PurchaseReturnBuilder extends OperationBuilder
+final class PurchaseOrderBuilder extends OperationBuilder
 {
     protected bool $short = false;
 
     public function getOperationClass(): OperationClass
     {
-        return $this->short ? OperationClass::PurchaseReturnShort : OperationClass::PurchaseReturn;
+        return $this->short ? OperationClass::PurchaseOrderShort : OperationClass::PurchaseOrder;
     }
 
     protected function getHeaderKey(): string
     {
-        return $this->short ? 'TrumpasPirkGrazDok' : 'PirkGrazDok';
+        return $this->short ? 'TrumpasPirkUzsDok' : 'PirkUzsDok';
     }
 
     protected function getProductLinesKey(): string
     {
-        return $this->short ? 'PirkDokPrekeDetEil' : 'PirkGrazDokPrekeDetEil';
+        return 'PirkDokPrekeDetEil';
     }
 
     protected function getServiceLinesKey(): string
     {
-        return $this->short ? 'PirkDokPaslaugaDetEil' : 'PirkGrazDokPaslaugaDetEil';
+        return 'PirkDokPaslaugaDetEil';
     }
 
     /**
-     * Use the short/simplified operation variant (TrumpasPirkGrazDok).
+     * Use the short/simplified operation variant (TrumpasPirkUzsDok).
      */
     public function short(bool $short = true): self
     {
@@ -55,7 +54,7 @@ final class PurchaseReturnBuilder extends OperationBuilder
         return $this;
     }
 
-    // --- Return-specific methods ---
+    // --- Purchase order-specific methods ---
 
     /**
      * Set the document series.
@@ -73,28 +72,6 @@ final class PurchaseReturnBuilder extends OperationBuilder
     public function documentType(string $type): self
     {
         $this->header['sDokRusis'] = $type;
-
-        return $this;
-    }
-
-    /**
-     * Set the original document reference.
-     */
-    public function originalDocument(string $document, string $journal, int $number): self
-    {
-        $this->header['sGrazDokumentas'] = $document;
-        $this->header['sGrazZurnalas'] = $journal;
-        $this->header['nGrazNumeris'] = $number;
-
-        return $this;
-    }
-
-    /**
-     * Set the original document number.
-     */
-    public function originalDocumentNumber(string $document): self
-    {
-        $this->header['sGrazDokumentas'] = $document;
 
         return $this;
     }
@@ -130,11 +107,21 @@ final class PurchaseReturnBuilder extends OperationBuilder
     }
 
     /**
-     * Set the return reason.
+     * Set VAT included flag.
      */
-    public function reason(string $reason): self
+    public function vatIncluded(bool $included = true): self
     {
-        $this->header['sGrazPriezastis'] = $reason;
+        $this->header['bPVMSkaiciuotiIKaina'] = $included;
+
+        return $this;
+    }
+
+    /**
+     * Set the operation name/title.
+     */
+    public function name(string $name): self
+    {
+        $this->header['sPavadinimas'] = $name;
 
         return $this;
     }

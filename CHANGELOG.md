@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-04-03
+
+### Added
+- **Sales Reservation Builder**: `salesReservation()` for PardRezDok operations
+- **Purchase Order Builder**: `purchaseOrder()` for PirkUzsDok operations
+- **Write-Off Builder**: `writeOff()` for NurasymasDok inventory disposal operations
+- **Capitalization Builder**: `capitalization()` for PajamavimasDok inventory receiving operations
+- **Clearing Builder**: `clearing()` for UzskaitaDok set-off operations with debit/credit lines
+- **Production Builder**: `production()` for GamybaDok operations with finished goods, raw materials, and services
+- **Non-Analytical Builder**: `nonAnalytical()` for KtNeanalitDok general ledger entries
+- **Inventory Count Builder**: `inventoryCount()` for Inventorizacija operations with mode support
+- **UVM Sales Reservation Builder**: `uvmSalesReservation()` for UVMPardRezDok workshop/service orders
+- **UVM Purchase Order Builder**: `uvmPurchaseOrder()` for UVMPirkUzsDok operations
+- **UVM Cancellation Builder**: `uvmCancellation()` for UVMAnulDok operations
+- **Short operation support**: `short()` method on sale, purchase, and return builders to use simplified Trumpas* variants
+- Added `series()`, `documentType()`, `fulfillmentDate()` methods to sale, purchase, and return builders
+- Comprehensive builder test suite (46 tests covering all builders, build output, short toggles)
+
 ## [1.0.0] - Unreleased
 
 ### Added

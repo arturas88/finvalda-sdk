@@ -15,8 +15,21 @@ PHP SDK/Composer package for the Finvalda (FVS) Lithuanian accounting/ERP softwa
 - All read methods return `Finvalda\Responses\Response` with `->data`, `->successful()`, `->error`, `->raw`
 - All write methods return `Finvalda\Responses\OperationResult` with `->success`, `->journal`, `->number`, `->error`
 - Resources extend `Finvalda\Resources\Resource` base class
+- Builders extend `Finvalda\Builders\OperationBuilder` base class
 - HttpClient is injectable (constructor accepts `?ClientInterface`)
 - Date parameters accept `DateTimeInterface|string|null` (format: Y-m-d)
+
+## Builders
+All 23 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
+- **Sales**: `sale()`, `salesReservation()`, `salesReturn()` — each supports `->short()` for Trumpas* variants
+- **Purchases**: `purchase()`, `purchaseOrder()`, `purchaseReturn()` — each supports `->short()`
+- **Transfers & Adjustments**: `internalTransfer()`, `writeOff()`, `capitalization()`, `inventoryCount()`
+- **Payments**: `inflow()`, `disbursement()`, `clearing()`
+- **Production**: `production()` — three line types: finished goods, raw materials, services
+- **Other**: `nonAnalytical()` — general ledger debit/credit entries
+- **UVM**: `uvmSalesReservation()`, `uvmCancellation()`, `uvmPurchaseOrder()`
+
+Special build structures: ClearingBuilder (debit/credit lines), ProductionBuilder (3 line types), NonAnalyticalBuilder (accounting entries), UvmCancellationBuilder (cancellation refs), InventoryCountBuilder (flat items with mode wrapper).
 
 ## File Structure
 ```
@@ -24,6 +37,7 @@ src/
   Finvalda.php              # Main client — $finvalda->clients(), ->products(), etc.
   FinvaldaConfig.php        # Config DTO (baseUrl, username, password, language, etc.)
   HttpClient.php            # HTTP transport layer (Guzzle, injectable)
+  Builders/                 # 18 fluent operation builders (OperationBuilder base + 17 concrete)
   Enums/                    # AccessResult, Language, ItemClass, OperationClass, OpClass, etc.
   Exceptions/               # FinvaldaException, AccessDeniedException, ValidationException
   Filters/                  # TransactionFilter, PaymentFilter DTOs

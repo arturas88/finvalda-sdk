@@ -8,32 +8,32 @@ use DateTimeInterface;
 use Finvalda\Enums\OperationClass;
 
 /**
- * Fluent builder for sales operations (PardDok).
+ * Fluent builder for sales reservation operations (PardRezDok).
  *
  * Usage:
  * ```php
- * $result = $finvalda->sale()
+ * $result = $finvalda->salesReservation()
  *     ->client('CLI001')
  *     ->date('2024-01-15')
  *     ->warehouse('MAIN')
+ *     ->dueDate('2024-02-15')
  *     ->addProduct('PRD001', quantity: 10, price: 19.99)
- *     ->addProduct('PRD002', quantity: 5, amount: 49.95)
  *     ->addService('SVC001', quantity: 1, price: 100.00)
- *     ->save('STANDARD');
+ *     ->save('RESERVATION');
  * ```
  */
-final class SaleBuilder extends OperationBuilder
+final class SalesReservationBuilder extends OperationBuilder
 {
     protected bool $short = false;
 
     public function getOperationClass(): OperationClass
     {
-        return $this->short ? OperationClass::SaleShort : OperationClass::Sale;
+        return $this->short ? OperationClass::SalesReservationShort : OperationClass::SalesReservation;
     }
 
     protected function getHeaderKey(): string
     {
-        return $this->short ? 'TrumpasPardDok' : 'PardDok';
+        return $this->short ? 'TrumpasPardRezDok' : 'PardRezDok';
     }
 
     protected function getProductLinesKey(): string
@@ -47,7 +47,7 @@ final class SaleBuilder extends OperationBuilder
     }
 
     /**
-     * Use the short/simplified operation variant (TrumpasPardDok).
+     * Use the short/simplified operation variant (TrumpasPardRezDok).
      */
     public function short(bool $short = true): self
     {
@@ -56,7 +56,7 @@ final class SaleBuilder extends OperationBuilder
         return $this;
     }
 
-    // --- Sales-specific methods ---
+    // --- Sales reservation-specific methods ---
 
     /**
      * Set the document series.

@@ -23,14 +23,16 @@ use Finvalda\Enums\OperationClass;
  */
 final class PurchaseBuilder extends OperationBuilder
 {
+    protected bool $short = false;
+
     public function getOperationClass(): OperationClass
     {
-        return OperationClass::Purchase;
+        return $this->short ? OperationClass::PurchaseShort : OperationClass::Purchase;
     }
 
     protected function getHeaderKey(): string
     {
-        return 'PirkDok';
+        return $this->short ? 'TrumpasPirkDok' : 'PirkDok';
     }
 
     protected function getProductLinesKey(): string
@@ -43,7 +45,37 @@ final class PurchaseBuilder extends OperationBuilder
         return 'PirkDokPaslaugaDetEil';
     }
 
+    /**
+     * Use the short/simplified operation variant (TrumpasPirkDok).
+     */
+    public function short(bool $short = true): self
+    {
+        $this->short = $short;
+
+        return $this;
+    }
+
     // --- Purchase-specific methods ---
+
+    /**
+     * Set the document series.
+     */
+    public function series(string $series): self
+    {
+        $this->header['sSerija'] = $series;
+
+        return $this;
+    }
+
+    /**
+     * Set the document type/kind.
+     */
+    public function documentType(string $type): self
+    {
+        $this->header['sDokRusis'] = $type;
+
+        return $this;
+    }
 
     /**
      * Set the supplier invoice number.
