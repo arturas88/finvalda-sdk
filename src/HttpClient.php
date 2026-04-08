@@ -207,6 +207,16 @@ final class HttpClient
             throw new AccessDeniedException('Access denied');
         }
 
+        if ($accessResult === AccessResult::Fail) {
+            $errorMessage = $decoded['sError'] ?? $decoded['error'] ?? 'Unknown error (AccessResult: Fail)';
+
+            return new OperationResult(
+                success: false,
+                error: $errorMessage,
+                errorCode: (int) ($decoded['nResult'] ?? $decoded['result'] ?? -1),
+            );
+        }
+
         $resultCode = $decoded['nResult'] ?? $decoded['result'] ?? -1;
         $errorMessage = $decoded['sError'] ?? $decoded['error'] ?? null;
 
