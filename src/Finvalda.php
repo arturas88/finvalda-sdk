@@ -107,6 +107,14 @@ final class Finvalda
     }
 
     /**
+     * Get the underlying HTTP client for advanced usage.
+     */
+    public function getHttpClient(): HttpClient
+    {
+        return $this->http;
+    }
+
+    /**
      * Get the Stock resource for inventory balance operations.
      *
      * @return Stock
