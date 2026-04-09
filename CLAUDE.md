@@ -19,6 +19,16 @@ PHP SDK/Composer package for the Finvalda (FVS) Lithuanian accounting/ERP softwa
 - HttpClient is injectable (constructor accepts `?ClientInterface`)
 - Date parameters accept `DateTimeInterface|string|null` (format: Y-m-d)
 
+## HTTP Transport Patterns
+The Pure endpoint (FvsServicePure.svc) supports both query params and JSON body. The SDK uses JSON body for all POST write operations:
+
+- **`postOperation()`** — JSON body with `{"ItemClassName":"...","xmlstring":"..."}`. Used for: InsertNewItem, EditItem, InsertNewOperation, UpdateOperation, DeleteOperation, EditItemProps, AppendGroup, InsertDocument, DeleteDocument, AttachDocument
+- **`postOperationJson()`** — Flat JSON body or `{"input":{...}}` wrapper. Used for: LockOperation, UnLockOperation, ChangeJournal (`{sJournal, nOpNumber, sJournalNew}`), CopyOperation (`{input:{...}}`), DeleteItem (`{input:{ItemClassName, Code}}`)
+- **`postJson()`** — Custom JSON body returning Response. Used for: GetDescriptions (`{readParams:{...}}`), GetOperations POST (`{opReadParams:{...}}`), IsOperationLocked, GetVeiklaPagalObjektus, GetRecommendedPrice
+- **`post()`** — POST with query params returning Response. Used for: GetInvoicesRelatedToCustomer
+- **`get()`** — GET with query params. Used for all read-only endpoints (130+)
+- **`getRaw()`** — GET returning raw string. Used for binary responses
+
 ## Builders
 All 23 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
 - **Sales**: `sale()`, `salesReservation()`, `salesReturn()` — each supports `->short()` for Trumpas* variants

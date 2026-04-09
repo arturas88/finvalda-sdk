@@ -175,9 +175,11 @@ final class Services extends Resource
      */
     public function delete(string $serviceCode): OperationResult
     {
-        return $this->http->postOperation('DeleteItem', [
-            'ItemClassName' => ItemClass::Service->value,
-            'sItemCode' => $serviceCode,
+        return $this->http->postOperationJson('DeleteItem', [
+            'input' => [
+                'ItemClassName' => ItemClass::Service->value,
+                'Code' => $serviceCode,
+            ],
         ]);
     }
 }

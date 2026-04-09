@@ -38,4 +38,6 @@ enum DescriptionType: string
     case BarCodes = 'BarCodes';
     case TagsAndTypes = 'TagsAndTypes';
     case CurrencyRates = 'CurrencyRates';
+    case OperationStatuses = 'OperationStatuses';
+    case Accounts = 'Accounts';
 }

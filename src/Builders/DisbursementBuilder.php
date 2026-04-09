@@ -150,4 +150,24 @@ final class DisbursementBuilder extends OperationBuilder
 
         return $this;
     }
+
+    /**
+     * Set the operation locked flag.
+     */
+    public function locked(bool $locked = true): self
+    {
+        $this->header['nVarna'] = $locked ? 1 : 0;
+
+        return $this;
+    }
+
+    /**
+     * Set the Finvalda employee name.
+     */
+    public function employee(string $employee): self
+    {
+        $this->header['sDarbuotojas'] = $employee;
+
+        return $this;
+    }
 }

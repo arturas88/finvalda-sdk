@@ -361,17 +361,17 @@ final class Products extends Resource
     }
 
     /**
-     * Edit specific properties of a product. Calls EditItemProps with Fvs.Preke class.
+     * Bulk edit product properties. Calls EditItemProps with Fvs.Prekes wrapper.
      *
-     * @param  string  $productCode  The product code to edit
-     * @param  array  $properties  Key-value pairs of properties to update
+     * Data should contain 'Kodas' (array of product codes) and properties to set.
+     * Example: ['Kodas' => ['PRD001', 'PRD002'], 'pardKaina1' => '15.81']
+     *
+     * @param  array  $data  Product codes and properties to update
      */
-    public function editProperties(string $productCode, array $properties): OperationResult
+    public function editProperties(array $data): OperationResult
     {
         return $this->http->postOperation('EditItemProps', [
-            'ItemClassName' => ItemClass::Product->value,
-            'sKodas' => $productCode,
-            'xmlstring' => $this->jsonEncode($properties),
+            'xmlstring' => $this->jsonEncode(['Fvs.EditItemProps' => ['Fvs.Prekes' => $data]]),
         ]);
     }
 
@@ -382,9 +382,11 @@ final class Products extends Resource
      */
     public function delete(string $productCode): OperationResult
     {
-        return $this->http->postOperation('DeleteItem', [
-            'ItemClassName' => ItemClass::Product->value,
-            'sItemCode' => $productCode,
+        return $this->http->postOperationJson('DeleteItem', [
+            'input' => [
+                'ItemClassName' => ItemClass::Product->value,
+                'Code' => $productCode,
+            ],
         ]);
     }
 }

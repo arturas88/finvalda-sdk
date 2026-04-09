@@ -188,6 +188,25 @@ $finvalda->setLogger($logger);
 
 Log output includes method, endpoint, parameters, status code, and response time.
 
+### Debug Mode
+
+Capture full request/response details for troubleshooting:
+
+```php
+$finvalda->getHttpClient()->setDebug(true);
+
+// Make any API call
+$result = $finvalda->operations()->create(OperationClass::Sale, $data, 'PARAM');
+
+// Inspect what was sent and received
+$debug = $finvalda->getHttpClient()->getLastDebugInfo();
+print_r($debug['request']);   // method, url, headers, body
+print_r($debug['response']);  // status_code, headers, body
+
+// Disable debug mode (clears stored info)
+$finvalda->getHttpClient()->setDebug(false);
+```
+
 ### Retry Policy
 
 Configure automatic retries for transient failures:
@@ -387,6 +406,9 @@ $result = $finvalda->sale()
     ->discount(5.0)
     ->object1('DEPT01')
     ->object2('PROJ01')
+    ->employee('JONAS')
+    ->exportToIvaz()
+    ->roundingAmount(0.01)
     ->addProduct('PRD001', quantity: 10, price: 19.99)
     ->addProduct('PRD002', quantity: 5, amount: 49.95)
     ->addService('SVC001', quantity: 2, price: 50.00)
@@ -1003,9 +1025,11 @@ $result = $finvalda->products()->update([
     'sPavadinimas' => 'Updated Product Name',
 ]);
 
-$result = $finvalda->products()->editProperties('PROD001', [
-    'dKaina1' => 19.99,
-    'sRusis' => 'ELECTRONICS',
+// Bulk edit product properties (applies to multiple products at once)
+$result = $finvalda->products()->editProperties([
+    'Kodas' => ['PROD001', 'PROD002', 'PROD003'],
+    'pardKaina1' => '19.99',
+    'pardVal' => 'EUR',
 ]);
 
 $result = $finvalda->products()->delete('PROD001');
@@ -1187,20 +1211,26 @@ $response = $finvalda->operations()->get(OpClass::Sales, [
 ]);
 
 // Lock / unlock operations
-$finvalda->operations()->lock('PARD', 123);
+$finvalda->operations()->lock('PARD', 123, parameter: 'STANDARD');
 $finvalda->operations()->unlock('PARD', 123);
+$finvalda->operations()->unlock('PARD', 123, newJournal: 'PARD2'); // move to new journal on unlock
 $response = $finvalda->operations()->isLocked('PARD', 123);
 
-// Change journal / copy
+// Change journal
 $result = $finvalda->operations()->changeJournal([
-    'sZurnalas' => 'PARD',
-    'nNumeris' => 123,
-    'sNaujasZurnalas' => 'PARD2',
+    'sJournal' => 'PARD',
+    'nOpNumber' => 123,
+    'sJournalNew' => 'PARD2',
 ]);
 
+// Copy operation
 $result = $finvalda->operations()->copy([
-    'sZurnalas' => 'PARD',
-    'nNumeris' => 123,
+    'sParameter' => 'STANDARD',
+    'sJournal' => 'PARD',
+    'nOpNumber' => 123,
+    'sJournalNew' => 'PARD2',
+    'bDeleteSourceOp' => false,
+    'bKeepDocument' => false,
 ]);
 ```
 
@@ -1305,6 +1335,16 @@ $response = $finvalda->descriptions()->fixedAssets();
 $response = $finvalda->descriptions()->barCodes(['Codes' => ['PROD001']]);
 $response = $finvalda->descriptions()->prices(['Client' => 'CLI001']);
 $response = $finvalda->descriptions()->currencyRates('2024-01-01', '2024-12-31', ['USD', 'GBP']);
+
+// Additional description types
+$response = $finvalda->descriptions()->get(DescriptionType::OperationStatuses);
+$response = $finvalda->descriptions()->get(DescriptionType::Accounts);
+$response = $finvalda->descriptions()->get(DescriptionType::Vehicles);
+$response = $finvalda->descriptions()->get(DescriptionType::ProductionItem);
+$response = $finvalda->descriptions()->get(DescriptionType::PartnerProducts, [
+    'Products' => ['Codes' => ['PROD001']],
+    'Client' => 'CLI001',
+]);
 ```
 
 ### Reference Data
@@ -1322,6 +1362,10 @@ $result = $finvalda->references()->createWarehouse(['sKodas' => 'WH03', 'sPavadi
 $result = $finvalda->references()->createPaymentTerm(['sKodas' => 'NET30', 'sPavadinimas' => 'Net 30']);
 $result = $finvalda->references()->createClientType(['sKodas' => 'VIP', 'sPavadinimas' => 'VIP Clients']);
 $result = $finvalda->references()->createProductType(['sKodas' => 'ELEC', 'sPavadinimas' => 'Electronics']);
+
+// Create product tag values (tags 1-20)
+$result = $finvalda->references()->createProductTag(1, ['sKodas' => 'FEAT', 'sPavadinimas' => 'Featured']);
+$result = $finvalda->references()->createProductTag(7, ['sKodas' => 'NEW', 'sPavadinimas' => 'New Arrival']);
 ```
 
 ### User Permissions

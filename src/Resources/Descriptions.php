@@ -24,23 +24,25 @@ final class Descriptions extends Resource
      */
     public function get(DescriptionType $type, array $filters = [], ?int $page = null, ?int $limit = null, ?array $columns = null): Response
     {
-        $data = array_merge([
-            'Type' => $type->value,
+        $readParams = array_merge([
+            'type' => $type->value,
         ], $filters);
 
         if ($page !== null) {
-            $data['page'] = $page;
+            $readParams['page'] = $page;
         }
 
         if ($limit !== null) {
-            $data['limit'] = $limit;
+            $readParams['limit'] = $limit;
         }
 
         if ($columns !== null) {
-            $data['columns'] = $columns;
+            $readParams['columns'] = $columns;
         }
 
-        return $this->http->postJson('GetDescriptions', $data);
+        return $this->http->postJson('GetDescriptions', [
+            'readParams' => $readParams,
+        ]);
     }
 
     // Convenience methods for common types
@@ -154,7 +156,7 @@ final class Descriptions extends Resource
      */
     public function tagsAndTypes(string $entityType, int $number = 0): Response
     {
-        return $this->http->postJson('GetDescriptions', [
+        return $this->get(DescriptionType::TagsAndTypes, [
             'Type' => $entityType,
             'Number' => $number,
         ]);

@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-09
+
+### Changed (Breaking)
+- **HTTP transport**: All POST write operations now use JSON body instead of form-encoded params, matching the Postman collection's "Json Body" variant
+- **GetDescriptions**: Now wraps parameters in `{"readParams":{...}}` envelope and uses lowercase `type` key, matching the documented API format
+- **GetOperations (POST)**: Now wraps parameters in `{"opReadParams":{...}}` envelope
+- **DeleteItem**: Uses `{"input":{"ItemClassName":"...","Code":"..."}}` JSON body format per Postman spec
+- **ChangeJournal**: Now sends flat JSON body (`sJournal`, `nOpNumber`, `sJournalNew`) instead of xmlstring wrapper
+- **CopyOperation**: Now sends `{"input":{...}}` JSON body instead of xmlstring wrapper
+- **DeleteOperation**: Journal/number now correctly sent inside xmlstring JSON body
+- **LockOperation/UnLockOperation**: Switched from form params to JSON body per REST docs
+- **IsOperationLocked**: Switched from query params to JSON body per REST docs
+- **Products::editProperties()**: Signature changed from `(string $productCode, array $properties)` to `(array $data)` — data must include `Kodas` array and properties to set, wrapped in `Fvs.EditItemProps > Fvs.Prekes`
+- **Descriptions::tagsAndTypes()**: Now uses `readParams` wrapper via `get()` method
+
+### Added
+- **HttpClient::postOperationJson()**: New method for endpoints that use flat JSON body and return OperationResult (Lock, Unlock, ChangeJournal, CopyOperation, DeleteItem)
+- **Debug mode**: `HttpClient::setDebug()` and `getLastDebugInfo()` to capture full request/response cycle for troubleshooting
+- **ItemClass::ProductTag1-20**: 20 new enum cases for product tag item classes (Fvs.PrekesPoz1 through Fvs.PrekesPoz20)
+- **ItemClass::productTag(int)**: Static helper to get ProductTag case by number
+- **References::createProductTag()**: Create product tag values (Fvs.PrekesPoz1-20) via InsertNewItem
+- **DescriptionType::OperationStatuses**: New description type for operation status queries
+- **DescriptionType::Accounts**: New description type for account queries
+- **SaleBuilder**: Added `roundingAmount()`, `exportToIvaz()`, `locked()`, `employee()` methods
+- **PurchaseBuilder**: Added `roundingAmount()`, `exportToIvaz()`, `locked()`, `employee()` methods
+- **InternalTransferBuilder**: Added `exportToIvaz()`, `marked()`, `employee()` methods
+- **InflowBuilder**: Added `locked()`, `employee()` methods
+- **DisbursementBuilder**: Added `locked()`, `employee()` methods
+- **Operations::unlock()**: Added optional `$newJournal` parameter (maps to `sZurnalasNaujas`)
+- Synced Postman collection to latest version (April 2026)
+
+### Fixed
+- **GetDescriptions**: Was sending flat params without `readParams` wrapper — API requires the envelope
+- **GetOperations POST**: Was sending flat params without `opReadParams` wrapper
+- **Descriptions::tagsAndTypes()**: Was bypassing `get()` method, sending wrong format without `readParams` wrapper
+- **EditItemProps**: Was sending extra `ItemClassName`/`sKodas` params and missing `Fvs.EditItemProps` wrapper
+- **DeleteOperation**: Was sending journal/number as bare params instead of inside xmlstring
+- **Clients::invoicesRelatedToCustomer()**: Restored to `post()` with query params matching Postman spec
+- Removed `Content-Type: application/json` from default Guzzle headers — Guzzle's `json` option sets it automatically
+
+## [1.1.1] - 2026-04-08
+
+### Fixed
+- Fix `parseOperationResult` ignoring `AccessResult::Fail` when `nResult` is 0
+
 ## [1.1.0] - 2026-04-03
 
 ### Added

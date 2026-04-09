@@ -365,9 +365,11 @@ final class Clients extends Resource
      */
     public function delete(string $clientCode): OperationResult
     {
-        return $this->http->postOperation('DeleteItem', [
-            'ItemClassName' => ItemClass::Client->value,
-            'sItemCode' => $clientCode,
+        return $this->http->postOperationJson('DeleteItem', [
+            'input' => [
+                'ItemClassName' => ItemClass::Client->value,
+                'Code' => $clientCode,
+            ],
         ]);
     }
 

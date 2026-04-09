@@ -75,6 +75,36 @@ final class InternalTransferBuilder extends OperationBuilder
     }
 
     /**
+     * Set whether to export to iVAZ.
+     */
+    public function exportToIvaz(bool $export = true): self
+    {
+        $this->header['nIVAZ'] = $export ? 1 : 0;
+
+        return $this;
+    }
+
+    /**
+     * Set the operation marked flag.
+     */
+    public function marked(bool $marked = true): self
+    {
+        $this->header['nPozymis'] = $marked ? 1 : 0;
+
+        return $this;
+    }
+
+    /**
+     * Set the Finvalda employee name.
+     */
+    public function employee(string $employee): self
+    {
+        $this->header['sDarbuotojas'] = $employee;
+
+        return $this;
+    }
+
+    /**
      * Add a product transfer line.
      *
      * @param  array<string, mixed>  $additionalData

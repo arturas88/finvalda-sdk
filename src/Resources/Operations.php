@@ -46,12 +46,15 @@ final class Operations extends Resource
      */
     public function delete(DeleteOperationClass $class, string $journal, int $number, string $parameter): OperationResult
     {
-        return $this->http->postOperation('DeleteOperation', [
-            'ItemClassName' => $class->value,
+        $body = $this->jsonEncode([$class->value => [
             'sZurnalas' => $journal,
             'nNumeris' => $number,
+        ]]);
+
+        return $this->http->postOperation('DeleteOperation', [
+            'ItemClassName' => $class->value,
             'sParametras' => $parameter,
-        ]);
+        ], $body);
     }
 
     /**
@@ -90,14 +93,16 @@ final class Operations extends Resource
      * Read operations with JSON body filters. Calls GetOperations via POST.
      *
      * @param  OpClass  $class  The operation class to query (e.g., Sales, Purchases, SalesDet)
-     * @param  array  $filters  Additional filter parameters (keys: Journal, DateFrom, DateTo, Number, etc.)
+     * @param  array  $filters  Additional filter parameters (keys: fullOp, filter, columns, columnsDet)
      * @return Response
      */
     public function query(OpClass $class, array $filters = []): Response
     {
-        $data = array_merge(['OpClass' => $class->value], $filters);
+        $opReadParams = array_merge(['OpClass' => $class->value], $filters);
 
-        return $this->http->postJson('GetOperations', $data);
+        return $this->http->postJson('GetOperations', [
+            'opReadParams' => $opReadParams,
+        ]);
     }
 
     /**
@@ -110,11 +115,11 @@ final class Operations extends Resource
      */
     public function lock(string $journal, int $number, ?string $parameter = null): OperationResult
     {
-        return $this->http->postOperation('LockOperation', [
+        return $this->http->postOperationJson('LockOperation', array_filter([
             'sZurnalas' => $journal,
             'nNumeris' => $number,
             'sParametras' => $parameter,
-        ]);
+        ], fn ($v) => $v !== null));
     }
 
     /**
@@ -123,15 +128,17 @@ final class Operations extends Resource
      * @param  string  $journal  Journal code
      * @param  int  $number  Operation number within the journal
      * @param  string|null  $parameter  Optional unlock parameter
+     * @param  string|null  $newJournal  Optional new journal code to move the operation to
      * @return OperationResult
      */
-    public function unlock(string $journal, int $number, ?string $parameter = null): OperationResult
+    public function unlock(string $journal, int $number, ?string $parameter = null, ?string $newJournal = null): OperationResult
     {
-        return $this->http->postOperation('UnLockOperation', [
+        return $this->http->postOperationJson('UnLockOperation', array_filter([
             'sZurnalas' => $journal,
             'nNumeris' => $number,
             'sParametras' => $parameter,
-        ]);
+            'sZurnalasNaujas' => $newJournal,
+        ], fn ($v) => $v !== null));
     }
 
     /**
@@ -143,7 +150,7 @@ final class Operations extends Resource
      */
     public function isLocked(string $journal, int $number): Response
     {
-        return $this->http->post('IsOperationLocked', [
+        return $this->http->postJson('IsOperationLocked', [
             'sZurnalas' => $journal,
             'nNumeris' => $number,
         ]);
@@ -163,26 +170,26 @@ final class Operations extends Resource
     /**
      * Change the journal of an existing operation. Calls ChangeJournal.
      *
-     * @param  array|string  $data  Operation identification and target journal data
+     * @param  array|string  $data  Keys: sJournal, nOpNumber, sJournalNew
      * @return OperationResult
      */
     public function changeJournal(array|string $data): OperationResult
     {
-        $body = is_array($data) ? $this->jsonEncode($data) : $data;
+        $data = is_string($data) ? json_decode($data, true) : $data;
 
-        return $this->http->postOperation('ChangeJournal', [], $body);
+        return $this->http->postOperationJson('ChangeJournal', $data);
     }
 
     /**
      * Copy/duplicate an existing operation. Calls CopyOperation.
      *
-     * @param  array|string  $data  Source operation identification and copy parameters
+     * @param  array|string  $data  Keys: sParameter, sJournal, nOpNumber, sJournalNew, bDeleteSourceOp, bKeepDocument, sNewDocument, sNewSeries, nCopyDocDate
      * @return OperationResult
      */
     public function copy(array|string $data): OperationResult
     {
-        $body = is_array($data) ? $this->jsonEncode($data) : $data;
+        $data = is_string($data) ? json_decode($data, true) : $data;
 
-        return $this->http->postOperation('CopyOperation', [], $body);
+        return $this->http->postOperationJson('CopyOperation', ['input' => $data]);
     }
 }

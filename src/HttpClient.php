@@ -27,6 +27,12 @@ final class HttpClient
 
     private ?RetryHandler $retryHandler;
 
+    private bool $debug = false;
+
+    private array $lastRequest = [];
+
+    private array $lastResponse = [];
+
     /**
      * @param FinvaldaConfig $config SDK configuration
      * @param ClientInterface|null $client Optional Guzzle client instance (for testing or custom configuration)
@@ -54,6 +60,34 @@ final class HttpClient
         $this->logger = $logger;
     }
 
+    /**
+     * Enable or disable debug mode. When enabled, the last request and response
+     * details are captured and available via getLastDebugInfo().
+     */
+    public function setDebug(bool $debug): void
+    {
+        $this->debug = $debug;
+
+        if (! $debug) {
+            $this->lastRequest = [];
+            $this->lastResponse = [];
+        }
+    }
+
+    /**
+     * Get debug information from the last request/response cycle.
+     * Only populated when debug mode is enabled via setDebug(true).
+     *
+     * @return array{request: array, response: array}
+     */
+    public function getLastDebugInfo(): array
+    {
+        return [
+            'request' => $this->lastRequest,
+            'response' => $this->lastResponse,
+        ];
+    }
+
     public function get(string $endpoint, array $params = []): Response
     {
         return $this->request('GET', $endpoint, ['query' => $this->cleanParams($params)]);
@@ -77,12 +111,30 @@ final class HttpClient
         ]);
     }
 
-    public function postOperation(string $endpoint, array $params = [], ?string $body = null): OperationResult
+    public function postOperationJson(string $endpoint, array $data): OperationResult
     {
         try {
             $response = $this->sendRequest('POST', $endpoint, [
-                'query' => $this->cleanParams($params),
-                'body' => $body ?? '',
+                'json' => $data,
+            ]);
+
+            return $this->parseOperationResult($response);
+        } catch (GuzzleException $e) {
+            throw $this->wrapGuzzleException($e);
+        }
+    }
+
+    public function postOperation(string $endpoint, array $params = [], ?string $body = null): OperationResult
+    {
+        try {
+            $data = $this->cleanParams($params);
+
+            if ($body !== null) {
+                $data['xmlstring'] = $body;
+            }
+
+            $response = $this->sendRequest('POST', $endpoint, [
+                'json' => $data,
             ]);
 
             return $this->parseOperationResult($response);
@@ -120,11 +172,28 @@ final class HttpClient
 
             $this->logRequest($method, $endpoint, $options);
 
+            if ($this->debug) {
+                $this->lastRequest = [
+                    'method' => $method,
+                    'url' => rtrim($this->config->baseUrl, '/') . '/' . $endpoint,
+                    'headers' => array_merge($this->buildHeaders(), $options['headers'] ?? []),
+                    'body' => $options['body'] ?? $options['form_params'] ?? $options['json'] ?? null,
+                ];
+            }
+
             $response = $this->client->request($method, $endpoint, $options);
             $body = (string) $response->getBody();
 
             $duration = microtime(true) - $startTime;
             $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration);
+
+            if ($this->debug) {
+                $this->lastResponse = [
+                    'status_code' => $response->getStatusCode(),
+                    'headers' => $response->getHeaders(),
+                    'body' => $body,
+                ];
+            }
 
             return $body;
         };
@@ -145,7 +214,7 @@ final class HttpClient
         $this->logger->debug('Finvalda API request', [
             'method' => $method,
             'endpoint' => $endpoint,
-            'params' => $options['query'] ?? [],
+            'params' => $options['query'] ?? $options['json'] ?? [],
             'has_body' => isset($options['body']) || isset($options['json']),
         ]);
     }
@@ -258,7 +327,6 @@ final class HttpClient
         $headers = [
             'UserName' => $this->config->username,
             'Password' => $this->config->password,
-            'Content-Type' => 'application/json',
             'Accept' => 'application/json',
             'Language' => (string) $this->config->language->value,
         ];

@@ -179,6 +179,22 @@ final class References extends Resource
     }
 
     /**
+     * Create a new product tag value. Calls InsertNewItem with Fvs.PrekesPoz{N} class.
+     *
+     * @param  int  $tagNumber  Tag number (1-20)
+     * @param  array  $data  Tag data (keys: sKodas, sPavadinimas, sInformacija1, sInformacija2)
+     */
+    public function createProductTag(int $tagNumber, array $data): OperationResult
+    {
+        $itemClass = ItemClass::productTag($tagNumber);
+
+        return $this->http->postOperation('InsertNewItem', [
+            'ItemClassName' => $itemClass->value,
+            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
+        ]);
+    }
+
+    /**
      * Add an item to a group. Calls AppendGroup.
      *
      * @param  string  $itemClassName  The Finvalda item class name (e.g., 'Fvs.Klientas')

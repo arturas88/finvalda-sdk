@@ -146,4 +146,44 @@ final class PurchaseBuilder extends OperationBuilder
 
         return $this;
     }
+
+    /**
+     * Set the rounding amount for cent rounding.
+     */
+    public function roundingAmount(float $amount): self
+    {
+        $this->header['dGrApvalinimoSuma'] = $amount;
+
+        return $this;
+    }
+
+    /**
+     * Set whether to export to iVAZ.
+     */
+    public function exportToIvaz(bool $export = true): self
+    {
+        $this->header['nIVAZ'] = $export ? 1 : 0;
+
+        return $this;
+    }
+
+    /**
+     * Set the operation locked flag.
+     */
+    public function locked(bool $locked = true): self
+    {
+        $this->header['nVarna'] = $locked ? 1 : 0;
+
+        return $this;
+    }
+
+    /**
+     * Set the Finvalda employee name.
+     */
+    public function employee(string $employee): self
+    {
+        $this->header['sDarbuotojas'] = $employee;
+
+        return $this;
+    }
 }
