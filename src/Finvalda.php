@@ -107,6 +107,18 @@ final class Finvalda
     }
 
     /**
+     * Test the connection and credentials by calling a lightweight endpoint.
+     */
+    public function ping(): bool
+    {
+        try {
+            return $this->references()->user()->successful();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Get the underlying HTTP client for advanced usage.
      */
     public function getHttpClient(): HttpClient
