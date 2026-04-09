@@ -85,6 +85,28 @@ final class Finvalda
     }
 
     /**
+     * Enable or disable debug mode for request/response capture.
+     *
+     * @return $this
+     */
+    public function setDebug(bool $debug): self
+    {
+        $this->http->setDebug($debug);
+
+        return $this;
+    }
+
+    /**
+     * Get debug information from the last request/response cycle.
+     *
+     * @return array{request: array, response: array}
+     */
+    public function getLastDebugInfo(): array
+    {
+        return $this->http->getLastDebugInfo();
+    }
+
+    /**
      * Get the Stock resource for inventory balance operations.
      *
      * @return Stock

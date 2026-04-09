@@ -193,18 +193,18 @@ Log output includes method, endpoint, parameters, status code, and response time
 Capture full request/response details for troubleshooting:
 
 ```php
-$finvalda->getHttpClient()->setDebug(true);
+$finvalda->setDebug(true);
 
 // Make any API call
 $result = $finvalda->operations()->create(OperationClass::Sale, $data, 'PARAM');
 
 // Inspect what was sent and received
-$debug = $finvalda->getHttpClient()->getLastDebugInfo();
+$debug = $finvalda->getLastDebugInfo();
 print_r($debug['request']);   // method, url, headers, body
 print_r($debug['response']);  // status_code, headers, body
 
 // Disable debug mode (clears stored info)
-$finvalda->getHttpClient()->setDebug(false);
+$finvalda->setDebug(false);
 ```
 
 ### Retry Policy
