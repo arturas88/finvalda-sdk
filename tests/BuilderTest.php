@@ -357,7 +357,7 @@ class BuilderTest extends TestCase
     {
         $data = (new ProductionBuilder())
             ->date('2024-01-15')
-            ->product('FINISHED001')
+            ->finishedProduct('FINISHED001')
             ->documentNumber('PROD-001')
             ->description('Daily production')
             ->addFinishedGood('FINISHED001', warehouse: 'MAIN', quantity: 100, amount: 500.00)

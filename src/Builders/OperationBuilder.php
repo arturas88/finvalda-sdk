@@ -274,6 +274,23 @@ abstract class OperationBuilder
     // --- Product Line Methods ---
 
     /**
+     * Add a product line using a fluent ProductLine DTO.
+     *
+     * ```php
+     * ->product(ProductLine::make('MILTAI', 12.25)
+     *     ->warehouse('CENTR.')
+     *     ->amount(161.16, local: 161.16)
+     *     ->vat(percent: 21, amount: 33.84, amountLocal: 33.84))
+     * ```
+     */
+    public function product(ProductLine $line): static
+    {
+        $this->productLines[] = $line->toArray();
+
+        return $this;
+    }
+
+    /**
      * Add a product line.
      *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
@@ -321,6 +338,22 @@ abstract class OperationBuilder
     }
 
     // --- Service Line Methods ---
+
+    /**
+     * Add a service line using a fluent ServiceLine DTO.
+     *
+     * ```php
+     * ->service(ServiceLine::make('TRANSPORT', 1)
+     *     ->amount(50.00, local: 50.00)
+     *     ->vat(percent: 21, amount: 10.50, amountLocal: 10.50))
+     * ```
+     */
+    public function service(ServiceLine $line): static
+    {
+        $this->serviceLines[] = $line->toArray();
+
+        return $this;
+    }
 
     /**
      * Add a service line.

@@ -87,9 +87,9 @@ final class ProductionBuilder extends OperationBuilder
     // --- Production-specific methods ---
 
     /**
-     * Set the main product/finished goods code.
+     * Set the main product/finished goods code (sGaminys).
      */
-    public function product(string $code): self
+    public function finishedProduct(string $code): self
     {
         $this->header['sGaminys'] = $code;
 

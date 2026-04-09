@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-04-09
+
+### Added
+- **ProductLine DTO**: Fluent value object for building product detail lines with full IDE discoverability — `ProductLine::make('CODE', qty)->warehouse()->amount()->vat()->discount()->object()->objects()->intrastat()->weight()->firstMeasurement()->info()->marked()->set()`
+- **ServiceLine DTO**: Fluent value object for service detail lines — `ServiceLine::make('CODE', qty)->amount()->vat()->discount()->object()->objects()->vatCode()->info()->marked()->set()`
+- **OperationBuilder::product()**: Accepts `ProductLine` DTOs, adds to product lines array
+- **OperationBuilder::service()**: Accepts `ServiceLine` DTOs, adds to service lines array
+- Sparse object support on line DTOs: `->object(1, 'DEPT01')->object(4, '1234567')` — levels 2,3,5,6 remain unset
+- `set()` escape hatch on both DTOs for raw API fields not covered by named methods
+
+### Changed
+- **ProductionBuilder::product()** renamed to **finishedProduct()** to avoid conflict with new `OperationBuilder::product(ProductLine)` method
+
 ## [2.0.0] - 2026-04-09
 
 ### Changed (Breaking)

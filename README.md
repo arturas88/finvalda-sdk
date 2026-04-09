@@ -437,6 +437,61 @@ $result = $finvalda->operations()->create(OperationClass::Sale, [
 ], 'STANDARD');
 ```
 
+### Using Line DTOs (Recommended for Accounting)
+
+For operations that need VAT, amounts in EUR, objects per line, or other detail fields, use `ProductLine` and `ServiceLine` DTOs for full IDE discoverability:
+
+```php
+use Finvalda\Builders\ProductLine;
+use Finvalda\Builders\ServiceLine;
+
+$result = $finvalda->sale()
+    ->client('CLI001')
+    ->date('2024-01-15')
+    ->currency('EUR')
+    ->series('SF')
+    ->employee('JONAS')
+    ->product(
+        ProductLine::make('MILTAI', 12.25)
+            ->warehouse('CENTR.')
+            ->amount(161.16, local: 161.16)
+            ->vat(percent: 21, amount: 33.84, amountLocal: 33.84)
+            ->firstMeasurement()
+    )
+    ->product(
+        ProductLine::make('PIENAS', 5)
+            ->warehouse('CENTR.')
+            ->price(5.00)
+            ->vat(percent: 21)
+            ->discount(percent: 5.0)
+            ->object(1, 'DEPT01')
+            ->object(4, '1234567')        // sparse objects — level 2,3 skipped
+    )
+    ->service(
+        ServiceLine::make('TRANSPORT', 1)
+            ->amount(50.00, local: 50.00)
+            ->vat(percent: 21, amount: 10.50, amountLocal: 10.50)
+            ->object(1, 'DEPT01')
+    )
+    ->save('STANDARD');
+```
+
+The `product()` / `service()` methods accept line DTOs. The existing `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` methods still work — you can mix both styles in the same builder.
+
+**Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+
+**Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+
+For rare/niche API fields not covered by named methods, use the `set()` escape hatch:
+
+```php
+ProductLine::make('SPECIAL', 1)
+    ->warehouse('CENTR.')
+    ->vat(percent: 21)
+    ->set('sAtitSer', 'CERT-001')     // conformity certificate
+    ->set('tGalData', '2025-12-31')   // expiry date
+```
+
 ### Creating a Purchase
 
 ```php
@@ -576,7 +631,7 @@ $result = $finvalda->capitalization()
 ```php
 $result = $finvalda->production()
     ->date('2024-01-15')
-    ->product('FINISHED001')
+    ->finishedProduct('FINISHED001')
     ->documentNumber('PROD-001')
     ->description('Daily production run')
     ->addFinishedGood('FINISHED001', warehouse: 'MAIN', quantity: 100, amount: 500.00)

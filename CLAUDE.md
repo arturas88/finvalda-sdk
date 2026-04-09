@@ -41,6 +41,13 @@ All 23 `OperationClass` enum cases have corresponding builders accessible via `F
 
 Special build structures: ClearingBuilder (debit/credit lines), ProductionBuilder (3 line types), NonAnalyticalBuilder (accounting entries), UvmCancellationBuilder (cancellation refs), InventoryCountBuilder (flat items with mode wrapper).
 
+### Line DTOs
+- `ProductLine::make(code, qty)` — fluent DTO for product detail lines with `->warehouse()`, `->amount()`, `->vat()`, `->discount()`, `->object()`, `->objects()`, `->intrastat()`, `->weight()`, `->firstMeasurement()`, `->info()`, `->marked()`, `->set()`
+- `ServiceLine::make(code, qty)` — fluent DTO for service detail lines (no warehouse/weight/intrastat)
+- Used via `OperationBuilder::product(ProductLine)` and `OperationBuilder::service(ServiceLine)`
+- Existing `addProduct()`/`addService()`/`addProductLine()`/`addServiceLine()` remain for backward compatibility
+- `->set(key, value)` is the escape hatch for raw API field names not covered by named methods
+
 ## File Structure
 ```
 src/
