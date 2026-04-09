@@ -82,6 +82,11 @@ $config = new FinvaldaConfig(
 
 $finvalda = new Finvalda($config);
 
+// Test connection
+if (! $finvalda->ping()) {
+    die('Connection failed — check credentials and server URL');
+}
+
 // Fetch all clients as a typed collection
 $clients = $finvalda->clients()->collect();
 

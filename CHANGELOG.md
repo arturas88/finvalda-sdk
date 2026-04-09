@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-04-09
+
+### Added
+- **Finvalda::ping()**: Test connection and credentials with a single call — returns `true` if the server is reachable and credentials are valid
+- **Finvalda::getHttpClient()**: Access the underlying `HttpClient` for advanced usage
+- **Finvalda::setDebug()** / **getLastDebugInfo()**: Proxy methods for debug mode without reaching into HttpClient
+
 ## [2.1.0] - 2026-04-09
 
 ### Added
