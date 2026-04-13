@@ -42,12 +42,14 @@ final class UvmSalesReservationBuilder extends OperationBuilder
 
     protected function getProductLinesKey(): string
     {
-        return 'UVMPardRezDokPrekeDetEil';
+        // UVMPardRezDok reuses the non-prefixed PardDok line keys server-side.
+        return 'PardDokPrekeDetEil';
     }
 
     protected function getServiceLinesKey(): string
     {
-        return 'UVMPardRezDokPaslaugaDetEil';
+        // UVMPardRezDok reuses the non-prefixed PardDok line keys server-side.
+        return 'PardDokPaslaugaDetEil';
     }
 
     // --- UVM Sales Reservation-specific methods ---

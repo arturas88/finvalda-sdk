@@ -476,8 +476,9 @@ class BuilderTest extends TestCase
         $this->assertSame('2024-01-20', $data['UVMPardRezDok']['tIvykdymoData']);
         $this->assertTrue($data['UVMPardRezDok']['bPVMSkaiciuotiIKaina']);
 
-        $this->assertArrayHasKey('UVMPardRezDokPaslaugaDetEil', $data['UVMPardRezDok']);
-        $this->assertSame('Test description', $data['UVMPardRezDok']['UVMPardRezDokPaslaugaDetEil'][0]['sAprasymas']);
+        $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data['UVMPardRezDok']);
+        $this->assertArrayNotHasKey('UVMPardRezDokPaslaugaDetEil', $data['UVMPardRezDok']);
+        $this->assertSame('Test description', $data['UVMPardRezDok']['PardDokPaslaugaDetEil'][0]['sAprasymas']);
     }
 
     public function test_purchase_order_builder_builds_correct_structure(): void
