@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-04-13
+
+### Fixed
+- **OperationBuilder::build()** now produces the shape Finvalda actually accepts: the operation is wrapped under its class key, with detail-row arrays nested **inside** the wrapper alongside the header fields. Previous versions produced rejected payloads:
+  - 2.3.0 (flat, no wrapper) → `{"error":"Xml string is incomplete, missing important information.","nResult":2012}`
+  - ≤ 2.2.0 (wrapper + sibling detail arrays) → `{"error":"Operation do not has detail rows!","nResult":1037}`
+
+  Verified against a working non-SDK `PardDok` call. New shape:
+
+  ```json
+  {
+    "UVMPardRezDok": {
+      "sKlientas": "...",
+      "tData": "...",
+      "UVMPardRezDokPrekeDetEil":    [ ... ],
+      "UVMPardRezDokPaslaugaDetEil": [ ... ]
+    }
+  }
+  ```
+
+### Reverted
+- The `@deprecated` notice on `OperationBuilder::getHeaderKey()` (added in 2.3.0) — the method is actively used by `build()` again.
+
+### Known limitations (carried over from 2.3.0)
+- Subclass overrides of `build()` (`ClearingBuilder`, `ProductionBuilder`, `NonAnalyticalBuilder`, `UvmCancellationBuilder`, `InflowBuilder`, `DisbursementBuilder`) still emit the wrapper-with-sibling-detail-arrays shape (the same pattern that triggers `nResult:1037`). They likely need the same nest-detail-rows-inside-wrapper fix. `InventoryCountBuilder` is unaffected (different shape).
+
 ## [2.3.0] - 2026-04-13
 
 ### Fixed

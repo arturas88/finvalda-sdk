@@ -172,14 +172,14 @@ class LineTest extends TestCase
             )
             ->build();
 
-        $this->assertSame('CLI001', $data['sKlientas']);
-        $this->assertCount(2, $data['PardDokPrekeDetEil']);
-        $this->assertSame('MILTAI', $data['PardDokPrekeDetEil'][0]['sKodas']);
-        $this->assertSame(1, $data['PardDokPrekeDetEil'][0]['nPirmasMat']);
-        $this->assertSame('PIENAS', $data['PardDokPrekeDetEil'][1]['sKodas']);
-        $this->assertSame('DEPT01', $data['PardDokPrekeDetEil'][1]['sObjektas1']);
-        $this->assertSame('1234567', $data['PardDokPrekeDetEil'][1]['sObjektas4']);
-        $this->assertArrayNotHasKey('sObjektas2', $data['PardDokPrekeDetEil'][1]);
+        $this->assertSame('CLI001', $data['PardDok']['sKlientas']);
+        $this->assertCount(2, $data['PardDok']['PardDokPrekeDetEil']);
+        $this->assertSame('MILTAI', $data['PardDok']['PardDokPrekeDetEil'][0]['sKodas']);
+        $this->assertSame(1, $data['PardDok']['PardDokPrekeDetEil'][0]['nPirmasMat']);
+        $this->assertSame('PIENAS', $data['PardDok']['PardDokPrekeDetEil'][1]['sKodas']);
+        $this->assertSame('DEPT01', $data['PardDok']['PardDokPrekeDetEil'][1]['sObjektas1']);
+        $this->assertSame('1234567', $data['PardDok']['PardDokPrekeDetEil'][1]['sObjektas4']);
+        $this->assertArrayNotHasKey('sObjektas2', $data['PardDok']['PardDokPrekeDetEil'][1]);
     }
 
     public function test_builder_service_method_adds_line(): void
@@ -196,10 +196,10 @@ class LineTest extends TestCase
             )
             ->build();
 
-        $this->assertCount(1, $data['PardDokPaslaugaDetEil']);
-        $this->assertSame('TRANSPORT', $data['PardDokPaslaugaDetEil'][0]['sKodas']);
-        $this->assertSame(50.00, $data['PardDokPaslaugaDetEil'][0]['dSumaV']);
-        $this->assertSame(10.50, $data['PardDokPaslaugaDetEil'][0]['dSumaPVMV']);
+        $this->assertCount(1, $data['PardDok']['PardDokPaslaugaDetEil']);
+        $this->assertSame('TRANSPORT', $data['PardDok']['PardDokPaslaugaDetEil'][0]['sKodas']);
+        $this->assertSame(50.00, $data['PardDok']['PardDokPaslaugaDetEil'][0]['dSumaV']);
+        $this->assertSame(10.50, $data['PardDok']['PardDokPaslaugaDetEil'][0]['dSumaPVMV']);
     }
 
     public function test_builder_mixes_dto_and_legacy_methods(): void
@@ -219,11 +219,11 @@ class LineTest extends TestCase
             ->addService('S2', quantity: 1, price: 15.00)
             ->build();
 
-        $this->assertCount(2, $data['PardDokPrekeDetEil']);
-        $this->assertSame('A', $data['PardDokPrekeDetEil'][0]['sKodas']);
-        $this->assertSame('B', $data['PardDokPrekeDetEil'][1]['sKodas']);
-        $this->assertCount(2, $data['PardDokPaslaugaDetEil']);
-        $this->assertSame('S1', $data['PardDokPaslaugaDetEil'][0]['sKodas']);
-        $this->assertSame('S2', $data['PardDokPaslaugaDetEil'][1]['sKodas']);
+        $this->assertCount(2, $data['PardDok']['PardDokPrekeDetEil']);
+        $this->assertSame('A', $data['PardDok']['PardDokPrekeDetEil'][0]['sKodas']);
+        $this->assertSame('B', $data['PardDok']['PardDokPrekeDetEil'][1]['sKodas']);
+        $this->assertCount(2, $data['PardDok']['PardDokPaslaugaDetEil']);
+        $this->assertSame('S1', $data['PardDok']['PardDokPaslaugaDetEil'][0]['sKodas']);
+        $this->assertSame('S2', $data['PardDok']['PardDokPaslaugaDetEil'][1]['sKodas']);
     }
 }

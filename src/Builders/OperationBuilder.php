@@ -37,11 +37,6 @@ abstract class OperationBuilder
 
     /**
      * Get the header key for the operation data.
-     *
-     * @deprecated since 2.3.0 — `build()` now returns a flat structure (header
-     *             fields merged at the root, detail-row arrays as siblings) so
-     *             `InsertNewOperation` accepts it directly. Subclasses still
-     *             implement this for backwards compatibility.
      */
     abstract protected function getHeaderKey(): string;
 
@@ -78,23 +73,27 @@ abstract class OperationBuilder
     /**
      * Build the complete operation data array.
      *
+     * Finvalda expects the operation wrapped under its class key, with
+     * detail-row arrays nested INSIDE the wrapper (siblings of header fields):
+     *   { "<HeaderKey>": { ...header..., "<DetailKey>": [...] } }
+     *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $data = $this->header;
+        $payload = $this->header;
 
         $productKey = $this->getProductLinesKey();
         if (! empty($this->productLines)) {
-            $data[$productKey] = $this->productLines;
+            $payload[$productKey] = $this->productLines;
         }
 
         $serviceKey = $this->getServiceLinesKey();
         if (! empty($this->serviceLines)) {
-            $data[$serviceKey] = $this->serviceLines;
+            $payload[$serviceKey] = $this->serviceLines;
         }
 
-        return $data;
+        return [$this->getHeaderKey() => $payload];
     }
 
     /**
