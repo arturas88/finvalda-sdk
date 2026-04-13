@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-04-13
+
+### Fixed
+- **OperationBuilder::build()** now returns a flat array — header fields at the root with detail-row arrays as siblings — instead of wrapping the header under `getHeaderKey()`. The Pure endpoint identifies the operation class via the `ItemClassName` query parameter, so the JSON body must not contain an outer class wrapper. Previously, `InsertNewOperation` rejected fluent-built UVM sales reservations (and other parent-`build()` operations) with `{"error":"Operation do not has detail rows!","nResult":1037}` because detail-row arrays sat as top-level siblings to the header wrapper instead of alongside the header fields the server expected.
+
+### Changed (Behavior of `build()` output)
+- Consumers that read `$builder->build()` directly will see a different shape: instead of `['PardDok' => [...header], 'PardDokPrekeDetEil' => [...]]`, the output is now `['sKlientas' => ..., 'tData' => ..., 'PardDokPrekeDetEil' => [...]]`. Code that calls `->save()` is unaffected.
+
+### Deprecated
+- `OperationBuilder::getHeaderKey()` is no longer used by `build()`. It remains in place to preserve subclass contracts.
+
+### Known limitations
+- Subclass overrides of `build()` (`ClearingBuilder`, `ProductionBuilder`, `NonAnalyticalBuilder`, `UvmCancellationBuilder`, `InflowBuilder`, `DisbursementBuilder`) still wrap the header under `getHeaderKey()`. If those operations also fail with `nResult:1037`, they need the same flat-shape fix applied to their own `build()` methods. `InventoryCountBuilder` already emits its own non-wrapper shape (`{mode, Inventorizacija}`) and is unaffected.
+
 ## [2.2.0] - 2026-04-09
 
 ### Added

@@ -172,7 +172,7 @@ class LineTest extends TestCase
             )
             ->build();
 
-        $this->assertSame('CLI001', $data['PardDok']['sKlientas']);
+        $this->assertSame('CLI001', $data['sKlientas']);
         $this->assertCount(2, $data['PardDokPrekeDetEil']);
         $this->assertSame('MILTAI', $data['PardDokPrekeDetEil'][0]['sKodas']);
         $this->assertSame(1, $data['PardDokPrekeDetEil'][0]['nPirmasMat']);

@@ -37,6 +37,11 @@ abstract class OperationBuilder
 
     /**
      * Get the header key for the operation data.
+     *
+     * @deprecated since 2.3.0 — `build()` now returns a flat structure (header
+     *             fields merged at the root, detail-row arrays as siblings) so
+     *             `InsertNewOperation` accepts it directly. Subclasses still
+     *             implement this for backwards compatibility.
      */
     abstract protected function getHeaderKey(): string;
 
@@ -77,21 +82,13 @@ abstract class OperationBuilder
      */
     public function build(): array
     {
-        $data = [];
+        $data = $this->header;
 
-        // Add header
-        $headerKey = $this->getHeaderKey();
-        if (! empty($this->header)) {
-            $data[$headerKey] = $this->header;
-        }
-
-        // Add product lines
         $productKey = $this->getProductLinesKey();
         if (! empty($this->productLines)) {
             $data[$productKey] = $this->productLines;
         }
 
-        // Add service lines
         $serviceKey = $this->getServiceLinesKey();
         if (! empty($this->serviceLines)) {
             $data[$serviceKey] = $this->serviceLines;

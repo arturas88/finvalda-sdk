@@ -212,16 +212,18 @@ class BuilderTest extends TestCase
             ->addService('SVC001', quantity: 1, amount: 50.00)
             ->build();
 
-        $this->assertArrayHasKey('PardDok', $data);
-        $this->assertSame('CLI001', $data['PardDok']['sKlientas']);
-        $this->assertSame('2024-01-15', $data['PardDok']['tData']);
-        $this->assertSame('MAIN', $data['PardDok']['sSandelis']);
-        $this->assertSame('EUR', $data['PardDok']['sValiuta']);
-        $this->assertSame(30, $data['PardDok']['nAtsiskDien']);
-        $this->assertSame(5.0, $data['PardDok']['dNuolaida']);
-        $this->assertTrue($data['PardDok']['bPVMSkaiciuotiIKaina']);
-        $this->assertSame('SF', $data['PardDok']['sSerija']);
-        $this->assertSame('2024-01-20', $data['PardDok']['tIvykdymoData']);
+        // build() now returns a flat structure: header fields at root,
+        // detail-row arrays as sibling keys.
+        $this->assertArrayNotHasKey('PardDok', $data);
+        $this->assertSame('CLI001', $data['sKlientas']);
+        $this->assertSame('2024-01-15', $data['tData']);
+        $this->assertSame('MAIN', $data['sSandelis']);
+        $this->assertSame('EUR', $data['sValiuta']);
+        $this->assertSame(30, $data['nAtsiskDien']);
+        $this->assertSame(5.0, $data['dNuolaida']);
+        $this->assertTrue($data['bPVMSkaiciuotiIKaina']);
+        $this->assertSame('SF', $data['sSerija']);
+        $this->assertSame('2024-01-20', $data['tIvykdymoData']);
 
         $this->assertArrayHasKey('PardDokPrekeDetEil', $data);
         $this->assertCount(1, $data['PardDokPrekeDetEil']);
@@ -232,7 +234,7 @@ class BuilderTest extends TestCase
         $this->assertSame('SVC001', $data['PardDokPaslaugaDetEil'][0]['sKodas']);
     }
 
-    public function test_sale_short_builds_with_short_header_key(): void
+    public function test_sale_short_builds_flat_structure(): void
     {
         $data = (new SaleBuilder())
             ->short()
@@ -243,11 +245,13 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 10, price: 19.99)
             ->build();
 
-        $this->assertArrayHasKey('TrumpasPardDok', $data);
+        // Flat structure has no header wrapper key — class is conveyed via
+        // ItemClassName query param, which short() flips to TrumpasPardDok.
+        $this->assertArrayNotHasKey('TrumpasPardDok', $data);
         $this->assertArrayNotHasKey('PardDok', $data);
-        $this->assertSame('CLI001', $data['TrumpasPardDok']['sKlientas']);
-        $this->assertSame('SF', $data['TrumpasPardDok']['sSerija']);
-        $this->assertSame('S', $data['TrumpasPardDok']['sDokRusis']);
+        $this->assertSame('CLI001', $data['sKlientas']);
+        $this->assertSame('SF', $data['sSerija']);
+        $this->assertSame('S', $data['sDokRusis']);
     }
 
     public function test_sales_return_short_uses_pard_dok_line_keys(): void
@@ -259,9 +263,9 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 2, price: 19.99)
             ->build();
 
-        $this->assertArrayHasKey('TrumpasPardGrazDok', $data);
         $this->assertArrayHasKey('PardDokPrekeDetEil', $data);
         $this->assertArrayNotHasKey('PardGrazDokPrekeDetEil', $data);
+        $this->assertArrayNotHasKey('TrumpasPardGrazDok', $data);
     }
 
     public function test_sales_return_full_uses_graz_dok_line_keys(): void
@@ -272,8 +276,8 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 2, price: 19.99)
             ->build();
 
-        $this->assertArrayHasKey('PardGrazDok', $data);
         $this->assertArrayHasKey('PardGrazDokPrekeDetEil', $data);
+        $this->assertArrayNotHasKey('PardGrazDok', $data);
     }
 
     public function test_purchase_return_short_uses_pirk_dok_line_keys(): void
@@ -285,9 +289,9 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 10, price: 9.99)
             ->build();
 
-        $this->assertArrayHasKey('TrumpasPirkGrazDok', $data);
         $this->assertArrayHasKey('PirkDokPrekeDetEil', $data);
         $this->assertArrayNotHasKey('PirkGrazDokPrekeDetEil', $data);
+        $this->assertArrayNotHasKey('TrumpasPirkGrazDok', $data);
     }
 
     public function test_write_off_builder_builds_correct_structure(): void
@@ -300,10 +304,10 @@ class BuilderTest extends TestCase
             ->addItem('PRD001', quantity: 5, warehouse: 'MAIN', account: '6110')
             ->build();
 
-        $this->assertArrayHasKey('NurasymasDok', $data);
-        $this->assertSame('Monthly write-off', $data['NurasymasDok']['sPavadinimas']);
-        $this->assertSame('Damaged goods', $data['NurasymasDok']['sPastaba']);
-        $this->assertSame('John', $data['NurasymasDok']['sDarbuotojas']);
+        $this->assertArrayNotHasKey('NurasymasDok', $data);
+        $this->assertSame('Monthly write-off', $data['sPavadinimas']);
+        $this->assertSame('Damaged goods', $data['sPastaba']);
+        $this->assertSame('John', $data['sDarbuotojas']);
 
         $this->assertArrayHasKey('NurasymasDokDetEil', $data);
         $this->assertCount(1, $data['NurasymasDokDetEil']);
@@ -321,7 +325,7 @@ class BuilderTest extends TestCase
             ->addItem('PRD001', quantity: 10, amount: 199.90, warehouse: 'MAIN', account: '2010')
             ->build();
 
-        $this->assertArrayHasKey('PajamavimasDok', $data);
+        $this->assertArrayNotHasKey('PajamavimasDok', $data);
         $this->assertArrayHasKey('PajamavimasDokDetEil', $data);
         $this->assertSame(199.90, $data['PajamavimasDokDetEil'][0]['dSuma']);
     }
@@ -469,10 +473,10 @@ class BuilderTest extends TestCase
             ])
             ->build();
 
-        $this->assertArrayHasKey('UVMPardRezDok', $data);
-        $this->assertSame('PARDSERV', $data['UVMPardRezDok']['sOpTipas']);
-        $this->assertSame('2024-01-20', $data['UVMPardRezDok']['tIvykdymoData']);
-        $this->assertTrue($data['UVMPardRezDok']['bPVMSkaiciuotiIKaina']);
+        $this->assertArrayNotHasKey('UVMPardRezDok', $data);
+        $this->assertSame('PARDSERV', $data['sOpTipas']);
+        $this->assertSame('2024-01-20', $data['tIvykdymoData']);
+        $this->assertTrue($data['bPVMSkaiciuotiIKaina']);
 
         $this->assertArrayHasKey('UVMPardRezDokPaslaugaDetEil', $data);
         $this->assertSame('Test description', $data['UVMPardRezDokPaslaugaDetEil'][0]['sAprasymas']);
@@ -488,13 +492,13 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
             ->build();
 
-        $this->assertArrayHasKey('PirkUzsDok', $data);
-        $this->assertSame('Order for supplies', $data['PirkUzsDok']['sPavadinimas']);
+        $this->assertArrayNotHasKey('PirkUzsDok', $data);
+        $this->assertSame('Order for supplies', $data['sPavadinimas']);
 
         $this->assertArrayHasKey('PirkDokPrekeDetEil', $data);
     }
 
-    public function test_purchase_order_short_builds_with_short_header_key(): void
+    public function test_purchase_order_short_builds_flat_structure(): void
     {
         $data = (new PurchaseOrderBuilder())
             ->short()
@@ -504,8 +508,10 @@ class BuilderTest extends TestCase
             ->addProduct('PRD001', quantity: 50, price: 5.00)
             ->build();
 
-        $this->assertArrayHasKey('TrumpasPirkUzsDok', $data);
+        $this->assertArrayNotHasKey('TrumpasPirkUzsDok', $data);
         $this->assertArrayNotHasKey('PirkUzsDok', $data);
+        $this->assertSame('SUP001', $data['sKlientas']);
+        $this->assertSame('UZS', $data['sSerija']);
     }
 
     // --- Save throws without finvalda or parameter ---
@@ -542,9 +548,9 @@ class BuilderTest extends TestCase
             ->objects([1 => 'OBJ1', 3 => 'OBJ3', 6 => 'OBJ6'])
             ->build();
 
-        $this->assertSame('OBJ1', $data['PardDok']['sObj1']);
-        $this->assertSame('OBJ3', $data['PardDok']['sObj3']);
-        $this->assertSame('OBJ6', $data['PardDok']['sObj6']);
-        $this->assertArrayNotHasKey('sObj2', $data['PardDok']);
+        $this->assertSame('OBJ1', $data['sObj1']);
+        $this->assertSame('OBJ3', $data['sObj3']);
+        $this->assertSame('OBJ6', $data['sObj6']);
+        $this->assertArrayNotHasKey('sObj2', $data);
     }
 }
