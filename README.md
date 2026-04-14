@@ -430,8 +430,8 @@ $result = $finvalda->operations()->create(OperationClass::Sale, [
     'nAtsiskDien' => 30,
     'nKainosTipas' => 1,
     'dNuolaida' => 5.0,
-    'sObj1' => 'DEPT01',
-    'sObj2' => 'PROJ01',
+    'sObjektas1' => 'DEPT01',
+    'sObjektas2' => 'PROJ01',
     'PardDokPrekeDetEil' => [
         ['sKodas' => 'PRD001', 'nKiekis' => 10, 'dKaina' => 19.99],
         ['sKodas' => 'PRD002', 'nKiekis' => 5, 'dSumaV' => 49.95],
@@ -715,7 +715,7 @@ $result = $finvalda->uvmSalesReservation()
     ->object1('SERVISAS')
     ->description('Workshop order #30608')
     ->addService('5054', quantity: 1, price: 0, additionalData: [
-        'sAprasymas' => 'Service description',
+        'sPapInf' => 'Service description',
     ])
     ->save('WORKSHOP');
 
