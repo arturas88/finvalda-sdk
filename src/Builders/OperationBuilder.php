@@ -186,7 +186,7 @@ abstract class OperationBuilder
      */
     public function object1(string $code): static
     {
-        $this->header['sObj1'] = $code;
+        $this->header['sObjektas1'] = $code;
 
         return $this;
     }
@@ -196,7 +196,7 @@ abstract class OperationBuilder
      */
     public function object2(string $code): static
     {
-        $this->header['sObj2'] = $code;
+        $this->header['sObjektas2'] = $code;
 
         return $this;
     }
@@ -206,7 +206,7 @@ abstract class OperationBuilder
      */
     public function object3(string $code): static
     {
-        $this->header['sObj3'] = $code;
+        $this->header['sObjektas3'] = $code;
 
         return $this;
     }
@@ -216,7 +216,7 @@ abstract class OperationBuilder
      */
     public function object4(string $code): static
     {
-        $this->header['sObj4'] = $code;
+        $this->header['sObjektas4'] = $code;
 
         return $this;
     }
@@ -226,7 +226,7 @@ abstract class OperationBuilder
      */
     public function object5(string $code): static
     {
-        $this->header['sObj5'] = $code;
+        $this->header['sObjektas5'] = $code;
 
         return $this;
     }
@@ -236,7 +236,7 @@ abstract class OperationBuilder
      */
     public function object6(string $code): static
     {
-        $this->header['sObj6'] = $code;
+        $this->header['sObjektas6'] = $code;
 
         return $this;
     }
@@ -250,7 +250,7 @@ abstract class OperationBuilder
     {
         foreach ($objects as $level => $code) {
             if ($level >= 1 && $level <= 6) {
-                $this->header["sObj{$level}"] = $code;
+                $this->header["sObjektas{$level}"] = $code;
             }
         }
 

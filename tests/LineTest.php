@@ -116,7 +116,7 @@ class LineTest extends TestCase
         $line = ServiceLine::make('TRANSPORT', 1)->toArray();
 
         $this->assertSame('TRANSPORT', $line['sKodas']);
-        $this->assertSame(1.0, $line['nKiekis']);
+        $this->assertSame(100, $line['nKiekis']);
     }
 
     public function test_service_line_full(): void

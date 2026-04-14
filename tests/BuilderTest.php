@@ -467,7 +467,7 @@ class BuilderTest extends TestCase
             ->currency('EUR')
             ->vatIncluded()
             ->addService('5054', quantity: 1, price: 0, additionalData: [
-                'sAprasymas' => 'Test description',
+                'sPapInf' => 'Test description',
             ])
             ->build();
 
@@ -478,7 +478,7 @@ class BuilderTest extends TestCase
 
         $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data['UVMPardRezDok']);
         $this->assertArrayNotHasKey('UVMPardRezDokPaslaugaDetEil', $data['UVMPardRezDok']);
-        $this->assertSame('Test description', $data['UVMPardRezDok']['PardDokPaslaugaDetEil'][0]['sAprasymas']);
+        $this->assertSame('Test description', $data['UVMPardRezDok']['PardDokPaslaugaDetEil'][0]['sPapInf']);
     }
 
     public function test_purchase_order_builder_builds_correct_structure(): void
@@ -547,9 +547,9 @@ class BuilderTest extends TestCase
             ->objects([1 => 'OBJ1', 3 => 'OBJ3', 6 => 'OBJ6'])
             ->build();
 
-        $this->assertSame('OBJ1', $data['PardDok']['sObj1']);
-        $this->assertSame('OBJ3', $data['PardDok']['sObj3']);
-        $this->assertSame('OBJ6', $data['PardDok']['sObj6']);
-        $this->assertArrayNotHasKey('sObj2', $data['PardDok']);
+        $this->assertSame('OBJ1', $data['PardDok']['sObjektas1']);
+        $this->assertSame('OBJ3', $data['PardDok']['sObjektas3']);
+        $this->assertSame('OBJ6', $data['PardDok']['sObjektas6']);
+        $this->assertArrayNotHasKey('sObjektas2', $data['PardDok']);
     }
 }

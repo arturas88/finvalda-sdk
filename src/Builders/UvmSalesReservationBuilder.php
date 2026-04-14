@@ -23,7 +23,7 @@ use Finvalda\Enums\OperationClass;
  *     ->object4('3186192')
  *     ->description('Workshop order #30608')
  *     ->addService('5054', quantity: 1, price: 0, additionalData: [
- *         'sAprasymas' => 'Koja užspausta',
+ *         'sPapInf' => 'Koja užspausta',
  *     ])
  *     ->save('WORKSHOP');
  * ```

@@ -24,7 +24,7 @@ final class ServiceLine
     {
         $this->data = [
             'sKodas' => $code,
-            'nKiekis' => $quantity,
+            'nKiekis' => (int) ($quantity * 100),
         ];
     }
 
@@ -117,6 +117,16 @@ final class ServiceLine
         foreach ($map as $level => $code) {
             $this->data["sObjektas{$level}"] = $code;
         }
+
+        return $this;
+    }
+
+    /**
+     * Set the description/additional info text (sPapInf).
+     */
+    public function description(string $text): self
+    {
+        $this->data['sPapInf'] = $text;
 
         return $this;
     }
