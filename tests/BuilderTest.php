@@ -467,7 +467,7 @@ class BuilderTest extends TestCase
             ->currency('EUR')
             ->vatIncluded()
             ->addService('5054', quantity: 1, price: 0, additionalData: [
-                'sPapInf' => 'Test description',
+                'sPavadinimas' => 'Test description',
             ])
             ->build();
 
@@ -478,7 +478,7 @@ class BuilderTest extends TestCase
 
         $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data['UVMPardRezDok']);
         $this->assertArrayNotHasKey('UVMPardRezDokPaslaugaDetEil', $data['UVMPardRezDok']);
-        $this->assertSame('Test description', $data['UVMPardRezDok']['PardDokPaslaugaDetEil'][0]['sPapInf']);
+        $this->assertSame('Test description', $data['UVMPardRezDok']['PardDokPaslaugaDetEil'][0]['sPavadinimas']);
     }
 
     public function test_purchase_order_builder_builds_correct_structure(): void

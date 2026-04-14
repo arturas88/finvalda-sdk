@@ -715,7 +715,7 @@ $result = $finvalda->uvmSalesReservation()
     ->object1('SERVISAS')
     ->description('Workshop order #30608')
     ->addService('5054', quantity: 1, price: 0, additionalData: [
-        'sPapInf' => 'Service description',
+        'sPavadinimas' => 'Service description',
     ])
     ->save('WORKSHOP');
 

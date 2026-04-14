@@ -122,11 +122,11 @@ final class ServiceLine
     }
 
     /**
-     * Set the description/additional info text (sPapInf).
+     * Set the description (sPavadinimas).
      */
     public function description(string $text): self
     {
-        $this->data['sPapInf'] = $text;
+        $this->data['sPavadinimas'] = $text;
 
         return $this;
     }
