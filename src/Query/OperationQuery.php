@@ -10,12 +10,23 @@ use Finvalda\Enums\OpClass;
 /**
  * Fluent query builder for operation queries (GetOperations).
  *
+ * Builds the `opReadParams` JSON body expected by GetOperations:
+ * ```
+ * {
+ *   "fullOp": false,
+ *   "filter": { "Journal": "...", "OpDateFrom": "...", ... },
+ *   "columns":    { "column": [...] },
+ *   "columnsDet": { "column": [...] }
+ * }
+ * ```
+ *
  * Usage:
  * ```php
  * $query = OperationQuery::sales()
  *     ->journal('PARD')
  *     ->dateRange('2024-01-01', '2024-12-31')
- *     ->number(123);
+ *     ->number(123)
+ *     ->columns('op_number', 'op_date', 'amount');
  *
  * $results = $finvalda->operations()->query($query->opClass(), $query->build());
  * ```
@@ -23,6 +34,14 @@ use Finvalda\Enums\OpClass;
 final class OperationQuery extends QueryBuilder
 {
     private OpClass $opClass;
+
+    private bool $fullOp = false;
+
+    /** @var array<int, string> */
+    private array $columns = [];
+
+    /** @var array<int, string> */
+    private array $columnsDet = [];
 
     private function __construct(OpClass $class)
     {
@@ -97,7 +116,7 @@ final class OperationQuery extends QueryBuilder
         return new self($class);
     }
 
-    // --- Query parameters ---
+    // --- Filter parameters (nested under "filter" in the payload) ---
 
     /**
      * Filter by journal code.
@@ -112,7 +131,7 @@ final class OperationQuery extends QueryBuilder
      */
     public function number(int $number): self
     {
-        return $this->set('Number', $number);
+        return $this->set('OpNumber', $number);
     }
 
     /**
@@ -124,11 +143,43 @@ final class OperationQuery extends QueryBuilder
     }
 
     /**
+     * Filter by document order number.
+     */
+    public function orderNumber(string $orderNumber): self
+    {
+        return $this->set('OrderNumber', $orderNumber);
+    }
+
+    /**
      * Filter by client code.
      */
     public function client(string $code): self
     {
         return $this->set('Client', $code);
+    }
+
+    /**
+     * Filter by client group code.
+     */
+    public function clientGroup(string $code): self
+    {
+        return $this->set('ClientGroup', $code);
+    }
+
+    /**
+     * Filter by operation type.
+     */
+    public function opType(string $code): self
+    {
+        return $this->set('OpType', $code);
+    }
+
+    /**
+     * Filter by operation type group.
+     */
+    public function opTypeGroup(string $code): self
+    {
+        return $this->set('OpTypeGroup', $code);
     }
 
     /**
@@ -140,11 +191,11 @@ final class OperationQuery extends QueryBuilder
     }
 
     /**
-     * Filter by product code.
+     * Filter by product/goods code.
      */
     public function product(string $code): self
     {
-        return $this->set('Product', $code);
+        return $this->set('GoodsCode', $code);
     }
 
     /**
@@ -154,8 +205,8 @@ final class OperationQuery extends QueryBuilder
         DateTimeInterface|string|null $from,
         DateTimeInterface|string|null $to,
     ): self {
-        $this->setDate('DateFrom', $from);
-        $this->setDate('DateTo', $to);
+        $this->setDate('OpDateFrom', $from);
+        $this->setDate('OpDateTill', $to);
 
         return $this;
     }
@@ -165,7 +216,7 @@ final class OperationQuery extends QueryBuilder
      */
     public function dateFrom(DateTimeInterface|string $date): self
     {
-        return $this->setDate('DateFrom', $date);
+        return $this->setDate('OpDateFrom', $date);
     }
 
     /**
@@ -173,7 +224,7 @@ final class OperationQuery extends QueryBuilder
      */
     public function dateTo(DateTimeInterface|string $date): self
     {
-        return $this->setDate('DateTo', $date);
+        return $this->setDate('OpDateTill', $date);
     }
 
     /**
@@ -181,7 +232,7 @@ final class OperationQuery extends QueryBuilder
      */
     public function modifiedSince(DateTimeInterface|string $date): self
     {
-        return $this->setDate('DateEdited', $date);
+        return $this->setDate('DateEditedFrom', $date);
     }
 
     /**
@@ -238,5 +289,63 @@ final class OperationQuery extends QueryBuilder
     public function object6(string $code): self
     {
         return $this->set('Object6', $code);
+    }
+
+    // --- Payload-level parameters (not inside "filter") ---
+
+    /**
+     * Return operation headers together with detail lines in a single response.
+     */
+    public function fullOp(bool $value = true): self
+    {
+        $this->fullOp = $value;
+
+        return $this;
+    }
+
+    /**
+     * Select which header columns to return. Required by the API — an empty
+     * columns list produces a "Value cannot be null" error.
+     */
+    public function columns(string ...$names): self
+    {
+        $this->columns = array_values(array_unique(array_merge($this->columns, $names)));
+
+        return $this;
+    }
+
+    /**
+     * Select which detail columns to return. Only used when fullOp is true
+     * or when the OpClass is a *Det variant.
+     */
+    public function columnsDet(string ...$names): self
+    {
+        $this->columnsDet = array_values(array_unique(array_merge($this->columnsDet, $names)));
+
+        return $this;
+    }
+
+    /**
+     * Build the `opReadParams` payload (without the OpClass, which is passed
+     * separately to Operations::query()).
+     *
+     * @return array<string, mixed>
+     */
+    public function build(): array
+    {
+        $payload = [
+            'fullOp' => $this->fullOp,
+            'filter' => array_filter($this->params, fn ($v) => $v !== null),
+        ];
+
+        if ($this->columns !== []) {
+            $payload['columns'] = ['column' => $this->columns];
+        }
+
+        if ($this->columnsDet !== []) {
+            $payload['columnsDet'] = ['column' => $this->columnsDet];
+        }
+
+        return $payload;
     }
 }
