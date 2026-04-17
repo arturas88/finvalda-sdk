@@ -254,6 +254,15 @@ final class HttpClient
         // Extract items from common response shapes
         $items = $data['items'] ?? $data['Table'] ?? $data;
 
+        // Unwrap single-key responses where value is a sequential list
+        // (e.g. {"Paslaugos": [...]}, {"Prekes": [...]}, {"Klientai": [...]})
+        if (is_array($items) && count($items) === 1) {
+            $first = reset($items);
+            if (is_array($first) && array_is_list($first)) {
+                $items = $first;
+            }
+        }
+
         return new Response(
             accessResult: $accessResult,
             data: is_array($items) ? $items : [],
