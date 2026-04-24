@@ -25,6 +25,10 @@ final class RetryHandler
     /**
      * Execute a callable with retry logic.
      *
+     * On a non-retryable exception, the original exception is thrown immediately.
+     * On a retryable exception after all attempts are exhausted, a
+     * RetryExhaustedException is thrown with the last exception as `previous`.
+     *
      * @template T
      *
      * @param  callable(): T  $callable
@@ -51,17 +55,17 @@ final class RetryHandler
 
             try {
                 return $callable();
-            } catch (Throwable $e) {
-                $lastException = $e;
+            } catch (Throwable $exception) {
+                $lastException = $exception;
 
-                if (! $this->shouldRetry($e, $attempt)) {
-                    throw $e;
+                if (! $this->isRetryable($exception)) {
+                    throw $exception;
                 }
 
                 $this->logger?->warning('Request failed, will retry', [
                     'attempt' => $attempt + 1,
-                    'error' => $e->getMessage(),
-                    'exception_class' => $e::class,
+                    'error' => $exception->getMessage(),
+                    'exception_class' => $exception::class,
                 ]);
             }
 
@@ -76,29 +80,21 @@ final class RetryHandler
     }
 
     /**
-     * Determine if we should retry based on the exception.
+     * Determine if an exception is eligible for retry based on the policy.
      */
-    private function shouldRetry(Throwable $e, int $currentAttempt): bool
+    private function isRetryable(Throwable $exception): bool
     {
-        // Don't retry if we've exhausted attempts
-        if ($currentAttempt + 1 >= $this->policy->maxAttempts) {
-            return false;
-        }
-
-        // Network errors (connection failures, timeouts)
-        if ($e instanceof ConnectException || $e instanceof NetworkException) {
+        if ($exception instanceof ConnectException || $exception instanceof NetworkException) {
             return $this->policy->retryOnNetworkError;
         }
 
-        // HTTP errors with retryable status codes
-        if ($e instanceof RequestException && $e->hasResponse()) {
-            $statusCode = $e->getResponse()->getStatusCode();
+        if ($exception instanceof RequestException && $exception->hasResponse()) {
+            $statusCode = $exception->getResponse()->getStatusCode();
 
             return $this->policy->isRetryableStatusCode($statusCode);
         }
 
-        // Server exceptions (5xx mapped by HttpClient)
-        if ($e instanceof ServerException) {
+        if ($exception instanceof ServerException) {
             return true;
         }
 

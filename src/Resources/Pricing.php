@@ -399,11 +399,14 @@ final class Pricing extends Resource
     /**
      * Get the recommended price for a client + item combination. Calls GetRecommendedPrice.
      *
-     * @param  array  $params  Request parameters (keys: ClientCode, ItemCode, Quantity, etc.)
-     * @return Response
+     * The API expects parameters wrapped in an `inParams` object.
+     *
+     * @param  array<string, mixed>  $params  Request parameters (keys: invoiceType, invoiceDate, itemType, itemCode, itemAmount, warehouseCode, clientCode, clientAdressCode, finUser)
      */
     public function recommendedPrice(array $params): Response
     {
-        return $this->http->postJson('GetRecommendedPrice', $params);
+        return $this->http->postJson('GetRecommendedPrice', [
+            'inParams' => $params,
+        ]);
     }
 }

@@ -108,15 +108,14 @@ final class Clients extends Resource
     }
 
     /**
-     * Get a client's email address. Calls GetKlientasEMail.
+     * Find a client by email address. Calls GetKlientasEMail.
      *
-     * @param  string  $clientCode  The client code
-     * @return Response
+     * @param  string  $email  The client's email address
      */
-    public function email(string $clientCode): Response
+    public function findByEmail(string $email): Response
     {
         return $this->http->get('GetKlientasEMail', [
-            'sKliKod' => $clientCode,
+            'sEMail' => $email,
         ]);
     }
 

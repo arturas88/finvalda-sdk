@@ -76,17 +76,23 @@ final class Operations extends Resource
     }
 
     /**
-     * Read operations with query string filtering. Calls GetOperations.
+     * Read operations via GET with JSON-encoded opReadParams. Calls GetOperations.
      *
-     * @param  OpClass  $class  The operation class to query (e.g., Sales, Purchases, SalesDet)
-     * @param  array  $filters  Additional filter parameters (keys: Journal, DateFrom, DateTo, Number, etc.)
-     * @return Response
+     * The Pure service expects opReadParams as a single xml/json string query
+     * parameter, not flattened query params.
+     *
+     * @param  OpClass  $class  The operation class to query
+     * @param  array<string, mixed>  $filters  Additional opReadParams keys (fullOp, filter, columns, columnsDet)
+     *
+     * @throws \JsonException
      */
     public function get(OpClass $class, array $filters = []): Response
     {
-        $params = array_merge(['OpClass' => $class->value], $filters);
+        $opReadParams = array_merge(['OpClass' => $class->value], $filters);
 
-        return $this->http->get('GetOperations', $params);
+        return $this->http->get('GetOperations', [
+            'opReadParams' => $this->jsonEncode($opReadParams),
+        ]);
     }
 
     /**
@@ -170,26 +176,47 @@ final class Operations extends Resource
     /**
      * Change the journal of an existing operation. Calls ChangeJournal.
      *
-     * @param  array|string  $data  Keys: sJournal, nOpNumber, sJournalNew
-     * @return OperationResult
+     * @param  array<string, mixed>|string  $data  Keys: sJournal, nOpNumber, sJournalNew
+     *
+     * @throws \JsonException
      */
     public function changeJournal(array|string $data): OperationResult
     {
-        $data = is_string($data) ? json_decode($data, true) : $data;
-
-        return $this->http->postOperationJson('ChangeJournal', $data);
+        return $this->http->postOperationJson('ChangeJournal', $this->decodeJsonInput($data));
     }
 
     /**
      * Copy/duplicate an existing operation. Calls CopyOperation.
      *
-     * @param  array|string  $data  Keys: sParameter, sJournal, nOpNumber, sJournalNew, bDeleteSourceOp, bKeepDocument, sNewDocument, sNewSeries, nCopyDocDate
-     * @return OperationResult
+     * @param  array<string, mixed>|string  $data  Keys: sParameter, sJournal, nOpNumber, sJournalNew, bDeleteSourceOp, bKeepDocument, sNewDocument, sNewSeries, nCopyDocDate
+     *
+     * @throws \JsonException
      */
     public function copy(array|string $data): OperationResult
     {
-        $data = is_string($data) ? json_decode($data, true) : $data;
+        return $this->http->postOperationJson('CopyOperation', [
+            'input' => $this->decodeJsonInput($data),
+        ]);
+    }
 
-        return $this->http->postOperationJson('CopyOperation', ['input' => $data]);
+    /**
+     * @param  array<string, mixed>|string  $data
+     * @return array<string, mixed>
+     *
+     * @throws \JsonException
+     */
+    private function decodeJsonInput(array|string $data): array
+    {
+        if (is_array($data)) {
+            return $data;
+        }
+
+        $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
+
+        if (! is_array($decoded)) {
+            throw new \JsonException('JSON input must decode to an object/array');
+        }
+
+        return $decoded;
     }
 }

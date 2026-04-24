@@ -970,8 +970,8 @@ $clients = $finvalda->clients()->collect();             // Returns ClientCollect
 $response = $finvalda->clients()->all();
 $response = $finvalda->clients()->all(modifiedSince: '2024-01-01');
 
-// Client email
-$response = $finvalda->clients()->email('CLIENT001');
+// Find client by email
+$response = $finvalda->clients()->findByEmail('client@example.com');
 
 // Client types and tags (use enum for type-safety)
 $response = $finvalda->clients()->typesAndTags(ClientTypeId::Type);   // Client types
@@ -1046,8 +1046,11 @@ $response = $finvalda->products()->listExtended(
 // All products
 $response = $finvalda->products()->all(modifiedSince: '2024-01-01');
 
-// Product image
+// Product image (envelope with base64 `fileContents`)
 $response = $finvalda->products()->image('PROD001');
+
+// Product image as decoded JPG bytes
+$jpg = $finvalda->products()->imageJpeg('PROD001');
 
 // Products in warehouse
 $response = $finvalda->products()->inWarehouse('WH01', modifiedSince: '2024-01-01');
@@ -1264,10 +1267,12 @@ $query = OperationQuery::sales()
 
 $response = $finvalda->operations()->query($query->opClass(), $query->build());
 
-// Or with arrays
+// Or with arrays (sent as opReadParams, filter keys must be nested under `filter`)
 $response = $finvalda->operations()->get(OpClass::Sales, [
-    'OpDateFrom' => '2024-01-01',
-    'OpDateTill' => '2024-12-31',
+    'filter' => [
+        'OpDateFrom' => '2024-01-01',
+        'OpDateTill' => '2024-12-31',
+    ],
 ]);
 
 // Lock / unlock operations
@@ -1370,10 +1375,27 @@ $result = $finvalda->documents()->delete('invoice.pdf');
 ### Reports & Invoices
 
 ```php
-$response = $finvalda->reports()->makeInvoice('param_string');
-$response = $finvalda->reports()->makeReport('param_string');
+// Recommended: pass params as an array and get decoded PDF bytes back
+$pdf = $finvalda->reports()->makeInvoicePdf([
+    'FakturosKodas' => 'PARD_01',
+    'sSerija' => 'AAA',
+    'sDokumentas' => '123',
+    'sZurnalas' => '$PARD.',
+    'nNumeris' => 45151,
+]);
+
+$pdf = $finvalda->reports()->makeReportPdf([
+    'code' => 'PARDSAR_01',
+    'DateFrom' => '2024-01-01',
+    'DateTo' => '2024-01-31',
+]);
+
+// Low-level response methods remain available when you need the API envelope
+$response = $finvalda->reports()->makeInvoice(['FakturosKodas' => 'PARD_01']);
+$response = $finvalda->reports()->makeReport(['code' => 'PARDSAR_01']);
 $response = $finvalda->reports()->autoReports();
 $response = $finvalda->reports()->autoReport('report_filename.pdf');
+$pdf = $finvalda->reports()->autoReportPdf('report_filename.pdf');
 ```
 
 ### Descriptions (Universal Query)
@@ -1381,6 +1403,9 @@ $response = $finvalda->reports()->autoReport('report_filename.pdf');
 ```php
 use Finvalda\Enums\DescriptionType;
 
+// The SDK nests filters under the correct key per description type. Pass only
+// the inner filter contents; the wrapping (StockOnDate, Products, Series, ...)
+// is handled for you.
 $response = $finvalda->descriptions()->get(DescriptionType::Products, [
     'Codes' => ['PROD001', 'PROD002'],
 ], page: 1, limit: 50);
@@ -1400,9 +1425,11 @@ $response = $finvalda->descriptions()->currencyRates('2024-01-01', '2024-12-31',
 $response = $finvalda->descriptions()->get(DescriptionType::OperationStatuses);
 $response = $finvalda->descriptions()->get(DescriptionType::Accounts);
 $response = $finvalda->descriptions()->get(DescriptionType::Vehicles);
-$response = $finvalda->descriptions()->get(DescriptionType::ProductionItem);
+$response = $finvalda->descriptions()->get(DescriptionType::ProductionItem, [
+    'Codes' => ['PROD001'],
+]);
 $response = $finvalda->descriptions()->get(DescriptionType::PartnerProducts, [
-    'Products' => ['Codes' => ['PROD001']],
+    'Codes' => ['PROD001'],
     'Client' => 'CLI001',
 ]);
 ```

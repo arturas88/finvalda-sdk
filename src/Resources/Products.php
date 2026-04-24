@@ -6,9 +6,11 @@ namespace Finvalda\Resources;
 
 use DateTimeInterface;
 use Finvalda\Collections\ProductCollection;
+use Finvalda\Concerns\DecodesBinaryResponse;
 use Finvalda\Data\Product;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Enums\ProductTypeId;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -18,6 +20,8 @@ use Finvalda\Responses\Response;
  */
 final class Products extends Resource
 {
+    use DecodesBinaryResponse;
+
     /**
      * Get products as a dataset with optional filtering. Calls GetPrekesSet.
      *
@@ -178,7 +182,10 @@ final class Products extends Resource
     }
 
     /**
-     * Get product image data. Calls GetPrekesImage.
+     * Get product image envelope. Calls GetPrekesImage.
+     *
+     * The Pure service wraps the JPG payload as base64 inside `fileContents`.
+     * Use `imageJpeg()` when you want raw bytes.
      *
      * @param  string  $productCode  The product code
      * @param  DateTimeInterface|string|null  $modifiedSince  Return only if modified since this date
@@ -189,6 +196,19 @@ final class Products extends Resource
             'sPreKod' => $productCode,
             'tKoregavimoData' => $this->formatDate($modifiedSince),
         ]);
+    }
+
+    /**
+     * Get a product image and return the decoded JPG bytes.
+     *
+     * @throws FinvaldaException
+     */
+    public function imageJpeg(string $productCode, DateTimeInterface|string|null $modifiedSince = null): string
+    {
+        return $this->decodeBinaryResponse(
+            $this->image($productCode, $modifiedSince),
+            'GetPrekesImage',
+        );
     }
 
     /**

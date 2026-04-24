@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-04-24
+
+### Added
+- **Reports**: `makeInvoicePdf()`, `makeReportPdf()`, `autoReportPdf()` return decoded PDF bytes. `makeInvoice()` / `makeReport()` now accept an array and JSON-encode it for the `sParam` query string.
+- **Products::imageJpeg()**: Returns decoded JPG bytes (mirrors the Reports pattern).
+- **Concerns\DecodesBinaryResponse** trait shared by Reports and Products.
+- **DescriptionType::filterKey()**: Authoritative mapping from type to its wire-format filter key. Most types use the same name, but `CurrentStock`/`BarCodes`/`ProductionItem` → `Products`, `Address` → `Clients`, `DocumentSeries` → `Series`, `CountSales`/`CountClients` → `CountFilter`, `PricesBy*` → `Prices`.
+
+### Fixed (breaking wire-format corrections)
+- **Operations::get()** now wraps parameters in a single JSON-encoded `opReadParams` query string per API docs (was sending flat query params, which the server ignored).
+- **Descriptions**: convenience methods and `get()` now nest filters under the type's filter key (was flattening into `readParams` top level). Matches docs example `{ readParams: { type: "StockOnDate", StockOnDate: { Date: "..." } } }`.
+- **Pricing::recommendedPrice()** now wraps params in `{ inParams: { ... } }` per docs.
+- **Clients::email($code)** renamed to **`findByEmail($email)`** and sends `sEMail` query param (was sending `sKliKod` with the client code — server endpoint actually expects email).
+- **Operations::changeJournal()** and **copy()** now throw `JsonException` on invalid JSON string input (was silently coercing to null).
+- **RetryHandler**: `RetryExhaustedException` is now thrown when all retryable attempts fail (previously unreachable — the original exception was thrown instead, wrapping was dead code). Non-retryable exceptions still propagate unchanged.
+
+### Changed (breaking)
+- `DescriptionType::TagsAndTypes` → **`DescriptionType::TypesAndTags`** with wire value `"TypesAndTags"` (API docs example uses `TypesAndTags`; the section heading saying `TagsAndTypes` appears to be a doc error).
+- `Descriptions::tagsAndTypes()` → **`typesAndTags()`** to match.
+
 ## [2.4.1] - 2026-04-13
 
 ### Fixed
