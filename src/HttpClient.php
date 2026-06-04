@@ -27,6 +27,12 @@ final class HttpClient
      */
     private const MAX_LOGGED_BODY_BYTES = 100_000;
 
+    /**
+     * Header and parameter names whose values are replaced with '***' in
+     * debug captures and PSR-3 log context. The wire request is unaffected.
+     */
+    private const REDACTED_KEYS = ['Password', 'ConnString', 'sPassword'];
+
     private ClientInterface $client;
 
     private ?LoggerInterface $logger;
@@ -182,7 +188,7 @@ final class HttpClient
                 $this->lastRequest = [
                     'method' => $method,
                     'url' => rtrim($this->config->baseUrl, '/') . '/' . $endpoint,
-                    'headers' => array_merge($this->buildHeaders(), $options['headers'] ?? []),
+                    'headers' => $this->redact(array_merge($this->buildHeaders(), $options['headers'] ?? [])),
                     'body' => $options['body'] ?? $options['form_params'] ?? $options['json'] ?? null,
                 ];
             }
@@ -223,10 +229,24 @@ final class HttpClient
         $this->logger->debug('Finvalda API request', [
             'method' => $method,
             'endpoint' => $endpoint,
-            'params' => $options['query'] ?? $options['json'] ?? [],
+            'params' => $this->redact($options['query'] ?? $options['json'] ?? []),
             'has_body' => isset($options['body']) || isset($options['json']),
             'body' => $this->truncateForLog(is_string($body) ? $body : null),
         ]);
+    }
+
+    /**
+     * Replace sensitive values with '***' for logging/debug output.
+     */
+    private function redact(array $values): array
+    {
+        foreach (self::REDACTED_KEYS as $key) {
+            if (array_key_exists($key, $values)) {
+                $values[$key] = '***';
+            }
+        }
+
+        return $values;
     }
 
     private function logResponse(string $method, string $endpoint, int $statusCode, float $duration, string $body): void

@@ -56,6 +56,11 @@ final class References extends Resource
     /**
      * Get Finvalda user info, optionally validating credentials. Calls GetFvsUser.
      *
+     * Security note: the wire format sends sPassword as a GET query parameter,
+     * so the password appears in the request URL (server access logs, proxies).
+     * The SDK redacts it from its own PSR-3 logs and debug capture, but the
+     * URL exposure is inherent to the endpoint.
+     *
      * @param  string|null  $userName  The username to look up
      * @param  string|null  $password  The password to validate
      * @return Response

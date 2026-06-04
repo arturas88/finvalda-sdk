@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Credentials are now redacted from debug capture and PSR-3 logs.** `getLastDebugInfo()['request']['headers']` previously contained the plaintext `Password` (and `ConnString`, which may embed database credentials); both are now replaced with `***`. The `sPassword` query parameter of `GetFvsUser` (`References::user()`) is likewise redacted from the `params` context of the `Finvalda API request` log record. The wire requests are unaffected. Note: `GetFvsUser` inherently places the password in the request URL — documented on `References::user()`.
+
 ### Added
 - **PSR-3 logging now includes bodies.** The `Finvalda API request` debug record gains a `body` key carrying the full request body as a string (`null` for GET requests; the existing `params` and `has_body` keys are unchanged). The `Finvalda API response` debug record gains a `body` key carrying the full response body. Bodies larger than 100 KB are truncated and suffixed with `... [truncated N bytes]`. Consumers parsing the SDK's log records should expect the new `body` key in both records; no existing keys changed.
 - **Laravel: logger and retry are now configurable.** New `config/finvalda.php` keys: `log_channel` (`FINVALDA_LOG_CHANNEL`) routes SDK debug records to a Laravel log channel; `retry.*` (`FINVALDA_RETRY_*`) builds a `RetryPolicy` with exponential backoff. Previously the service provider never wired either, so Laravel apps had no config path to retries or PSR-3 logging.
