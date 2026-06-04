@@ -62,11 +62,11 @@ final class Clients extends Resource
     {
         $response = $this->get($clientCode);
 
-        if (! $response->successful() || empty($response->data)) {
+        $data = $this->extractEntity($response, ItemClass::Client);
+
+        if ($data === null) {
             throw new NotFoundException("Client '{$clientCode}' not found");
         }
-
-        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
 
         return Client::fromArray($data);
     }

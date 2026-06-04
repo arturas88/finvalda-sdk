@@ -62,11 +62,11 @@ final class Services extends Resource
     {
         $response = $this->get($serviceCode);
 
-        if (! $response->successful() || empty($response->data)) {
+        $data = $this->extractEntity($response, ItemClass::Service);
+
+        if ($data === null) {
             throw new NotFoundException("Service '{$serviceCode}' not found");
         }
-
-        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
 
         return Service::fromArray($data);
     }
