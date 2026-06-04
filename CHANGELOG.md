@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **PSR-3 logging now includes bodies.** The `Finvalda API request` debug record gains a `body` key carrying the full request body as a string (`null` for GET requests; the existing `params` and `has_body` keys are unchanged). The `Finvalda API response` debug record gains a `body` key carrying the full response body. Bodies larger than 100 KB are truncated and suffixed with `... [truncated N bytes]`. Consumers parsing the SDK's log records should expect the new `body` key in both records; no existing keys changed.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added

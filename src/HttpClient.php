@@ -21,6 +21,12 @@ use Psr\Log\LoggerInterface;
 
 final class HttpClient
 {
+    /**
+     * Maximum number of bytes of a request/response body included in
+     * PSR-3 log records. Larger bodies are truncated with a marker.
+     */
+    private const MAX_LOGGED_BODY_BYTES = 100_000;
+
     private ClientInterface $client;
 
     private ?LoggerInterface $logger;
@@ -185,7 +191,7 @@ final class HttpClient
             $body = (string) $response->getBody();
 
             $duration = microtime(true) - $startTime;
-            $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration);
+            $this->logResponse($method, $endpoint, $response->getStatusCode(), $duration, $body);
 
             if ($this->debug) {
                 $this->lastResponse = [
@@ -211,15 +217,19 @@ final class HttpClient
             return;
         }
 
+        $body = $options['body']
+            ?? (isset($options['json']) ? json_encode($options['json']) : null);
+
         $this->logger->debug('Finvalda API request', [
             'method' => $method,
             'endpoint' => $endpoint,
             'params' => $options['query'] ?? $options['json'] ?? [],
             'has_body' => isset($options['body']) || isset($options['json']),
+            'body' => $this->truncateForLog(is_string($body) ? $body : null),
         ]);
     }
 
-    private function logResponse(string $method, string $endpoint, int $statusCode, float $duration): void
+    private function logResponse(string $method, string $endpoint, int $statusCode, float $duration, string $body): void
     {
         if ($this->logger === null) {
             return;
@@ -230,7 +240,19 @@ final class HttpClient
             'endpoint' => $endpoint,
             'status_code' => $statusCode,
             'duration_ms' => round($duration * 1000, 2),
+            'body' => $this->truncateForLog($body),
         ]);
+    }
+
+    private function truncateForLog(?string $body): ?string
+    {
+        if ($body === null || strlen($body) <= self::MAX_LOGGED_BODY_BYTES) {
+            return $body;
+        }
+
+        $omitted = strlen($body) - self::MAX_LOGGED_BODY_BYTES;
+
+        return substr($body, 0, self::MAX_LOGGED_BODY_BYTES) . "... [truncated {$omitted} bytes]";
     }
 
     private function parseResponse(string $body): Response

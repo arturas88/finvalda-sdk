@@ -191,7 +191,7 @@ $config = new FinvaldaConfig(
 $finvalda->setLogger($logger);
 ```
 
-Log output includes method, endpoint, parameters, status code, and response time.
+Both records are logged at `debug` level. `Finvalda API request` includes method, endpoint, parameters, and the full request body (`body`, string or null for GET). `Finvalda API response` includes method, endpoint, status code, response time, and the full response body (`body`). Bodies larger than 100 KB are truncated with a `... [truncated N bytes]` marker — route the SDK's debug-level records to a suitable handler if log volume is a concern.
 
 ### Debug Mode
 
