@@ -300,4 +300,108 @@ class HttpClientTest extends TestCase
         $this->assertEmpty($debug['request']);
         $this->assertEmpty($debug['response']);
     }
+
+    /**
+     * @return \Psr\Log\AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
+     */
+    private function createSpyLogger(): object
+    {
+        return new class extends \Psr\Log\AbstractLogger
+        {
+            public array $records = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = [
+                    'level' => $level,
+                    'message' => (string) $message,
+                    'context' => $context,
+                ];
+            }
+        };
+    }
+
+    private function loggedContext(array $records, string $message): array
+    {
+        foreach ($records as $record) {
+            if ($record['message'] === $message) {
+                return $record['context'];
+            }
+        }
+
+        $this->fail("No log record with message '{$message}'");
+    }
+
+    public function test_request_log_includes_request_body_string(): void
+    {
+        $logger = $this->createSpyLogger();
+        $httpClient = $this->createHttpClient([
+            new Response(200, [], json_encode(['AccessResult' => 'Success', 'nResult' => 0])),
+        ]);
+        $httpClient->setLogger($logger);
+
+        $httpClient->postOperation('InsertNewItem', [
+            'ItemClassName' => 'Fvs.Preke',
+            'xmlstring' => '{"Fvs.Preke":{"sKodas":"PRE_01"}}',
+        ]);
+
+        $context = $this->loggedContext($logger->records, 'Finvalda API request');
+
+        $this->assertIsString($context['body']);
+        $this->assertStringContainsString('Fvs.Preke', $context['body']);
+        $this->assertStringContainsString('PRE_01', $context['body']);
+    }
+
+    public function test_request_log_body_is_null_for_get_requests(): void
+    {
+        $logger = $this->createSpyLogger();
+        $httpClient = $this->createHttpClient([
+            new Response(200, [], json_encode(['AccessResult' => 'Success'])),
+        ]);
+        $httpClient->setLogger($logger);
+
+        $httpClient->get('GetPreke', ['sPrekesKodas' => 'PRE_01']);
+
+        $context = $this->loggedContext($logger->records, 'Finvalda API request');
+
+        $this->assertNull($context['body']);
+        $this->assertSame(['sPrekesKodas' => 'PRE_01'], $context['params']);
+    }
+
+    public function test_response_log_includes_response_body_string(): void
+    {
+        $responseBody = json_encode(['AccessResult' => 'Success', 'Fvs.Preke' => null]);
+
+        $logger = $this->createSpyLogger();
+        $httpClient = $this->createHttpClient([
+            new Response(200, [], $responseBody),
+        ]);
+        $httpClient->setLogger($logger);
+
+        $httpClient->get('GetPreke', ['sPrekesKodas' => 'PRE_01']);
+
+        $context = $this->loggedContext($logger->records, 'Finvalda API response');
+
+        $this->assertSame($responseBody, $context['body']);
+        $this->assertSame(200, $context['status_code']);
+    }
+
+    public function test_logged_bodies_are_truncated_at_cap(): void
+    {
+        $largeBody = '{"AccessResult":"Success","blob":"' . str_repeat('x', 150_000) . '"}';
+
+        $logger = $this->createSpyLogger();
+        $httpClient = $this->createHttpClient([
+            new Response(200, [], $largeBody),
+        ]);
+        $httpClient->setLogger($logger);
+
+        $httpClient->get('GetPrekes');
+
+        $context = $this->loggedContext($logger->records, 'Finvalda API response');
+
+        $this->assertLessThan(strlen($largeBody), strlen($context['body']));
+        $this->assertLessThanOrEqual(100_000 + 64, strlen($context['body']));
+        $this->assertStringContainsString('[truncated', $context['body']);
+    }
 }
