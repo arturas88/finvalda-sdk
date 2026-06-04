@@ -37,4 +37,43 @@ final class FinvaldaConfig
             throw new InvalidArgumentException('Finvalda password is required');
         }
     }
+
+    /**
+     * Build a config from a snake_case array (the shape of config/finvalda.php).
+     *
+     * The optional `retry` sub-array maps to a RetryPolicy when its `enabled`
+     * key is truthy: ['enabled' => true, 'max_attempts' => 3, 'delay_ms' => 100,
+     * 'multiplier' => 2.0, 'max_delay_ms' => 10000].
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function fromArray(array $config, ?LoggerInterface $logger = null): self
+    {
+        $retry = null;
+        $retryConfig = $config['retry'] ?? [];
+
+        if (is_array($retryConfig) && ! empty($retryConfig['enabled'])) {
+            $retry = new RetryPolicy(
+                maxAttempts: (int) ($retryConfig['max_attempts'] ?? 3),
+                delayMs: (int) ($retryConfig['delay_ms'] ?? 100),
+                multiplier: (float) ($retryConfig['multiplier'] ?? 2.0),
+                maxDelayMs: (int) ($retryConfig['max_delay_ms'] ?? 10000),
+            );
+        }
+
+        return new self(
+            baseUrl: (string) ($config['base_url'] ?? ''),
+            username: (string) ($config['username'] ?? ''),
+            password: (string) ($config['password'] ?? ''),
+            connString: $config['conn_string'] ?? null,
+            companyId: $config['company_id'] ?? null,
+            language: Language::from((int) ($config['language'] ?? 0)),
+            removeEmptyStringTags: (bool) ($config['remove_empty_string_tags'] ?? false),
+            removeZeroNumberTags: (bool) ($config['remove_zero_number_tags'] ?? false),
+            removeNewLines: (bool) ($config['remove_new_lines'] ?? false),
+            timeout: (int) ($config['timeout'] ?? 30),
+            logger: $logger,
+            retry: $retry,
+        );
+    }
 }

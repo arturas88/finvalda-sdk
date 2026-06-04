@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Laravel: logger and retry are now configurable.** New `config/finvalda.php` keys: `log_channel` (`FINVALDA_LOG_CHANNEL`) routes SDK debug records to a Laravel log channel; `retry.*` (`FINVALDA_RETRY_*`) builds a `RetryPolicy` with exponential backoff. Previously the service provider never wired either, so Laravel apps had no config path to retries or PSR-3 logging.
+- **`FinvaldaConfig::fromArray()`**: builds a config (including the retry policy) from the snake_case `config/finvalda.php` array shape; the service provider now delegates to it.
+
 ### Fixed
 - **`Products::find()` / `Clients::find()` / `Services::find()`** now handle the Pure service's single-entity envelope (`{"Fvs.Preke": {...}}` found / `{"Fvs.Preke": null}` not found). Previously both shapes produced an empty DTO stub (`code = ''`, all fields null): the null-valued wrapper key defeated the `empty()` not-found check, and found entities were never unwrapped before `fromArray()`. `find()` now throws `NotFoundException` when the entity is missing and returns a populated DTO when it exists.
 - **`Pagination\Cursor` silently dropped items.** Deduplication used `spl_object_hash((object) $item)`; for array items the temporary object is freed after each statement, so PHP reuses the address and *different* items collide on the same hash — iteration typically yielded a single item and stopped. Items are now identified via a new optional `idExtractor` constructor callable (e.g. `fn($item) => $item['sKodas']`), defaulting to a content hash (`md5(serialize($item))`) when omitted.
