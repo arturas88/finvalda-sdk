@@ -136,11 +136,11 @@ final class Products extends Resource
     {
         $response = $this->get($productCode);
 
-        if (! $response->successful() || empty($response->data)) {
+        $data = $this->extractEntity($response, ItemClass::Product);
+
+        if ($data === null) {
             throw new NotFoundException("Product '{$productCode}' not found");
         }
-
-        $data = is_array($response->data[0] ?? null) ? $response->data[0] : $response->data;
 
         return Product::fromArray($data);
     }
