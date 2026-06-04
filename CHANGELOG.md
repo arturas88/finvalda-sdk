@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- **Credentials are now redacted from debug capture and PSR-3 logs.** `getLastDebugInfo()['request']['headers']` previously contained the plaintext `Password` (and `ConnString`, which may embed database credentials); both are now replaced with `***`. The `sPassword` query parameter of `GetFvsUser` (`References::user()`) is likewise redacted from the `params` context of the `Finvalda API request` log record. The wire requests are unaffected. Note: `GetFvsUser` inherently places the password in the request URL — documented on `References::user()`.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added
