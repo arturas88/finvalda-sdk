@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Finvalda\Laravel;
 
-use Finvalda\Enums\Language;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
 use Illuminate\Support\ServiceProvider;
@@ -19,18 +18,12 @@ class FinvaldaServiceProvider extends ServiceProvider
             /** @var array<string, mixed> $config */
             $config = config('finvalda');
 
-            return new Finvalda(new FinvaldaConfig(
-                baseUrl: $config['base_url'],
-                username: $config['username'],
-                password: $config['password'],
-                connString: $config['conn_string'] ?? null,
-                companyId: $config['company_id'] ?? null,
-                language: Language::from($config['language'] ?? 0),
-                removeEmptyStringTags: $config['remove_empty_string_tags'] ?? false,
-                removeZeroNumberTags: $config['remove_zero_number_tags'] ?? false,
-                removeNewLines: $config['remove_new_lines'] ?? false,
-                timeout: $config['timeout'] ?? 30,
-            ));
+            $logger = null;
+            if (! empty($config['log_channel'])) {
+                $logger = $this->app->make('log')->channel($config['log_channel']);
+            }
+
+            return new Finvalda(FinvaldaConfig::fromArray($config, $logger));
         });
 
         $this->app->alias(Finvalda::class, 'finvalda');

@@ -79,4 +79,32 @@ return [
     'remove_zero_number_tags' => (bool) env('FINVALDA_REMOVE_ZERO_NUMBERS', false),
     'remove_new_lines' => (bool) env('FINVALDA_REMOVE_NEW_LINES', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logging
+    |--------------------------------------------------------------------------
+    |
+    | Laravel log channel for SDK request/response debug records. Leave null
+    | to disable SDK logging.
+    |
+    */
+    'log_channel' => env('FINVALDA_LOG_CHANNEL'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retry Policy
+    |--------------------------------------------------------------------------
+    |
+    | Automatic retries for transient failures (network errors, 5xx, 429)
+    | with exponential backoff. Disabled by default.
+    |
+    */
+    'retry' => [
+        'enabled' => (bool) env('FINVALDA_RETRY_ENABLED', false),
+        'max_attempts' => (int) env('FINVALDA_RETRY_MAX_ATTEMPTS', 3),
+        'delay_ms' => (int) env('FINVALDA_RETRY_DELAY_MS', 100),
+        'multiplier' => (float) env('FINVALDA_RETRY_MULTIPLIER', 2.0),
+        'max_delay_ms' => (int) env('FINVALDA_RETRY_MAX_DELAY_MS', 10000),
+    ],
+
 ];

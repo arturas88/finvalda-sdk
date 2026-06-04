@@ -146,6 +146,13 @@ FINVALDA_BASE_URL=https://your-server.com/FvsServicePure.svc
 FINVALDA_USERNAME=your-username
 FINVALDA_PASSWORD=your-password
 FINVALDA_COMPANY_ID=your-company-id
+
+# Optional: route SDK debug logs to a Laravel log channel
+FINVALDA_LOG_CHANNEL=stack
+
+# Optional: retry transient failures with exponential backoff
+FINVALDA_RETRY_ENABLED=true
+FINVALDA_RETRY_MAX_ATTEMPTS=3
 ```
 
 Publish the config file (optional):

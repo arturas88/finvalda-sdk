@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Laravel: logger and retry are now configurable.** New `config/finvalda.php` keys: `log_channel` (`FINVALDA_LOG_CHANNEL`) routes SDK debug records to a Laravel log channel; `retry.*` (`FINVALDA_RETRY_*`) builds a `RetryPolicy` with exponential backoff. Previously the service provider never wired either, so Laravel apps had no config path to retries or PSR-3 logging.
+- **`FinvaldaConfig::fromArray()`**: builds a config (including the retry policy) from the snake_case `config/finvalda.php` array shape; the service provider now delegates to it.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added
