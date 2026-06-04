@@ -345,14 +345,16 @@ class BuilderTest extends TestCase
         $this->assertSame('CLI001', $data['UzskaitaDok']['sDebitorius']);
         $this->assertSame('CLI002', $data['UzskaitaDok']['sKreditorius']);
 
-        $this->assertArrayHasKey('UzskaitaDebitDetEil', $data);
-        $this->assertCount(2, $data['UzskaitaDebitDetEil']);
-        $this->assertSame(3, $data['UzskaitaDebitDetEil'][0]['nTipas']);
-        $this->assertSame(6, $data['UzskaitaDebitDetEil'][1]['nTipas']);
-        $this->assertSame('241000', $data['UzskaitaDebitDetEil'][1]['sSaskaita']);
+        // Detail rows must be nested inside the class wrapper (docs & Postman
+        // InsertNewOperation UzskaitaDok example), like all other operations.
+        $this->assertArrayHasKey('UzskaitaDebitDetEil', $data['UzskaitaDok']);
+        $this->assertCount(2, $data['UzskaitaDok']['UzskaitaDebitDetEil']);
+        $this->assertSame(3, $data['UzskaitaDok']['UzskaitaDebitDetEil'][0]['nTipas']);
+        $this->assertSame(6, $data['UzskaitaDok']['UzskaitaDebitDetEil'][1]['nTipas']);
+        $this->assertSame('241000', $data['UzskaitaDok']['UzskaitaDebitDetEil'][1]['sSaskaita']);
 
-        $this->assertArrayHasKey('UzskaitaKreditDetEil', $data);
-        $this->assertCount(2, $data['UzskaitaKreditDetEil']);
+        $this->assertArrayHasKey('UzskaitaKreditDetEil', $data['UzskaitaDok']);
+        $this->assertCount(2, $data['UzskaitaDok']['UzskaitaKreditDetEil']);
     }
 
     public function test_production_builder_builds_correct_structure(): void
@@ -370,15 +372,15 @@ class BuilderTest extends TestCase
         $this->assertArrayHasKey('GamybaDok', $data);
         $this->assertSame('FINISHED001', $data['GamybaDok']['sGaminys']);
 
-        $this->assertArrayHasKey('GamybaGDetEil', $data);
-        $this->assertCount(1, $data['GamybaGDetEil']);
-        $this->assertSame(500.00, $data['GamybaGDetEil'][0]['dSuma']);
+        $this->assertArrayHasKey('GamybaGDetEil', $data['GamybaDok']);
+        $this->assertCount(1, $data['GamybaDok']['GamybaGDetEil']);
+        $this->assertSame(500.00, $data['GamybaDok']['GamybaGDetEil'][0]['dSuma']);
 
-        $this->assertArrayHasKey('GamybaZDetEil', $data);
-        $this->assertCount(1, $data['GamybaZDetEil']);
+        $this->assertArrayHasKey('GamybaZDetEil', $data['GamybaDok']);
+        $this->assertCount(1, $data['GamybaDok']['GamybaZDetEil']);
 
-        $this->assertArrayHasKey('GamybaPDetEil', $data);
-        $this->assertCount(1, $data['GamybaPDetEil']);
+        $this->assertArrayHasKey('GamybaPDetEil', $data['GamybaDok']);
+        $this->assertCount(1, $data['GamybaDok']['GamybaPDetEil']);
     }
 
     public function test_non_analytical_builder_builds_correct_structure(): void
@@ -395,10 +397,10 @@ class BuilderTest extends TestCase
         $this->assertArrayHasKey('KtNeanalitDok', $data);
         $this->assertSame('Depreciation', $data['KtNeanalitDok']['sPavadinimas1']);
 
-        $this->assertArrayHasKey('KtNeanalitDetEil', $data);
-        $this->assertCount(2, $data['KtNeanalitDetEil']);
-        $this->assertSame(500.00, $data['KtNeanalitDetEil'][0]['dDebetasL']);
-        $this->assertSame(0.0, $data['KtNeanalitDetEil'][0]['dKreditasL']);
+        $this->assertArrayHasKey('KtNeanalitDetEil', $data['KtNeanalitDok']);
+        $this->assertCount(2, $data['KtNeanalitDok']['KtNeanalitDetEil']);
+        $this->assertSame(500.00, $data['KtNeanalitDok']['KtNeanalitDetEil'][0]['dDebetasL']);
+        $this->assertSame(0.0, $data['KtNeanalitDok']['KtNeanalitDetEil'][0]['dKreditasL']);
     }
 
     public function test_uvm_cancellation_builder_builds_correct_structure(): void
@@ -414,10 +416,32 @@ class BuilderTest extends TestCase
         $this->assertArrayHasKey('UVMAnulDok', $data);
         $this->assertSame('Cancel reservation', $data['UVMAnulDok']['sPavadinimas']);
 
-        $this->assertArrayHasKey('UVMAnulDokDetEil', $data);
-        $this->assertCount(2, $data['UVMAnulDokDetEil']);
-        $this->assertSame('UVMPARD', $data['UVMAnulDokDetEil'][0]['sZurnalas']);
-        $this->assertSame(123, $data['UVMAnulDokDetEil'][0]['nNumeris']);
+        $this->assertArrayHasKey('UVMAnulDokDetEil', $data['UVMAnulDok']);
+        $this->assertCount(2, $data['UVMAnulDok']['UVMAnulDokDetEil']);
+        $this->assertSame('UVMPARD', $data['UVMAnulDok']['UVMAnulDokDetEil'][0]['sZurnalas']);
+        $this->assertSame(123, $data['UVMAnulDok']['UVMAnulDokDetEil'][0]['nNumeris']);
+    }
+
+    public function test_special_builders_reject_generic_product_and_service_lines(): void
+    {
+        // These builders override build() with their own line arrays; inherited
+        // addProduct()/addService() lines used to be silently discarded.
+        $cases = [
+            [fn () => (new ClearingBuilder())->addProduct('PRD001', 1.0), 'ClearingBuilder'],
+            [fn () => (new ProductionBuilder())->addService('SVC001', 1.0), 'ProductionBuilder'],
+            [fn () => (new NonAnalyticalBuilder())->addProductLine(['sKodas' => 'PRD001']), 'NonAnalyticalBuilder'],
+            [fn () => (new UvmCancellationBuilder())->addServiceLine(['sKodas' => 'SVC001']), 'UvmCancellationBuilder'],
+            [fn () => (new InventoryCountBuilder())->addProduct('PRD001', 1.0), 'InventoryCountBuilder'],
+        ];
+
+        foreach ($cases as [$make, $builder]) {
+            try {
+                $make()->build();
+                $this->fail("{$builder}::build() should reject generic product/service lines");
+            } catch (\BadMethodCallException $e) {
+                $this->assertStringContainsString('does not support', $e->getMessage());
+            }
+        }
     }
 
     public function test_inventory_count_builder_builds_correct_structure(): void

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **`Products::find()` / `Clients::find()` / `Services::find()`** now handle the Pure service's single-entity envelope (`{"Fvs.Preke": {...}}` found / `{"Fvs.Preke": null}` not found). Previously both shapes produced an empty DTO stub (`code = ''`, all fields null): the null-valued wrapper key defeated the `empty()` not-found check, and found entities were never unwrapped before `fromArray()`. `find()` now throws `NotFoundException` when the entity is missing and returns a populated DTO when it exists.
 
+### Fixed (breaking wire-format corrections)
+- **ClearingBuilder, ProductionBuilder, NonAnalyticalBuilder, UvmCancellationBuilder** now nest their detail rows **inside** the operation class wrapper (`{"UzskaitaDok": {...header..., "UzskaitaDebitDetEil": [...]}}`), matching the docs XML examples and the official Postman `InsertNewOperation (UzskaitaDok)` body. These builders were added before the v2.4.0 nesting fix and still emitted the pre-2.4.0 sibling shape that the server rejects with `nResult=1037` "Operation do not has detail rows!". `InventoryCountBuilder` was already correct (flat root + `mode`). Note: the `GamybaDok` (production) nesting is inferred from structural consistency — the docs have no XML example for it; verify against a live server if rejected.
+
+### Changed
+- Builders with dedicated line arrays (Clearing, Production, NonAnalytical, UvmCancellation, InventoryCount) now throw `BadMethodCallException` from `build()` if generic `addProduct()`/`addService()` lines were added. Previously such lines were silently discarded.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added

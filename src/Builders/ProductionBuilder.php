@@ -15,7 +15,7 @@ use Finvalda\Enums\OperationClass;
  * ```php
  * $result = $finvalda->production()
  *     ->date('2024-01-15')
- *     ->product('FINISHED001')
+ *     ->finishedProduct('FINISHED001')
  *     ->documentNumber('PROD-001')
  *     ->description('Daily production run')
  *     ->addFinishedGood('FINISHED001', warehouse: 'MAIN', quantity: 100, amount: 500.00)
@@ -59,29 +59,30 @@ final class ProductionBuilder extends OperationBuilder
     /**
      * Build the complete operation data array.
      *
+     * Detail rows (finished goods, raw materials, services) are nested inside
+     * the GamybaDok wrapper, consistent with all other operation classes.
+     *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $data = [];
+        $this->assertNoGenericLines('addFinishedGood()/addRawMaterial()/addProductionService()');
 
-        if (! empty($this->header)) {
-            $data[$this->getHeaderKey()] = $this->header;
-        }
+        $payload = $this->header;
 
         if (! empty($this->finishedGoods)) {
-            $data['GamybaGDetEil'] = $this->finishedGoods;
+            $payload['GamybaGDetEil'] = $this->finishedGoods;
         }
 
         if (! empty($this->rawMaterials)) {
-            $data['GamybaZDetEil'] = $this->rawMaterials;
+            $payload['GamybaZDetEil'] = $this->rawMaterials;
         }
 
         if (! empty($this->productionServices)) {
-            $data['GamybaPDetEil'] = $this->productionServices;
+            $payload['GamybaPDetEil'] = $this->productionServices;
         }
 
-        return $data;
+        return [$this->getHeaderKey() => $payload];
     }
 
     // --- Production-specific methods ---

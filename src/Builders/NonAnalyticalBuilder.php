@@ -52,21 +52,22 @@ final class NonAnalyticalBuilder extends OperationBuilder
     /**
      * Build the complete operation data array.
      *
+     * Entry rows are nested inside the KtNeanalitDok wrapper, matching the
+     * docs XML example.
+     *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $data = [];
+        $this->assertNoGenericLines('addEntry()');
 
-        if (! empty($this->header)) {
-            $data[$this->getHeaderKey()] = $this->header;
-        }
+        $payload = $this->header;
 
         if (! empty($this->entries)) {
-            $data['KtNeanalitDetEil'] = $this->entries;
+            $payload['KtNeanalitDetEil'] = $this->entries;
         }
 
-        return $data;
+        return [$this->getHeaderKey() => $payload];
     }
 
     // --- Non-analytical-specific methods ---
