@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **`Products::find()` / `Clients::find()` / `Services::find()`** now handle the Pure service's single-entity envelope (`{"Fvs.Preke": {...}}` found / `{"Fvs.Preke": null}` not found). Previously both shapes produced an empty DTO stub (`code = ''`, all fields null): the null-valued wrapper key defeated the `empty()` not-found check, and found entities were never unwrapped before `fromArray()`. `find()` now throws `NotFoundException` when the entity is missing and returns a populated DTO when it exists.
+- **`ping()` always returned `false` on servers where `GetFvsUser` responds with XML.** Some server versions ignore the JSON `Accept` header for this endpoint (observed live); `parseResponse()`/`parseOperationResult()` now fall back to XML parsing when the body is not JSON. As part of this, `Response::$error` is normalized to `null` when the server sends an empty error element/string.
+- **`AccessDeniedException` now carries the server's explanation** (e.g. `"This function is not licensed in this machine!"`) for operation calls instead of a bare `"Access denied"`.
+- **Collections skip malformed rows.** `ProductCollection`/`ClientCollection`/`ServiceCollection::fromArray()` ignore non-array rows instead of throwing a raw `TypeError`.
 - **`Pagination\Cursor` silently dropped items.** Deduplication used `spl_object_hash((object) $item)`; for array items the temporary object is freed after each statement, so PHP reuses the address and *different* items collide on the same hash — iteration typically yielded a single item and stopped. Items are now identified via a new optional `idExtractor` constructor callable (e.g. `fn($item) => $item['sKodas']`), defaulting to a content hash (`md5(serialize($item))`) when omitted.
 
 ### Fixed (breaking wire-format corrections)
@@ -24,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Builders with dedicated line arrays (Clearing, Production, NonAnalytical, UvmCancellation, InventoryCount) now throw `BadMethodCallException` from `build()` if generic `addProduct()`/`addService()` lines were added. Previously such lines were silently discarded.
+- **`Entity` array writes now throw.** `$product['field'] = ...` and `unset($product['field'])` previously did nothing silently; they now throw `LogicException` (entities are immutable).
 
 ## [2.8.0] - 2026-04-24
 

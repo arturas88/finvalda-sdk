@@ -25,7 +25,7 @@ final class ServiceCollection extends Collection
     {
         return new self(array_map(
             fn (array $item) => Service::fromArray($item),
-            $data
+            array_values(array_filter($data, 'is_array'))
         ));
     }
 

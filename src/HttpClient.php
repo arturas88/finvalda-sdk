@@ -275,16 +275,59 @@ final class HttpClient
         return substr($body, 0, self::MAX_LOGGED_BODY_BYTES) . "... [truncated {$omitted} bytes]";
     }
 
-    private function parseResponse(string $body): Response
+    /**
+     * Decode a response body into an array. Bodies are normally JSON, but
+     * some endpoints (e.g. GetFvsUser on certain server versions) ignore the
+     * Accept header and return XML — fall back to XML parsing for those.
+     *
+     * @throws FinvaldaException
+     */
+    private function decodeBody(string $body): array
     {
         $decoded = json_decode($body, true);
 
-        if (! is_array($decoded)) {
-            throw new FinvaldaException('Invalid JSON response: ' . json_last_error_msg());
+        if (is_array($decoded)) {
+            return $decoded;
         }
+
+        if (str_starts_with(ltrim($body), '<')) {
+            $decoded = $this->decodeXmlBody($body);
+
+            if ($decoded !== null) {
+                return $decoded;
+            }
+        }
+
+        throw new FinvaldaException('Invalid JSON response: ' . json_last_error_msg());
+    }
+
+    private function decodeXmlBody(string $body): ?array
+    {
+        $previous = libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($body);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if ($xml === false) {
+            return null;
+        }
+
+        $decoded = json_decode(json_encode($xml) ?: 'null', true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    private function parseResponse(string $body): Response
+    {
+        $decoded = $this->decodeBody($body);
 
         $accessResult = AccessResult::tryFrom($decoded['AccessResult'] ?? '') ?? AccessResult::Fail;
         $error = $decoded['error'] ?? $decoded['sError'] ?? null;
+
+        // XML-decoded empty elements arrive as empty arrays, not strings
+        if (! is_string($error) || $error === '') {
+            $error = null;
+        }
 
         if ($accessResult === AccessResult::AccessDenied) {
             throw new AccessDeniedException($error ?? 'Access denied');
@@ -315,16 +358,14 @@ final class HttpClient
 
     private function parseOperationResult(string $body): OperationResult
     {
-        $decoded = json_decode($body, true);
-
-        if (! is_array($decoded)) {
-            throw new FinvaldaException('Invalid JSON response: ' . json_last_error_msg());
-        }
+        $decoded = $this->decodeBody($body);
 
         $accessResult = AccessResult::tryFrom($decoded['AccessResult'] ?? '') ?? AccessResult::Fail;
 
         if ($accessResult === AccessResult::AccessDenied) {
-            throw new AccessDeniedException('Access denied');
+            $message = $decoded['sError'] ?? $decoded['error'] ?? null;
+
+            throw new AccessDeniedException(is_string($message) && $message !== '' ? $message : 'Access denied');
         }
 
         if ($accessResult === AccessResult::Fail) {

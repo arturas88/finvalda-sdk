@@ -63,17 +63,21 @@ abstract class Entity implements ArrayAccess
 
     /**
      * Set a field (not supported - entities are read-only).
+     *
+     * @throws \LogicException
      */
     public function offsetSet(mixed $offset, mixed $value): void
     {
-        // Entities are immutable
+        throw new \LogicException(static::class . ' is immutable; array writes are not supported.');
     }
 
     /**
      * Unset a field (not supported - entities are read-only).
+     *
+     * @throws \LogicException
      */
     public function offsetUnset(mixed $offset): void
     {
-        // Entities are immutable
+        throw new \LogicException(static::class . ' is immutable; array writes are not supported.');
     }
 }

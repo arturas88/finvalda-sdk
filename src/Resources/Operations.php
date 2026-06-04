@@ -79,7 +79,8 @@ final class Operations extends Resource
      * Read operations via GET with JSON-encoded opReadParams. Calls GetOperations.
      *
      * The Pure service expects opReadParams as a single xml/json string query
-     * parameter, not flattened query params.
+     * parameter, not flattened query params. Note: large filter/column sets can
+     * exceed URL length limits — prefer query() (POST) for big payloads.
      *
      * @param  OpClass  $class  The operation class to query
      * @param  array<string, mixed>  $filters  Additional opReadParams keys (fullOp, filter, columns, columnsDet)
