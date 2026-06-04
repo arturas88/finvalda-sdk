@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **PSR-3 logging now includes bodies.** The `Finvalda API request` debug record gains a `body` key carrying the full request body as a string (`null` for GET requests; the existing `params` and `has_body` keys are unchanged). The `Finvalda API response` debug record gains a `body` key carrying the full response body. Bodies larger than 100 KB are truncated and suffixed with `... [truncated N bytes]`. Consumers parsing the SDK's log records should expect the new `body` key in both records; no existing keys changed.
 - **Laravel: logger and retry are now configurable.** New `config/finvalda.php` keys: `log_channel` (`FINVALDA_LOG_CHANNEL`) routes SDK debug records to a Laravel log channel; `retry.*` (`FINVALDA_RETRY_*`) builds a `RetryPolicy` with exponential backoff. Previously the service provider never wired either, so Laravel apps had no config path to retries or PSR-3 logging.
 - **`FinvaldaConfig::fromArray()`**: builds a config (including the retry policy) from the snake_case `config/finvalda.php` array shape; the service provider now delegates to it.
 
