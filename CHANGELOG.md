@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`ping()` always returned `false` on servers where `GetFvsUser` responds with XML.** Some server versions ignore the JSON `Accept` header for this endpoint (observed live); `parseResponse()`/`parseOperationResult()` now fall back to XML parsing when the body is not JSON. As part of this, `Response::$error` is normalized to `null` when the server sends an empty error element/string.
+- **`AccessDeniedException` now carries the server's explanation** (e.g. `"This function is not licensed in this machine!"`) for operation calls instead of a bare `"Access denied"`.
+- **Collections skip malformed rows.** `ProductCollection`/`ClientCollection`/`ServiceCollection::fromArray()` ignore non-array rows instead of throwing a raw `TypeError`.
+
+### Changed
+- **`Entity` array writes now throw.** `$product['field'] = ...` and `unset($product['field'])` previously did nothing silently; they now throw `LogicException` (entities are immutable).
+
 ## [2.8.0] - 2026-04-24
 
 ### Added

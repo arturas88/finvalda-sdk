@@ -25,7 +25,7 @@ final class ProductCollection extends Collection
     {
         return new self(array_map(
             fn (array $item) => Product::fromArray($item),
-            $data
+            array_values(array_filter($data, 'is_array'))
         ));
     }
 
