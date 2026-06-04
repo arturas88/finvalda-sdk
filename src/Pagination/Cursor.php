@@ -27,10 +27,17 @@ final class Cursor
     /**
      * @param  callable(DateTimeInterface|null, DateTimeInterface|null): array<int, T>  $fetcher
      * @param  callable(T): DateTimeInterface|null  $dateExtractor
+     * @param  callable(T): (string|int)|null  $idExtractor  Returns a stable identity for an item
+     *                                                       (e.g. its sKodas). Used to skip duplicates
+     *                                                       from overlapping date ranges. Defaults to
+     *                                                       hashing the serialized item, which treats
+     *                                                       items as duplicates only when their full
+     *                                                       content matches.
      */
     public function __construct(
         private readonly mixed $fetcher,
         private readonly mixed $dateExtractor,
+        private readonly mixed $idExtractor = null,
     ) {}
 
     /**
@@ -113,7 +120,7 @@ final class Cursor
             $lastDate = null;
 
             foreach ($items as $item) {
-                $id = spl_object_hash((object) $item);
+                $id = $this->itemId($item);
 
                 // Skip duplicates from overlapping date ranges
                 if (isset($seenIds[$id])) {
@@ -145,6 +152,20 @@ final class Cursor
 
             $iteration++;
         }
+    }
+
+    /**
+     * Compute a stable identity for an item.
+     *
+     * @param  T  $item
+     */
+    private function itemId(mixed $item): string
+    {
+        if ($this->idExtractor !== null) {
+            return (string) ($this->idExtractor)($item);
+        }
+
+        return md5(serialize($item));
     }
 
     /**

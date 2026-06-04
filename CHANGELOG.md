@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`Pagination\Cursor` silently dropped items.** Deduplication used `spl_object_hash((object) $item)`; for array items the temporary object is freed after each statement, so PHP reuses the address and *different* items collide on the same hash — iteration typically yielded a single item and stopped. Items are now identified via a new optional `idExtractor` constructor callable (e.g. `fn($item) => $item['sKodas']`), defaulting to a content hash (`md5(serialize($item))`) when omitted.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added
