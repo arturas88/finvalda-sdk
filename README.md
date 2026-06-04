@@ -1479,6 +1479,10 @@ $cursor = new Cursor(
     dateExtractor: fn($item) => isset($item['tKoregavimoData'])
         ? new \DateTime($item['tKoregavimoData'])
         : null,
+    // Recommended: a stable identity per record so duplicates from
+    // overlapping date ranges are skipped reliably. Without it, items
+    // are compared by full content.
+    idExtractor: fn($item) => $item['sKodas'],
 );
 
 // Iterate lazily (memory efficient)
