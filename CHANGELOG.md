@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (breaking wire-format corrections)
+- **ClearingBuilder, ProductionBuilder, NonAnalyticalBuilder, UvmCancellationBuilder** now nest their detail rows **inside** the operation class wrapper (`{"UzskaitaDok": {...header..., "UzskaitaDebitDetEil": [...]}}`), matching the docs XML examples and the official Postman `InsertNewOperation (UzskaitaDok)` body. These builders were added before the v2.4.0 nesting fix and still emitted the pre-2.4.0 sibling shape that the server rejects with `nResult=1037` "Operation do not has detail rows!". `InventoryCountBuilder` was already correct (flat root + `mode`). Note: the `GamybaDok` (production) nesting is inferred from structural consistency — the docs have no XML example for it; verify against a live server if rejected.
+
+### Changed
+- Builders with dedicated line arrays (Clearing, Production, NonAnalytical, UvmCancellation, InventoryCount) now throw `BadMethodCallException` from `build()` if generic `addProduct()`/`addService()` lines were added. Previously such lines were silently discarded.
+
 ## [2.8.0] - 2026-04-24
 
 ### Added

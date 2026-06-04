@@ -56,25 +56,26 @@ final class ClearingBuilder extends OperationBuilder
     /**
      * Build the complete operation data array.
      *
+     * Debit/credit detail rows are nested inside the UzskaitaDok wrapper,
+     * matching the docs XML examples and the official Postman collection.
+     *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $data = [];
+        $this->assertNoGenericLines('addDebitLine()/addCreditLine()');
 
-        if (! empty($this->header)) {
-            $data[$this->getHeaderKey()] = $this->header;
-        }
+        $payload = $this->header;
 
         if (! empty($this->debitLines)) {
-            $data['UzskaitaDebitDetEil'] = $this->debitLines;
+            $payload['UzskaitaDebitDetEil'] = $this->debitLines;
         }
 
         if (! empty($this->creditLines)) {
-            $data['UzskaitaKreditDetEil'] = $this->creditLines;
+            $payload['UzskaitaKreditDetEil'] = $this->creditLines;
         }
 
-        return $data;
+        return [$this->getHeaderKey() => $payload];
     }
 
     // --- Clearing-specific methods ---

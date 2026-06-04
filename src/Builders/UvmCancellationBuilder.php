@@ -52,21 +52,22 @@ final class UvmCancellationBuilder extends OperationBuilder
     /**
      * Build the complete operation data array.
      *
+     * Cancellation rows are nested inside the UVMAnulDok wrapper, matching
+     * the docs XML example.
+     *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $data = [];
+        $this->assertNoGenericLines('addCancellation()');
 
-        if (! empty($this->header)) {
-            $data[$this->getHeaderKey()] = $this->header;
-        }
+        $payload = $this->header;
 
         if (! empty($this->cancellations)) {
-            $data['UVMAnulDokDetEil'] = $this->cancellations;
+            $payload['UVMAnulDokDetEil'] = $this->cancellations;
         }
 
-        return $data;
+        return [$this->getHeaderKey() => $payload];
     }
 
     // --- UVM cancellation-specific methods ---

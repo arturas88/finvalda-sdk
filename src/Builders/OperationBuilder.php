@@ -97,6 +97,22 @@ abstract class OperationBuilder
     }
 
     /**
+     * Guard for builders whose build() uses dedicated line arrays: fail loudly
+     * if generic addProduct()/addService() lines were added, instead of
+     * silently discarding them.
+     *
+     * @throws \BadMethodCallException
+     */
+    protected function assertNoGenericLines(string $hint): void
+    {
+        if (! empty($this->productLines) || ! empty($this->serviceLines)) {
+            throw new \BadMethodCallException(
+                static::class . " does not support addProduct()/addService() lines; use {$hint} instead."
+            );
+        }
+    }
+
+    /**
      * Save the operation using the configured Finvalda instance.
      *
      * @throws \RuntimeException If Finvalda instance or parameter is not set

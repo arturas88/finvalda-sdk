@@ -60,6 +60,8 @@ final class InventoryCountBuilder extends OperationBuilder
      */
     public function build(): array
     {
+        $this->assertNoGenericLines('addItem()');
+
         $data = ['mode' => $this->mode];
 
         $items = [];
