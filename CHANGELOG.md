@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0] - 2026-06-12
+
+### Added
+- **`DocumentType` enum** for the `sDokRusis` header field, with all ten documented codes (`S`, `SF`, `D`, `DS`, `K`, `KS`, `KT`, `VS`, `VD`, `VK`) and Lithuanian labels. `documentType()` on the sale/purchase builders now accepts a `DocumentType` case or a raw 2-character string (fully backward-compatible).
+
+### Documentation
+- Documented `series()` / `documentType()` on the purchase example and added a `sDokRusis` code glossary.
+- Clarified that document type (`sDokRusis`), series (`sSerija`), and the `save()` parameter (`sParametras`) are three independent inputs, and that `sParametras` selects the journal server-side and cannot be bypassed on create.
+
 ## [2.10.0] - 2026-06-12
 
 ### Fixed (breaking wire-format corrections)

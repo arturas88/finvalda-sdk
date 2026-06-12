@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Builders;
 
 use DateTimeInterface;
+use Finvalda\Enums\DocumentType;
 use Finvalda\Enums\OperationClass;
 
 /**
@@ -69,11 +70,13 @@ final class SaleBuilder extends OperationBuilder
     }
 
     /**
-     * Set the document type/kind.
+     * Set the document type/kind (sDokRusis).
+     *
+     * Accepts a DocumentType enum case or a raw 2-char code (S, SF, D, DS, K, KS, KT, VS, VD, VK).
      */
-    public function documentType(string $type): self
+    public function documentType(DocumentType|string $type): self
     {
-        $this->header['sDokRusis'] = $type;
+        $this->header['sDokRusis'] = $type instanceof DocumentType ? $type->value : $type;
 
         return $this;
     }

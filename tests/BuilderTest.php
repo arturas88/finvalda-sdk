@@ -577,6 +577,43 @@ class BuilderTest extends TestCase
         $this->assertArrayNotHasKey('sObjektas2', $data['PardDok']);
     }
 
+    // --- Document type (sDokRusis) ---
+
+    public function test_document_type_accepts_raw_string(): void
+    {
+        $data = (new PurchaseBuilder())
+            ->client('SUP001')
+            ->date('2024-01-15')
+            ->series('SF')
+            ->documentType('SF')
+            ->build();
+
+        $this->assertSame('SF', $data['PirkDok']['sSerija']);
+        $this->assertSame('SF', $data['PirkDok']['sDokRusis']);
+    }
+
+    public function test_document_type_accepts_enum(): void
+    {
+        $data = (new PurchaseBuilder())
+            ->client('SUP001')
+            ->date('2024-01-15')
+            ->documentType(\Finvalda\Enums\DocumentType::VatInvoice)
+            ->build();
+
+        $this->assertSame('SF', $data['PirkDok']['sDokRusis']);
+    }
+
+    public function test_document_type_enum_on_sale_builder(): void
+    {
+        $data = (new SaleBuilder())
+            ->client('CLI001')
+            ->date('2024-01-15')
+            ->documentType(\Finvalda\Enums\DocumentType::CreditVatInvoice)
+            ->build();
+
+        $this->assertSame('KS', $data['PardDok']['sDokRusis']);
+    }
+
     // --- Internal transfer warehouse fields (header-level sIsSandelio/sISandeli) ---
 
     public function test_internal_transfer_uses_documented_warehouse_fields(): void

@@ -524,11 +524,15 @@ ProductLine::make('SPECIAL', 1)
 ### Creating a Purchase
 
 ```php
+use Finvalda\Enums\DocumentType;
+
 $result = $finvalda->purchase()
     ->client('SUP001')
     ->date('2024-01-15')
     ->warehouse('MAIN')
     ->currency('EUR')
+    ->series('SF')                          // sSerija — document series
+    ->documentType(DocumentType::VatInvoice) // sDokRusis — or pass 'SF'
     ->supplierInvoice('INV-2024-001')
     ->supplierInvoiceDate('2024-01-14')
     ->paymentDays(60)
@@ -537,6 +541,42 @@ $result = $finvalda->purchase()
     ->addService('FREIGHT', quantity: 1, amount: 150.00)
     ->save('STANDARD');
 ```
+
+#### Document type, series & the operation parameter
+
+`series()`, `documentType()`, and the `save()` parameter are **three independent
+inputs** to a create call — none of them is derived from the others:
+
+| Builder method | API field | Controls |
+|---|---|---|
+| `documentType()` | `sDokRusis` | The document type (see codes below) |
+| `series()` | `sSerija` | The document series |
+| `save('STANDARD')` | `sParametras` | The server-configured import/journal profile |
+
+`documentType()` accepts a `DocumentType` enum case or a raw 2-character code:
+
+| Code | `DocumentType` case | Meaning |
+|---|---|---|
+| `S`  | `Invoice` | Sąskaita faktūra |
+| `SF` | `VatInvoice` | PVM sąskaita faktūra |
+| `D`  | `DebitInvoice` | Debetinė sąskaita |
+| `DS` | `DebitVatInvoice` | Debetinė PVM sąskaita |
+| `K`  | `CreditInvoice` | Kreditinė sąskaita |
+| `KS` | `CreditVatInvoice` | Kreditinė PVM sąskaita faktūra |
+| `KT` | `Other` | Kita |
+| `VS` | `LawyerVatInvoice` | Advokatų PVM sąskaita faktūra |
+| `VD` | `LawyerVatInvoiceDebit` | Advokatų PVM sąskaita faktūra debetinė |
+| `VK` | `LawyerVatInvoiceCredit` | Advokatų PVM sąskaita faktūra kreditinė |
+
+These methods are available on `sale()`, `salesReservation()`, `salesReturn()`,
+`purchase()`, `purchaseOrder()`, and `purchaseReturn()`.
+
+> **`sParametras` is required and cannot be bypassed.** The operation *type*
+> (purchase vs. sale, i.e. `ItemClassName`) is what you pick by choosing the
+> builder, and you set `sDokRusis`/`sSerija` yourself — but the journal an
+> operation lands in is resolved server-side from the `sParametras` profile you
+> pass to `save()`. There is no header field to specify the journal directly on
+> create; the resulting journal/number come back on the `OperationResult`.
 
 ### Creating an Internal Transfer
 
