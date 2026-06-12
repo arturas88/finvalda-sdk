@@ -20,11 +20,15 @@ final class ServiceLine
     /** @var array<string, mixed> */
     private array $data;
 
+    private float $quantity;
+
+    private bool $firstMeasurement = false;
+
     private function __construct(string $code, float $quantity)
     {
+        $this->quantity = $quantity;
         $this->data = [
             'sKodas' => $code,
-            'nKiekis' => (int) ($quantity * 100),
         ];
     }
 
@@ -142,10 +146,14 @@ final class ServiceLine
     }
 
     /**
-     * Use first measurement unit for quantity (nPirmasMat=1).
+     * Use the first measurement unit for quantity (nPirmasMat=1).
+     *
+     * When set, the quantity is sent as-is. By default (second measurement)
+     * the quantity is multiplied by 100 — see toArray().
      */
     public function firstMeasurement(bool $flag = true): self
     {
+        $this->firstMeasurement = $flag;
         $this->data['nPirmasMat'] = $flag ? 1 : 0;
 
         return $this;
@@ -184,10 +192,23 @@ final class ServiceLine
     /**
      * Convert to the raw API array format.
      *
+     * Service quantities default to the second measurement, which the API
+     * expects multiplied by 100 (quantity 1 => nKiekis 100, 0.5 => 50). When
+     * the first measurement is used (nPirmasMat=1) the quantity is sent as-is.
+     * An explicit nKiekis set via set() always wins.
+     *
      * @return array<string, mixed>
      */
     public function toArray(): array
     {
-        return $this->data;
+        $data = $this->data;
+
+        if (! array_key_exists('nKiekis', $data)) {
+            $data['nKiekis'] = $this->firstMeasurement
+                ? $this->quantity
+                : (int) round($this->quantity * 100);
+        }
+
+        return $data;
     }
 }

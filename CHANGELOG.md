@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-06-12
+
+### Fixed (breaking wire-format corrections)
+- **`InternalTransferBuilder` warehouse fields were wrong.** `fromWarehouse()`/`toWarehouse()` emitted `sSandIs`/`sSandI`; the `VidPerkDok` spec requires the header fields **`sIsSandelio`** (source) and **`sISandeli`** (destination), both mandatory. Internal transfers built with this builder were rejected by the server for missing warehouses. The detail rows (`VidPerkDokDetEil`) have no per-line warehouse fields, so `addTransfer()`'s optional `fromWarehouse`/`toWarehouse` arguments now set the header values (last call wins) instead of emitting unrecognized per-line keys.
+
+### Fixed
+- **`Data\Client` country code/name collision.** When the API returned only `sValstybe` (country *name*) with no `sValstybeKodas`, that name was copied into both `country` and `countryName`, and `toArray()` then wrote it back into `sValstybeKodas`. `country` no longer falls back to the name key.
+- **`ServiceLine::firstMeasurement()` is now respected.** The ×100 second-measurement scaling was applied unconditionally in the constructor, so `firstMeasurement()` still emitted `nKiekis` ×100 instead of the raw quantity (the docs require no scaling for the first measurement). Scaling is now computed at `toArray()` time and skipped when `firstMeasurement()` is set; an explicit `set('nKiekis', …)` always wins. Default behavior (qty 1 → `nKiekis` 100) is unchanged, and fractional quantities now round rather than truncate.
+
+### Documentation
+- Documented the service quantity ×100 convention and the difference between `ServiceLine`, `ProductLine`, and the legacy `addService()` helper.
+- Documented previously-undocumented methods: the full `Pricing` client/type matrix, `Descriptions` grouping helpers (`clientGroups`, `warehouseGroups`, `logbookGroups`, `opTypeGroups`, `documentSeries`, `calendarEvents`, `vehicles`, `invoiceList`, `reportList`, `typesAndTags`), `References::materiallyResponsiblePersons`/`updateWarehouse`/`updatePaymentTerm`/`addToGroup`, `Transactions::ommPurchasesDetail`/`ommSalesXmlCondition`/`advancedPaymentsDetailExtended`/`depreciationOfFixedAssetsObjects`, `Operations::activityByObjects`, and `Clients::settlementsFromDateParam`.
+- Added a note that the legacy `docs/FVS_Webservice.txt` method signatures describe the V0 SOAP interface and don't always match the V2 endpoint (e.g. `GetPrekesSandelyje` uses `sSandKod`, not the documented `sSanKod` — verified against a live server). `Products::inWarehouse()`/`inWarehouseOrdered()` were confirmed correct as-is.
+
 ## [2.9.0] - 2026-06-04
 
 ### Security

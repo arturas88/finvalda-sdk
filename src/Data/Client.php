@@ -79,7 +79,7 @@ final class Client extends Entity
             address2: $data['sAdresas2'] ?? $data['adresas2'] ?? null,
             city: $data['sMiestas'] ?? $data['miestas'] ?? null,
             postalCode: $data['sPastoKodas'] ?? $data['pasto_kodas'] ?? null,
-            country: $data['sValstybeKodas'] ?? $data['sValstybe'] ?? $data['valstybe'] ?? null,
+            country: $data['sValstybeKodas'] ?? $data['valstybe'] ?? null,
             countryName: $data['sValstybe'] ?? $data['sValstybePav'] ?? $data['valstybe_pav'] ?? null,
             phone: $data['sTelefonas'] ?? $data['telefonas'] ?? null,
             fax: $data['sFaksas'] ?? $data['faksas'] ?? null,

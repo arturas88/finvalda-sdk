@@ -45,21 +45,21 @@ final class InternalTransferBuilder extends OperationBuilder
     // --- Transfer-specific methods ---
 
     /**
-     * Set the source warehouse.
+     * Set the source warehouse (sIsSandelio).
      */
     public function fromWarehouse(string $warehouseCode): self
     {
-        $this->header['sSandIs'] = $warehouseCode;
+        $this->header['sIsSandelio'] = $warehouseCode;
 
         return $this;
     }
 
     /**
-     * Set the destination warehouse.
+     * Set the destination warehouse (sISandeli).
      */
     public function toWarehouse(string $warehouseCode): self
     {
-        $this->header['sSandI'] = $warehouseCode;
+        $this->header['sISandeli'] = $warehouseCode;
 
         return $this;
     }
@@ -107,6 +107,12 @@ final class InternalTransferBuilder extends OperationBuilder
     /**
      * Add a product transfer line.
      *
+     * Internal transfers carry a single source/destination warehouse pair at
+     * the header level (sIsSandelio/sISandeli); the detail rows (VidPerkDokDetEil)
+     * have no per-line warehouse fields. For convenience, passing
+     * $fromWarehouse/$toWarehouse here sets the header values (last call wins) —
+     * prefer fromWarehouse()/toWarehouse() for clarity.
+     *
      * @param  array<string, mixed>  $additionalData
      */
     public function addTransfer(
@@ -116,20 +122,18 @@ final class InternalTransferBuilder extends OperationBuilder
         ?string $toWarehouse = null,
         array $additionalData = [],
     ): self {
-        $line = array_merge([
-            'sKodas' => $productCode,
-            'nKiekis' => $quantity,
-        ], $additionalData);
-
         if ($fromWarehouse !== null) {
-            $line['sSandIs'] = $fromWarehouse;
+            $this->fromWarehouse($fromWarehouse);
         }
 
         if ($toWarehouse !== null) {
-            $line['sSandI'] = $toWarehouse;
+            $this->toWarehouse($toWarehouse);
         }
 
-        $this->productLines[] = $line;
+        $this->productLines[] = array_merge([
+            'sKodas' => $productCode,
+            'nKiekis' => $quantity,
+        ], $additionalData);
 
         return $this;
     }

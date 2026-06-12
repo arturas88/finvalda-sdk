@@ -370,6 +370,11 @@ abstract class OperationBuilder
     /**
      * Add a service line.
      *
+     * Note: $quantity is sent as the raw nKiekis value. Unlike ServiceLine,
+     * this helper does NOT apply the second-measurement ×100 scaling — pass
+     * the already-scaled value (e.g. 100 for one unit) or use ServiceLine::make()
+     * which handles the convention for you.
+     *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
      */
     public function addService(

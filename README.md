@@ -492,7 +492,24 @@ The `product()` / `service()` methods accept line DTOs. The existing `addProduct
 
 **Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
 
-**Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+**Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+
+#### Quantity convention (important)
+
+The API expects **service** quantities in the *second* measurement unit, multiplied by 100 (`nKiekis`):
+
+| You want | `ServiceLine` call | Emitted `nKiekis` |
+|---|---|---|
+| 1 unit | `ServiceLine::make('SVC', 1)` | `100` |
+| 0.5 units | `ServiceLine::make('SVC', 0.5)` | `50` |
+| 1 unit, first measurement | `ServiceLine::make('SVC', 1)->firstMeasurement()` | `1` |
+
+`ServiceLine` applies the ×100 scaling for you. Calling `firstMeasurement()`
+switches to the *first* measurement unit, where the quantity is sent as-is (no
+scaling). `ProductLine` quantities are **not** scaled — they are sent verbatim.
+
+The legacy `addService()` / `addServiceLine()` helpers do **not** scale either —
+pass the already-scaled `nKiekis` yourself, or prefer `ServiceLine::make()`.
 
 For rare/niche API fields not covered by named methods, use the `set()` escape hatch:
 
@@ -526,14 +543,17 @@ $result = $finvalda->purchase()
 ```php
 $result = $finvalda->internalTransfer()
     ->date('2024-01-15')
-    ->fromWarehouse('MAIN')
-    ->toWarehouse('BRANCH')
+    ->fromWarehouse('MAIN')      // header field sIsSandelio
+    ->toWarehouse('BRANCH')      // header field sISandeli
     ->description('Restock branch warehouse')
     ->addTransfer('PRD001', quantity: 50)
     ->addTransfer('PRD002', quantity: 25)
-    ->addTransfer('PRD003', quantity: 100, fromWarehouse: 'MAIN', toWarehouse: 'BRANCH2')
     ->save('TRANSFER');
 ```
+
+An internal transfer carries a **single** source/destination warehouse pair at the
+header level — the detail rows have no per-line warehouse fields. To move stock
+between different warehouse pairs, create separate transfer operations.
 
 ### Creating Returns
 
@@ -1012,6 +1032,7 @@ $response = $finvalda->clients()->settlements(series: 'SER', document: 'DOC001')
 $response = $finvalda->clients()->settlements(journal: 'PARD', number: 123);
 $response = $finvalda->clients()->settlementsDetailed(series: 'SER', document: 'DOC001');
 $response = $finvalda->clients()->settlementsFromDate(series: 'SER', modifiedSince: '2024-01-01');
+$response = $finvalda->clients()->settlementsFromDateParam($xmlParam); // raw XML param variant
 
 // CRUD operations
 $result = $finvalda->clients()->create([
@@ -1225,9 +1246,22 @@ $response = $finvalda->transactions()->clearingOffsDetail($filter);
 $response = $finvalda->transactions()->ommSales($filter);
 $response = $finvalda->transactions()->ommSalesDetail($filter);
 $response = $finvalda->transactions()->ommPurchases($filter);
+$response = $finvalda->transactions()->ommPurchasesDetail($filter);
+
+// OMM sales filtered by a raw XML condition
+$response = $finvalda->transactions()->ommSalesXmlCondition($xmlData);
+$response = $finvalda->transactions()->ommSalesXmlConditionWithTitle($xmlData);
+
+// Advance payments (extended)
+$response = $finvalda->transactions()->advancedPaymentsDetailExtended(
+    filter: $filter,
+    client: 'CLIENT001',
+    offsetStatus: 0,
+);
 
 // Fixed Assets & Currency
 $response = $finvalda->transactions()->depreciationOfFixedAssets(year: 2024, month: 6);
+$response = $finvalda->transactions()->depreciationOfFixedAssetsObjects(year: 2024, month: 6);
 $response = $finvalda->transactions()->currencyDebtRecount($filter);
 
 // Low Value Inventory
@@ -1304,6 +1338,13 @@ $result = $finvalda->operations()->copy([
     'bDeleteSourceOp' => false,
     'bKeepDocument' => false,
 ]);
+
+// Activity by analytical objects (GetVeiklaPagalObjektus)
+$response = $finvalda->operations()->activityByObjects([
+    'tDataNuo' => '2024-01-01',
+    'tDataIki' => '2024-12-31',
+    // ...object/journal filters
+]);
 ```
 
 ### Order Management (UVM)
@@ -1341,6 +1382,23 @@ $response = $finvalda->pricing()->clientServiceAdditionalPrices('CLI001');
 // Client type pricing
 $response = $finvalda->pricing()->clientTypeProductDiscounts('VIP');
 $response = $finvalda->pricing()->clientTypeServiceDiscounts('VIP');
+
+// The full pricing matrix follows a consistent naming scheme:
+//   client[Type]  ×  Product|Service[Type]  ×  Discounts|AdditionalPrices
+// All of the following are available (each takes the relevant code plus
+// optional modifiedSince / createdSince date filters):
+$finvalda->pricing()->clientItemTypePrices(clientCode: 'CLI001', itemTypeCode: 'ELECTRONICS');
+$finvalda->pricing()->clientTypeItemPrices(clientTypeCode: 'VIP', itemCode: 'PROD001');
+$finvalda->pricing()->clientTypeItemTypePrices(clientTypeCode: 'VIP', itemTypeCode: 'ELECTRONICS');
+$finvalda->pricing()->clientProductTypeAdditionalPrices('CLI001');
+$finvalda->pricing()->clientServiceTypeDiscounts('CLI001');
+$finvalda->pricing()->clientServiceTypeAdditionalPrices('CLI001');
+$finvalda->pricing()->clientTypeProductAdditionalPrices('VIP');
+$finvalda->pricing()->clientTypeProductTypeDiscounts('VIP');
+$finvalda->pricing()->clientTypeProductTypeAdditionalPrices('VIP');
+$finvalda->pricing()->clientTypeServiceAdditionalPrices('VIP');
+$finvalda->pricing()->clientTypeServiceTypeDiscounts('VIP');
+$finvalda->pricing()->clientTypeServiceTypeAdditionalPrices('VIP');
 
 // Recommended price calculation
 $response = $finvalda->pricing()->recommendedPrice([
@@ -1439,6 +1497,18 @@ $response = $finvalda->descriptions()->get(DescriptionType::PartnerProducts, [
     'Codes' => ['PROD001'],
     'Client' => 'CLI001',
 ]);
+
+// Convenience helpers for grouping/reference description types
+$response = $finvalda->descriptions()->typesAndTags('product', number: 1); // 'product'|'service'|'client'
+$response = $finvalda->descriptions()->clientGroups();
+$response = $finvalda->descriptions()->warehouseGroups();
+$response = $finvalda->descriptions()->logbookGroups();      // journal (logbook) groups
+$response = $finvalda->descriptions()->opTypeGroups();       // operation-type groups
+$response = $finvalda->descriptions()->documentSeries(type: 1);
+$response = $finvalda->descriptions()->calendarEvents('USERNAME', ['DateFrom' => '2024-01-01']);
+$response = $finvalda->descriptions()->vehicles();
+$response = $finvalda->descriptions()->invoiceList(opClass: 'PARD');
+$response = $finvalda->descriptions()->reportList(class: 'PARDSAR');
 ```
 
 ### Reference Data
@@ -1449,6 +1519,18 @@ $response = $finvalda->references()->warehouses();
 $response = $finvalda->references()->taxes();
 $response = $finvalda->references()->paymentTerms();
 $response = $finvalda->references()->user();
+$response = $finvalda->references()->materiallyResponsiblePersons();        // optional code filter
+
+// Update existing reference entities
+$result = $finvalda->references()->updateWarehouse(['sKodas' => 'WH03', 'sPavadinimas' => 'Renamed']);
+$result = $finvalda->references()->updatePaymentTerm(['sKodas' => 'NET30', 'sPavadinimas' => 'Net 30 days']);
+
+// Append an item to a group (AppendGroup)
+$result = $finvalda->references()->addToGroup(
+    itemClassName: 'Fvs.Preke',
+    groupCode: 'GRP01',
+    itemCode: 'PROD001',
+);
 
 // Create reference entities
 $result = $finvalda->references()->createBank(['sKodas' => 'BNK01', 'sPavadinimas' => 'My Bank']);
@@ -1617,6 +1699,14 @@ The SDK is built from the [official Postman collection](https://documenter.getpo
 ```bash
 bin/sync-postman-collection
 ```
+
+> **Note on parameter names.** The legacy method signatures in `docs/FVS_Webservice.txt`
+> describe the older V0 (SOAP) interface and do **not** always match the V2
+> `FvsServicePure` endpoint this SDK targets. For example, `GetPrekesSandelyje`
+> is documented with `sSanKod` but the V2 endpoint actually honors `sSandKod`
+> (verified against a live server). When a query filter appears to be silently
+> ignored, confirm the exact parameter name against a live server rather than
+> trusting the `.txt` signature.
 
 ## License
 

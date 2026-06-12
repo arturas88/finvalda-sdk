@@ -119,6 +119,38 @@ class LineTest extends TestCase
         $this->assertSame(100, $line['nKiekis']);
     }
 
+    public function test_service_line_default_quantity_scaled_by_100(): void
+    {
+        // Second-measurement convention: 0.5 => 50, fractional rounded.
+        $this->assertSame(50, ServiceLine::make('A', 0.5)->toArray()['nKiekis']);
+        $this->assertSame(1225, ServiceLine::make('A', 12.25)->toArray()['nKiekis']);
+        // Round, not truncate (0.29 * 100 = 28.9999… in float).
+        $this->assertSame(29, ServiceLine::make('A', 0.29)->toArray()['nKiekis']);
+    }
+
+    public function test_service_line_first_measurement_sends_quantity_as_is(): void
+    {
+        $line = ServiceLine::make('A', 1)->firstMeasurement()->toArray();
+
+        $this->assertSame(1.0, $line['nKiekis']);
+        $this->assertSame(1, $line['nPirmasMat']);
+    }
+
+    public function test_service_line_first_measurement_disabled_restores_scaling(): void
+    {
+        $line = ServiceLine::make('A', 1)->firstMeasurement(false)->toArray();
+
+        $this->assertSame(100, $line['nKiekis']);
+        $this->assertSame(0, $line['nPirmasMat']);
+    }
+
+    public function test_service_line_explicit_quantity_via_set_wins(): void
+    {
+        $line = ServiceLine::make('A', 1)->set('nKiekis', 7)->toArray();
+
+        $this->assertSame(7, $line['nKiekis']);
+    }
+
     public function test_service_line_full(): void
     {
         $line = ServiceLine::make('TRANSPORT', 1)

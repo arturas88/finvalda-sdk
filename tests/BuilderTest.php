@@ -576,4 +576,42 @@ class BuilderTest extends TestCase
         $this->assertSame('OBJ6', $data['PardDok']['sObjektas6']);
         $this->assertArrayNotHasKey('sObjektas2', $data['PardDok']);
     }
+
+    // --- Internal transfer warehouse fields (header-level sIsSandelio/sISandeli) ---
+
+    public function test_internal_transfer_uses_documented_warehouse_fields(): void
+    {
+        $data = (new InternalTransferBuilder())
+            ->date('2024-01-15')
+            ->fromWarehouse('MAIN')
+            ->toWarehouse('BRANCH')
+            ->addTransfer('PRD001', quantity: 50)
+            ->build();
+
+        $this->assertSame('MAIN', $data['VidPerkDok']['sIsSandelio']);
+        $this->assertSame('BRANCH', $data['VidPerkDok']['sISandeli']);
+        // The legacy/incorrect field names must not be emitted.
+        $this->assertArrayNotHasKey('sSandIs', $data['VidPerkDok']);
+        $this->assertArrayNotHasKey('sSandI', $data['VidPerkDok']);
+    }
+
+    public function test_internal_transfer_detail_rows_have_no_warehouse_fields(): void
+    {
+        $data = (new InternalTransferBuilder())
+            ->date('2024-01-15')
+            ->addTransfer('PRD001', quantity: 50, fromWarehouse: 'MAIN', toWarehouse: 'BRANCH')
+            ->build();
+
+        $row = $data['VidPerkDok']['VidPerkDokDetEil'][0];
+        $this->assertSame('PRD001', $row['sKodas']);
+        $this->assertSame(50.0, $row['nKiekis']);
+        $this->assertArrayNotHasKey('sSandIs', $row);
+        $this->assertArrayNotHasKey('sSandI', $row);
+        $this->assertArrayNotHasKey('sIsSandelio', $row);
+        $this->assertArrayNotHasKey('sISandeli', $row);
+
+        // addTransfer() warehouse args are routed to the header.
+        $this->assertSame('MAIN', $data['VidPerkDok']['sIsSandelio']);
+        $this->assertSame('BRANCH', $data['VidPerkDok']['sISandeli']);
+    }
 }
