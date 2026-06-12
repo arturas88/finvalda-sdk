@@ -305,6 +305,11 @@ abstract class OperationBuilder
     /**
      * Add a product line.
      *
+     * Note: $quantity is sent as the raw nKiekis value (no scaling). Per the API spec,
+     * product rows have no ×100 — first measurement is the quantity as-is (double),
+     * second measurement is the quantity as an integer. Use additionalData:
+     * ['nPirmasMat' => 1] to flag the first measurement.
+     *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
      */
     public function addProduct(

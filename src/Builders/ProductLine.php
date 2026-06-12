@@ -24,6 +24,11 @@ final class ProductLine
 
     private function __construct(string $code, float $quantity)
     {
+        // nKiekis is sent verbatim. Per the API spec, PRODUCT rows have no ×100 scaling
+        // (unlike service rows, which ServiceLine multiplies by 100). The product code's
+        // measurement unit and the nPirmasMat flag decide how the server reads this value:
+        //   - first measurement (nPirmasMat=1): real quantity, as-is (double, e.g. 12.25)
+        //   - second measurement (default):     quantity as an integer, NO ×100 (e.g. 1000)
         $this->data = [
             'sKodas' => $code,
             'nKiekis' => $quantity,
@@ -185,7 +190,11 @@ final class ProductLine
     }
 
     /**
-     * Use first measurement unit for quantity (nPirmasMat=1).
+     * Use the first measurement unit for the quantity (nPirmasMat=1).
+     *
+     * The product code's measurement unit has two dimensions (first/second). Setting
+     * this flag tells the server nKiekis is expressed in the first (primary) dimension.
+     * ProductLine sends nKiekis verbatim regardless — this flag does not rescale it.
      */
     public function firstMeasurement(bool $flag = true): self
     {

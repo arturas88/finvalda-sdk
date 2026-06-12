@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.1] - 2026-06-12
+
+### Documentation
+- **Explained the `nKiekis` quantity convention in full.** Per the API spec, the encoding differs by line type and `nPirmasMat`: the **first** measurement is always the quantity as-is (double); for the **second** measurement, **service** rows are multiplied by 100 (fixed-point, `1 → 100`, `0.5 → 50`) while **product** rows are sent as a plain integer with **no ×100**. This matches the existing SDK behavior — `ServiceLine` auto-scales, `ProductLine` is verbatim — which is faithful to the spec, not an inconsistency. Added a README table, the spec quotes, product/service examples, a note that the SDK never performs unit conversion (e.g. kg↔ton ratios are the caller's responsibility), and matching code comments on `ProductLine` and `OperationBuilder::addProduct()`.
+
 ## [2.11.0] - 2026-06-12
 
 ### Added

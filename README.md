@@ -496,20 +496,68 @@ The `product()` / `service()` methods accept line DTOs. The existing `addProduct
 
 #### Quantity convention (important)
 
-The API expects **service** quantities in the *second* measurement unit, multiplied by 100 (`nKiekis`):
+`nKiekis` is encoded **differently for products and services**, and within each it
+depends on the measurement unit. Every product/service code (`sKodas`) is configured
+in Finvalda with a measurement unit that has **two dimensions** — a *first* (primary)
+and a *second* unit. The `nPirmasMat` flag selects which dimension `nKiekis` is
+expressed in.
 
-| You want | `ServiceLine` call | Emitted `nKiekis` |
+Per the API spec, the rules are:
+
+| Line type | First measurement (`nPirmasMat=1`) | Second measurement (default) |
 |---|---|---|
-| 1 unit | `ServiceLine::make('SVC', 1)` | `100` |
-| 0.5 units | `ServiceLine::make('SVC', 0.5)` | `50` |
-| 1 unit, first measurement | `ServiceLine::make('SVC', 1)->firstMeasurement()` | `1` |
+| **Product** (`*PrekeDetEil`, `GamybaG/Z`) | quantity **as-is** (double) | quantity **as an integer**, **no ×100** |
+| **Service** (`*PaslaugaDetEil`, `GamybaP`) | quantity **as-is** (double) | quantity **× 100** (fixed-point, 2 decimals): `1 → 100`, `0.5 → 50` |
 
-`ServiceLine` applies the ×100 scaling for you. Calling `firstMeasurement()`
-switches to the *first* measurement unit, where the quantity is sent as-is (no
-scaling). `ProductLine` quantities are **not** scaled — they are sent verbatim.
+The product and service rows say the same thing for the first measurement, but only
+the **service** rows carry the ×100 note for the second measurement. From the spec:
 
-The legacy `addService()` / `addServiceLine()` helpers do **not** scale either —
-pass the already-scaled `nKiekis` yourself, or prefer `ServiceLine::make()`.
+> **Service** `nKiekis` — *paslaugos kiekis antru matavimu (integer) arba pirmu jei nurodyta nPirmasMat=1. **Kiekis padaugintas iš 100.** Jeigu reikalingas kiekis 0.5 tada nKiekis = 50, jeigu reikalingas kiekis 1 tada nKiekis = 100. Jeigu naudojamas pirmas matavimas dauginti nereikia.*
+>
+> **Product** `nKiekis` — *prekės kiekis antru matavimu (integer) arba pirmu jei nurodyta nPirmasMat=1.* (no ×100)
+
+> **Unit conversion is the caller's job, not the SDK's.** For a unit like Ton with
+> first = ton and second = kg (ratio 1000), the SDK never multiplies by the ratio. You
+> decide which dimension to type the quantity in and set `firstMeasurement()`
+> accordingly; the SDK only applies the service ×100 fixed-point encoding. It cannot
+> see the product's unit configuration, so it deliberately does not convert kg↔ton.
+
+##### What the SDK does for you
+
+This matches the spec exactly — the product/service difference is intentional, **not** an SDK quirk:
+
+| Builder helper | Default (no `firstMeasurement()`) | With `->firstMeasurement()` |
+|---|---|---|
+| `ServiceLine::make($code, $qty)` | Second measurement: emits `nKiekis = round($qty × 100)` | First measurement: emits `nKiekis = $qty` (as-is) and `nPirmasMat = 1` |
+| `ProductLine::make($code, $qty)` | Emits `nKiekis = $qty` **verbatim** (products have no ×100) | Sets `nPirmasMat = 1`; `nKiekis = $qty` |
+| `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` | Emit `nKiekis` **verbatim** (no scaling) | — |
+
+```php
+// Service, second measurement (default): qty 1 → nKiekis 100, 0.5 → 50
+$finvalda->sale()->client('CLI001')->service(
+    ServiceLine::make('TRANSPORT', 0.5)        // nKiekis = 50
+)->save('STANDARD');
+
+// Service, first measurement: qty sent as-is
+$finvalda->sale()->client('CLI001')->service(
+    ServiceLine::make('TRANSPORT', 1)->firstMeasurement()   // nKiekis = 1, nPirmasMat = 1
+)->save('STANDARD');
+
+// Product, first measurement: qty as-is (double)
+$finvalda->sale()->client('CLI001')->product(
+    ProductLine::make('MILTAI', 12.25)->firstMeasurement()  // nKiekis = 12.25, nPirmasMat = 1
+)->save('STANDARD');
+
+// Product, second measurement: integer quantity, NO ×100 — sent verbatim.
+$finvalda->sale()->client('CLI001')->product(
+    ProductLine::make('MILTAI', 1000)                       // nKiekis = 1000 (e.g. 1000 kg)
+)->save('STANDARD');
+```
+
+> Products never get the ×100 — `ProductLine` is verbatim by design, matching the
+> spec. Services do — `ServiceLine` applies it for you (opt out with
+> `firstMeasurement()`). The legacy `addProduct()`/`addService()` helpers never
+> scale, so always pass the final `nKiekis` there.
 
 For rare/niche API fields not covered by named methods, use the `set()` escape hatch:
 
