@@ -10,3 +10,4 @@ composer.lock
 Thumbs.db
 .claude/
 .env
+docs/parameters/parameters.local.yaml

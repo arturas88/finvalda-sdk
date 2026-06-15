@@ -1,0 +1,42 @@
+# Finvalda sParametras knowledge base — EXAMPLE (fake values).
+# One entry per server-side profile (managed in FvsNETParamKonfig).
+# Copy this shape into your gitignored parameters.local.yaml with your real values.
+# Only include the sections a profile actually uses.
+
+profiles:
+  STANDARD_SALE:
+    purpose: Standard goods sale invoice          # human-readable; drives matching
+    matches: [sale, invoice, sell goods]          # keywords to help the assistant pick it
+    operations: [sale, salesReturn]               # SDK builders / OperationClasses fed
+    notes: |
+      Example profile. 21% VAT goods sales only.
+    header:
+      division: MAIN            # Padalinys
+      employee: WEBUSER         # Darbuotojas
+      series: INV               # Serija
+      prices_include_vat: false # Kainos su PVM
+    descriptions:
+      clients:
+        debit_account: "2410"   # Debetinė sąskaita
+        credit_account: "4430"  # Kreditinė sąskaita
+        vat_code: STDVAT        # PVM Mokestis
+    sales:
+      sales:   { journal: SALES,     type: GOODS, series: INV, document_type: SF }
+      returns: { journal: SALES_RET, type: GOODS, series: CRN, document_type: KS }
+    sdk_example: |
+      $finvalda->sale()->client('CLIENT_CODE')
+          ->product(ProductLine::make('PRODUCT', 1))
+          ->save('STANDARD_SALE');
+
+  CASH_PAYMENT:
+    purpose: Customer cash inflow
+    matches: [payment, cash receipt, inflow]
+    operations: [inflow]
+    header:
+      division: MAIN
+      employee: WEBUSER
+    inflows:
+      inflows: { journal: CASH_IN, series: CSH, type: CASH_EUR, currency: EUR }
+    sdk_example: |
+      $finvalda->inflow()->client('CLIENT_CODE')->amount(100.00)
+          ->save('CASH_PAYMENT');
