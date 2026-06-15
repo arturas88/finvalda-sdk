@@ -1763,7 +1763,7 @@ Optional data field for item methods. Include in data array if required:
 $result = $finvalda->clients()->create([
     'sKodas' => 'NEW001',
     'sPavadinimas' => 'New Client Ltd',
-    'sFvsImportoParametras' => 'NUOMA', // Server-configured
+    'sFvsImportoParametras' => 'STANDARD', // Server-configured
 ]);
 ```
 

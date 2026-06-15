@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.2] - 2026-06-15
+
+### Documentation
+- **Added a `sParametras` knowledge base under `docs/parameters/`.** A generic guide explains what a parameter profile contains (journal, operation type, series, document type, GL accounts, VAT codes, division, employee, currency, Intrastat data, behavioral flags), how profiles are managed in the `FvsNETParamKonfig` desktop tool, the seven configuration tabs with an English-key → Lithuanian-label mapping, and how an AI assistant can use the catalog to match a transaction to a profile, explain a profile, or draft setup instructions for a new one.
+- **`parameters.example.yaml`**: an exhaustive, fake-value reference profile listing every available field across all seven tabs, plus a minimal realistic example. Inflow/disbursement operation types are modeled as a per-currency list (one operation type per currency). Deployment-specific values belong in a git-ignored `parameters.local.yaml`, never committed.
+- Linked the README `Server-Configured Parameters` section to the new knowledge base, and genericized a `sFvsImportoParametras` example value.
+
 ## [2.11.1] - 2026-06-12
 
 ### Documentation
