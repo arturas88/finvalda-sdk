@@ -111,10 +111,19 @@ Sales groups: `sales` (Pardavimai), `reservations` (Rezervavimai), `returns` (Gr
 | `document_type` | Dokumento tipas |
 | `suggest_price` | Kaina pasiūloma |
 
+Both tabs also carry these tab-level fields (siblings of the groups, not inside them):
+
+| YAML key | LT UI label |
+|---|---|
+| `cost_account` | Sąskaitos → Savikainos |
+| `additional_expenses_account` | Sąskaitos → Pap. išlaidų |
+| `vat_code` | PVM mokestis |
+| `recalc_eur_from_currency` | Perskaičiuoti sumas EUR iš sumos valiuta (kai EUR 0/nenurodyta) |
+
 ### Tab `Gamyba` (Production) — `production:`
 
-Groups, each with `journal` + `type`:
-`receipts` (Pajamavimai), `writeoffs` (Nurašymai), `other` (Kitos Op.).
+Tab-level `journal` (Žurnalas) + `type` (Operacijos tipas), plus three groups, each with
+`journal` + `type`: `receipts` (Pajamavimai), `writeoffs` (Nurašymai), `other` (Kitos Op.).
 
 ### Tab `Įplaukos` (Inflows) — `inflows:`
 
@@ -152,7 +161,10 @@ Separate `sales` (Pardavimai) and `purchases` (Pirkimai) sections:
 | `delivery_terms` | Antraštė → Pristatymo sąl. |
 | `transport` | Antraštė → Transp. rūšis |
 | `dispatch_country` | Antraštė → Šalis siuntėja |
+| `suggest_from_client_card` | Antraštė → Siūlyti iš kliento kortelės |
 | `county` | Eilutės → Apskritis |
+| `suggest_code_from_product` | Eilutės → Siūlyti intrastat kodą iš prekės lentelės |
+| `suggest_dispatch_country_from_product` | Eilutės → Siūlyti šalį siuntėją iš prekės kortelės |
 
 ---
 

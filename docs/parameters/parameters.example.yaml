@@ -1,25 +1,125 @@
 # Finvalda sParametras knowledge base — EXAMPLE (fake values).
 # One entry per server-side profile (managed in FvsNETParamKonfig).
-# Copy this shape into your gitignored parameters.local.yaml with your real values.
-# Only include the sections a profile actually uses.
+# Copy the shape you need into your gitignored parameters.local.yaml with real values.
+#
+# FULL_REFERENCE below lists EVERY available field (the full FvsNETParamKonfig taxonomy)
+# for documentation. Real profiles include ONLY the sections they actually use — see the
+# minimal STANDARD_SALE example at the bottom.
 
 profiles:
-  STANDARD_SALE:
-    purpose: Standard goods sale invoice          # human-readable; drives matching
-    matches: [sale, invoice, sell goods]          # keywords to help the assistant pick it
-    operations: [sale, salesReturn]               # SDK builders / OperationClasses fed
+  FULL_REFERENCE:
+    purpose: Reference profile listing every available field (not a real flow)
+    matches: [reference, all fields, template]
+    operations: [sale, salesReturn, salesReservation, purchase, purchaseReturn, purchaseOrder, uvmSalesReservation, uvmPurchaseOrder, production, inflow, disbursement, internalTransfer, writeOff, capitalization, inventoryCount, nonAnalytical, clearing, uvmCancellation]
     notes: |
-      Example profile. 21% VAT goods sales only.
+      Documentation catalog of all fields. Do not use as-is; copy only the sections
+      a given flow needs into your local profile.
+
+    header:                          # always-applied header fields
+      division: MAIN                 # Padalinys
+      employee: WEBUSER              # Darbuotojas
+      series: INV                    # Serija (header-level fallback)
+      prices_include_vat: false      # Kainos su PVM
+      export_to_ivaz: false          # Eksportuoti į iVAZ
+      assign_first_free_number: false # Priskirti pirmą laisvą PUI pardavime/vid. perk.
+      marked: false                  # Pažymėta operacija
+      suggest_gross_from_product: false  # Pasiūlomas bruto iš prekės kortelės
+      suggest_net_from_product: false    # Pasiūlomas neto iš prekės kortelės
+      suggest_volume_from_product: false # Pasiūlomas tūris iš prekės kortelės
+
+    descriptions:                    # Aprašymai tab — defaults for auto-created reference data
+      products:                      # Prekių parametrai
+        account_link: GOODS_ACC      #   Ryšys su sąskaitomis
+        vat_code: STDVAT             #   PVM mokestis
+        unit: VNT                    #   Mato vienetas
+      services:                      # Paslaugų parametrai
+        account_link: SERVICE_ACC    #   Ryšys su sąskaitomis
+        vat_code: STDVAT             #   PVM mokestis
+      clients:                       # Klientų parametrai
+        debit_account: "2410"        #   Debetinė sąskaita
+        credit_account: "4430"       #   Kreditinė sąskaita
+        vat_code: STDVAT             #   PVM Mokestis
+
+    purchases:                       # Pirkimai tab
+      # groups — each: journal/type/series/document_type/suggest_price
+      purchases:  { journal: PURCH,     type: GOODS, series: PIN,  document_type: SF,  suggest_price: false }  # Pirkimai
+      orders:     { journal: PURCH_ORD, type: GOODS, series: PORD, document_type: UZS, suggest_price: false }  # Užsakymai
+      returns:    { journal: PURCH_RET, type: GOODS, series: PRET, document_type: KS,  suggest_price: false }  # Grąžinimai
+      uvm_orders: { journal: PURCH_UVM, type: GOODS, series: PUVM, document_type: SF,  suggest_price: false }  # UVM užsakymai
+      cost_account: "6000"                 # Sąskaitos → Savikainos
+      additional_expenses_account: "6010"  # Sąskaitos → Pap. išlaidų
+      vat_code: STDVAT                      # PVM mokestis
+      recalc_eur_from_currency: false       # Perskaičiuoti sumas EUR iš sumos valiuta (kai EUR 0/nenurodyta)
+
+    sales:                           # Pardavimai tab
+      sales:            { journal: SALES,     type: GOODS,   series: INV, document_type: SF, suggest_price: false }  # Pardavimai
+      reservations:     { journal: SALES_RES, type: GOODS,   series: RES, document_type: SF, suggest_price: false }  # Rezervavimai
+      returns:          { journal: SALES_RET, type: GOODS,   series: CRN, document_type: KS, suggest_price: false }  # Grąžinimai
+      uvm_reservations: { journal: SALES_UVM, type: SERVICE, series: UVM, document_type: SF, suggest_price: false }  # UVM rezervavimai
+      cost_account: "6000"                 # Sąskaitos → Savikainos
+      additional_expenses_account: "6010"  # Sąskaitos → Pap. išlaidų
+      vat_code: STDVAT                      # PVM mokestis
+      recalc_eur_from_currency: false       # Perskaičiuoti sumas EUR iš sumos valiuta
+
+    production:                      # Gamyba tab
+      journal: PROD                  # Žurnalas (general)
+      type: PROD_OP                  # Operacijos tipas (general)
+      receipts:  { journal: PROD_IN,  type: PROD_RCV }   # Pajamavimai (Žurnalai / Operacijos tipai)
+      writeoffs: { journal: PROD_OUT, type: PROD_WO }    # Nurašymai
+      other:     { journal: PROD_ETC, type: PROD_OTH }   # Kitos Op.
+
+    inflows:                         # Įplaukos tab
+      inflows:       { journal: CASH_IN,  series: CIN,  series2: CIN2,  type: CASH_EUR, currency: EUR }  # Įplaukos
+      disbursements: { journal: CASH_OUT, series: COUT, series2: COUT2, type: PAY_EUR,  currency: EUR }  # Išmokos
+
+    other:                           # Kita tab
+      capitalization:    { journal: CAP,    type: CAP_OP }                  # Pajamavimo operacijų parametrai
+      uvm_cancellation:  { journal: UVMCAN, type: UVMCAN_OP }               # UVM anuliavimo operacijų parametrai
+      internal_transfer: { journal: XFER,   type: XFER_OP, series: XF }     # Vidinio perkėlimo operacijų parametrai
+      inventory_count:   { journal: INVCNT, warehouse: WH1 }                # Prekių inventorizacija (Žurnalas / Sandėlis)
+      writeoff:          { journal: WOFF,   type: WOFF_OP }                 # Nurašymo operacijų parametrai
+      non_analytical:    { journal: GL,     type: GL_OP }                   # Kitų neanalitinių operacijų parametrai
+      clearing:          { journal: CLR,    type: CLR_OP, account: "2410" } # Užskaitų operacijų parametrai (+ Sąskaita)
+
+    intrastat:                       # Intrastat tab
+      sales:                         # Pardavimai
+        transaction: "11"            #   Antraštė → Sandoris
+        delivery_terms: EXW          #   Antraštė → Pristatymo sąl.
+        transport: "3"               #   Antraštė → Transp. rūšis
+        dispatch_country: LT         #   Antraštė → Šalis siuntėja
+        suggest_from_client_card: false        #   Antraštė → Siūlyti iš kliento kortelės
+        county: "01"                 #   Eilutės → Apskritis
+        suggest_code_from_product: false       #   Eilutės → Siūlyti intrastat kodą iš prekės lentelės
+        suggest_dispatch_country_from_product: false  # Eilutės → Siūlyti šalį siuntėją iš prekės kortelės
+      purchases:                     # Pirkimai
+        transaction: "11"
+        delivery_terms: EXW
+        transport: "3"
+        dispatch_country: LT
+        suggest_from_client_card: false
+        county: "01"
+        suggest_code_from_product: false
+        suggest_dispatch_country_from_product: false
+
+    sdk_example: |
+      $finvalda->sale()->client('CLIENT_CODE')
+          ->product(ProductLine::make('PRODUCT', 1))
+          ->save('FULL_REFERENCE');
+
+  # Realistic minimal profile — only the sections it actually uses.
+  STANDARD_SALE:
+    purpose: Standard goods sale invoice
+    matches: [sale, invoice, sell goods]
+    operations: [sale, salesReturn]
     header:
-      division: MAIN            # Padalinys
-      employee: WEBUSER         # Darbuotojas
-      series: INV               # Serija
-      prices_include_vat: false # Kainos su PVM
+      division: MAIN
+      employee: WEBUSER
+      prices_include_vat: false
     descriptions:
       clients:
-        debit_account: "2410"   # Debetinė sąskaita
-        credit_account: "4430"  # Kreditinė sąskaita
-        vat_code: STDVAT        # PVM Mokestis
+        debit_account: "2410"
+        credit_account: "4430"
+        vat_code: STDVAT
     sales:
       sales:   { journal: SALES,     type: GOODS, series: INV, document_type: SF }
       returns: { journal: SALES_RET, type: GOODS, series: CRN, document_type: KS }
@@ -27,16 +127,3 @@ profiles:
       $finvalda->sale()->client('CLIENT_CODE')
           ->product(ProductLine::make('PRODUCT', 1))
           ->save('STANDARD_SALE');
-
-  CASH_PAYMENT:
-    purpose: Customer cash inflow
-    matches: [payment, cash receipt, inflow]
-    operations: [inflow]
-    header:
-      division: MAIN
-      employee: WEBUSER
-    inflows:
-      inflows: { journal: CASH_IN, series: CSH, type: CASH_EUR, currency: EUR }
-    sdk_example: |
-      $finvalda->inflow()->client('CLIENT_CODE')->amount(100.00)
-          ->save('CASH_PAYMENT');
