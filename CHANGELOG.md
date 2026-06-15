@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.3] - 2026-06-15
+
+### Documentation
+- Corrected the `sParametras` documentation: `FvsNETParamKonfig` has no `.xlsx` export. The `parameters.local.yaml` catalog is maintained by hand from the tool's profile settings (a hand-made Excel only seeds it). Fixed the wording in the parameters guide (`docs/parameters/README.md` §6), the design spec, and the implementation plan.
+
 ## [2.11.2] - 2026-06-15
 
 ### Documentation

@@ -24,9 +24,9 @@ over a well-structured data file plus a guide.
   desktop tool `FvsNETParamKonfig.exe`. Profiles bundle defaults (journal, operation type,
   series, document type, GL accounts, VAT codes, division, employee, currency, Intrastat
   data, behavioral flags) that the Finvalda server injects into every write operation.
-- Profiles **cannot be read via the web service API**. The only sync mechanism is a manual
-  `.xlsx` export from `FvsNETParamKonfig`. The knowledge base is therefore hand-curated and
-  treated as "last known good," not gospel.
+- Profiles **cannot be read via the web service API**, and `FvsNETParamKonfig` has no export.
+  A hand-made `.xlsx` (the user's own options catalog) seeds the data; the knowledge base is
+  therefore hand-curated and treated as "last known good," not gospel.
 - The repo is **public**. HTL-specific data (real profile names, account numbers, journal
   codes, server paths, logins) must never be committed.
 - Every SDK write path already requires a parameter (`OperationBuilder::save()` throws
@@ -134,7 +134,7 @@ Field → Lithuanian-label mapping is documented once in the guide; the YAML sta
 - Redact the 9 screenshots and the existing draft README's HTL content; move generic guide
   content into the new guide.
 - Move the raw `.xlsx` (and screenshot originals) to a local path **outside the git tree**
-  (path provided by user) as the re-sync source.
+  (path provided by user) as local reference.
 - Remove `docs/ParametersOptions/` from the repo.
 - Add `.gitignore` entry for the local YAML.
 

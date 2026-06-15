@@ -4,7 +4,7 @@
 
 **Goal:** Build a documented, machine-readable knowledge base of Finvalda `sParametras` profiles plus a generic guide, so an AI assistant can match needs to profiles, explain them, and draft `FvsNETParamKonfig` instructions — without exposing HTL data in the public repo.
 
-**Architecture:** Two layers. A *published* layer (`docs/parameters/`: generic guide, fake example YAML, redacted screenshots) committed to git. A *local* layer (`docs/parameters/parameters.local.yaml`) gitignored, holding the real HTL profiles transcribed from the `.xlsx` export. The old `docs/ParametersOptions/` folder is removed; its raw `.xlsx`/originals move outside the git tree as the re-sync source.
+**Architecture:** Two layers. A *published* layer (`docs/parameters/`: generic guide, fake example YAML, redacted screenshots) committed to git. A *local* layer (`docs/parameters/parameters.local.yaml`) gitignored, holding the real HTL profiles transcribed from a hand-made `.xlsx` options catalog (not a tool export — `FvsNETParamKonfig` has none). The old `docs/ParametersOptions/` folder is removed; its raw `.xlsx`/originals move outside the git tree as local reference.
 
 **Tech Stack:** Markdown, YAML, Python 3 + Pillow (one-off screenshot redaction), git.
 
@@ -172,7 +172,7 @@ git commit -m "docs: add example sParametras knowledge-base YAML"
    - *Match:* "I need to invoice a late fee" → assistant finds the best-fit profile via `purpose`/`matches`/`operations`, shows resolved defaults + the `->save('NAME')` snippet.
    - *Explain:* "What does profile X do?" → assistant prints resolved defaults in plain terms.
    - *Draft new/updated profile:* describe a need with no match → assistant clones the closest profile, emits step-by-step `FvsNETParamKonfig` instructions (tab → LT-labeled field → suggested value → why), flags accountant-owned values (accounts/VAT/series), and warns referenced journals/types/series/accounts must already exist.
-6. **Keeping it current** — the `.xlsx` export is the re-sync source (kept locally, outside the repo); the assistant re-transcribes into `parameters.local.yaml` when the server config changes; treat the YAML as last-known-good.
+6. **Keeping it current** — `FvsNETParamKonfig` has no export; the catalog is maintained by hand from the tool's profile settings (the hand-made `.xlsx` only seeds it). Update `parameters.local.yaml` when the server config changes; treat the YAML as last-known-good.
 7. **UI reference** — embed the redacted screenshots (added in Task 5) with one-line captions per tab.
 
 - [ ] **Step 2: Verify no HTL value leaked into the guide**
@@ -321,7 +321,7 @@ git commit -m "docs: add redacted FvsNETParamKonfig screenshots to parameter gui
 
 - [ ] **Step 1: Ask the user for the local destination path (outside the repo)**
 
-Prompt for an absolute path, e.g. `~/finvalda-local/`. This becomes the re-sync source location; record it in the guide's "Keeping it current" section if the user wants it noted (or keep it out of the public repo and only in the local YAML's top comment).
+Prompt for an absolute path, e.g. `~/finvalda-local/`. This becomes the local reference location; record it in the guide's "Keeping it current" section if the user wants it noted (or keep it out of the public repo and only in the local YAML's top comment).
 
 - [ ] **Step 2: Move the raw artifacts out of the repo**
 

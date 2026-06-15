@@ -223,13 +223,14 @@ that file accurate (see below) for the help to be reliable.
 
 ## 6. Keeping it current
 
-There is no API to read profiles, so `parameters.local.yaml` is **hand-curated** and treated
-as "last known good," not gospel. The sync source is a manual export from `FvsNETParamKonfig`
-(an `.xlsx`), kept locally outside this repository. When the server configuration changes:
+There is no API to read profiles, and `FvsNETParamKonfig` has no export — so
+`parameters.local.yaml` is **hand-curated** and treated as "last known good," not gospel. You
+maintain it by reading each profile's settings in `FvsNETParamKonfig` and writing them into
+the YAML using the tables in Section 3. When the server configuration changes:
 
-1. Re-export the `.xlsx` from `FvsNETParamKonfig`.
-2. Ask the assistant to re-transcribe it into `parameters.local.yaml` (the YAML keys map to
-   the export's `Parametras.Tab.Group.Field` rows via the tables in Section 3).
+1. Open the changed profile(s) in `FvsNETParamKonfig` and note the affected fields.
+2. Update `parameters.local.yaml` accordingly (or ask the assistant to, describing the
+   change). Keep it outside version control — it is git-ignored.
 3. Spot-check a profile against the live server if a posting looks wrong.
 
 > **`prices_include_vat` is the field most likely to cause wrong totals.** If a profile has
