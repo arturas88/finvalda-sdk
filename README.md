@@ -1745,6 +1745,16 @@ $result = $finvalda->operations()->create(OperationClass::Sale, $data, $paramete
 $result = $finvalda->sale()->client('CLI001')->addProduct('PRD001', 10, 19.99)->save($parameter);
 ```
 
+> **Deeper reference — [`docs/parameters/`](docs/parameters/):** explains what a
+> `sParametras` profile actually contains (journal, operation type, series, document type,
+> accounts, VAT, division, employee, Intrastat data, flags), how it is configured in the
+> `FvsNETParamKonfig` tool, and a YAML format
+> ([`parameters.example.yaml`](docs/parameters/parameters.example.yaml)) for cataloguing your
+> own profiles. With that catalog filled in, an AI assistant can match a transaction to the
+> right profile, explain a profile, or draft `FvsNETParamKonfig` setup instructions for a new
+> one. Keep deployment-specific values out of version control (the catalog file is
+> git-ignored).
+
 ### sFvsImportoParametras (Items)
 
 Optional data field for item methods. Include in data array if required:
