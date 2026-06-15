@@ -127,15 +127,18 @@ Tab-level `journal` (Žurnalas) + `type` (Operacijos tipas), plus three groups, 
 
 ### Tab `Įplaukos` (Inflows) — `inflows:`
 
-Groups `inflows` (Įplaukos) and `disbursements` (Išmokos):
+Groups `inflows` (Įplaukos) and `disbursements` (Išmokos). Each group has a single journal and
+series, plus a **list** (`types`) of operation-type/currency rows — the UI lets you add one
+operation type per currency, so a group can hold several:
 
 | YAML key | LT UI label |
 |---|---|
 | `journal` | Žurnalas |
 | `series` | Serija |
 | `series2` | Serija 2 |
-| `type` | Op. tipas |
-| `currency` | Valiuta |
+| `types` | repeatable list (one row per currency) |
+| `types[].type` | Op. tipas |
+| `types[].currency` | Valiuta |
 
 ### Tab `Kita` (Other) — `other:`
 

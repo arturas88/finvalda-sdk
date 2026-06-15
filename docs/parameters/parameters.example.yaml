@@ -69,8 +69,20 @@ profiles:
       other:     { journal: PROD_ETC, type: PROD_OTH }   # Kitos Op.
 
     inflows:                         # Įplaukos tab
-      inflows:       { journal: CASH_IN,  series: CIN,  series2: CIN2,  type: CASH_EUR, currency: EUR }  # Įplaukos
-      disbursements: { journal: CASH_OUT, series: COUT, series2: COUT2, type: PAY_EUR,  currency: EUR }  # Išmokos
+      inflows:                       # Įplaukos
+        journal: CASH_IN             #   Žurnalas
+        series: CIN                  #   Serija
+        series2: CIN2                #   Serija 2
+        types:                       #   Op. tipas + Valiuta — one row per currency (repeatable list)
+          - { type: CASH_EUR, currency: EUR }
+          - { type: CASH_USD, currency: USD }
+      disbursements:                 # Išmokos
+        journal: CASH_OUT            #   Žurnalas
+        series: COUT                 #   Serija
+        series2: COUT2               #   Serija 2
+        types:                       #   one operation type per currency
+          - { type: PAY_EUR, currency: EUR }
+          - { type: PAY_USD, currency: USD }
 
     other:                           # Kita tab
       capitalization:    { journal: CAP,    type: CAP_OP }                  # Pajamavimo operacijų parametrai
