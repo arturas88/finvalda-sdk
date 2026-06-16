@@ -35,6 +35,7 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [Transaction Query](#transaction-query)
   - [Operation Query](#operation-query)
 - [Validation](#validation)
+- [Field Reference](#field-reference)
 - [Resources](#resources)
   - [Stock / Inventory](#stock--inventory)
   - [Clients](#clients)
@@ -1020,6 +1021,35 @@ DateFormat::ymd();                       // Y-m-d format
 DateFormat::datetime();                  // Y-m-d H:i:s format
 new DateFormat('d/m/Y');                 // Custom format
 ```
+
+> The lengths above are illustrative. For the **real** per-field maximum lengths,
+> see the [Field Reference](#field-reference) — e.g. a client `sKodas` is max 15
+> chars, `sPavadinimas` max 100.
+
+## Field Reference
+
+The API enforces per-field **maximum text lengths** and **numeric precision**, and
+marks each field as mandatory or auto-filled from the server parameter profile. This is
+documented exhaustively in the official spec, which is included in this repo:
+
+**→ [`docs/FVS_Webservice.md`](docs/FVS_Webservice.md)** (the single source of truth)
+
+Look up the write payload you're building:
+
+- **Master data** (`InsertNewItem`) — `Fvs.Preke` (products), `Fvs.Paslauga`
+  (services), `Fvs.Klientas` (clients), objects, banks, warehouses, types/tags.
+- **Operations** (`InsertNewOperation` / `UpdateOperation`) — `PardDok` (sales),
+  `PirkDok` (purchases), `IplDok`/`IsmDok` (payments), `VidPerkDok` (transfers),
+  `NurasymasDok`/`PajamavimasDok` (write-off/capitalization), `GamybaDok` (production),
+  `UzskaitaDok` (clearing), `KtNeanalitDok` (non-analytical), UVM, and their `*DetEil`
+  detail lines.
+
+Each field is a table row with these columns: **type · field name · description · max
+length · required · auto-filled-from-parameter · notes**. A `+` in the *required* column
+means mandatory; a `+` in the *auto-filled* column means the webservice supplies it from
+the parameter profile when omitted. For example, client `sKodas` is `String` max **15**,
+required; `sPavadinimas` max **100**; `sEMail` max **30**, optional. Money amounts are
+`Numeric (14,2)`.
 
 ## Resources
 
