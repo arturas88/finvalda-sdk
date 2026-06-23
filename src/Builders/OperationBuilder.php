@@ -305,10 +305,12 @@ abstract class OperationBuilder
     /**
      * Add a product line.
      *
-     * Note: $quantity is sent as the raw nKiekis value (no scaling). Per the API spec,
-     * product rows have no ×100 — first measurement is the quantity as-is (double),
-     * second measurement is the quantity as an integer. Use additionalData:
-     * ['nPirmasMat' => 1] to flag the first measurement.
+     * Note: $quantity is sent as the raw nKiekis value (no scaling). nPirmasMat defaults
+     * to 1 so Finvalda reads nKiekis in the FIRST (primary) unit verbatim — matching
+     * ProductLine::make(). Without the flag, Finvalda reads nKiekis in the SECOND unit and
+     * rescales it by the product's first/second ratio (e.g. 250 on an "M" product becomes
+     * 2.5 m). To opt out, pass additionalData: ['nPirmasMat' => 0], or use the fully-raw
+     * addProductLine() to control the line array (including omitting nPirmasMat).
      *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
      */
@@ -323,6 +325,7 @@ abstract class OperationBuilder
         $line = array_merge([
             'sKodas' => $code,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ], $additionalData);
 
         if ($amount !== null) {

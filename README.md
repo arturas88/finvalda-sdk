@@ -469,7 +469,6 @@ $result = $finvalda->sale()
             ->warehouse('CENTR.')
             ->amount(161.16, local: 161.16)
             ->vat(percent: 21, amount: 33.84, amountLocal: 33.84)
-            ->firstMeasurement()
     )
     ->product(
         ProductLine::make('PIENAS', 5)
@@ -491,49 +490,62 @@ $result = $finvalda->sale()
 
 The `product()` / `service()` methods accept line DTOs. The existing `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` methods still work — you can mix both styles in the same builder.
 
-**Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+**Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()`, `marked()`, `set()`
 
 **Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
 
 #### Quantity convention (important)
 
-`nKiekis` is encoded **differently for products and services**, and within each it
-depends on the measurement unit. Every product/service code (`sKodas`) is configured
-in Finvalda with a measurement unit that has **two dimensions** — a *first* (primary)
-and a *second* unit. The `nPirmasMat` flag selects which dimension `nKiekis` is
-expressed in.
+Every product/service code (`sKodas`) is configured in Finvalda with a measurement
+unit that has **two dimensions** — a *first* (primary) unit, a *second* unit, and a
+**first/second ratio** (`pirm_antr_sant`, from `references()->measurementUnits()`).
+Examples: `M` → first = m, second = cm, ratio 100; `KG` → first = kg, second = g,
+ratio 1000; `VNT` → ratio 1. The `nPirmasMat` flag selects which dimension `nKiekis`
+is read in:
 
-Per the API spec, the rules are:
+| `nPirmasMat` | How Finvalda reads `nKiekis` |
+|---|---|
+| `1` (sent) | In the **first (primary)** unit, **verbatim**. `250` on an "M" product = 250 m. |
+| absent | In the **second** unit, then **rescaled by the unit's ratio**. `250` on an "M" product = 250 cm = **2.5 m**. |
 
-| Line type | First measurement (`nPirmasMat=1`) | Second measurement (default) |
-|---|---|---|
-| **Product** (`*PrekeDetEil`, `GamybaG/Z`) | quantity **as-is** (double) | quantity **as an integer**, **no ×100** |
-| **Service** (`*PaslaugaDetEil`, `GamybaP`) | quantity **as-is** (double) | quantity **× 100** (fixed-point, 2 decimals): `1 → 100`, `0.5 → 50` |
+The second-measurement default is **not a no-op** — Finvalda divides by the ratio.
+`VNT` products (ratio 1) are unaffected, which is why piece quantities never exposed
+this. All official Finvalda API examples send product lines with `"nPirmasMat":"1"`.
 
-The product and service rows say the same thing for the first measurement, but only
-the **service** rows carry the ×100 note for the second measurement. From the spec:
+Services additionally use a **×100 fixed-point** encoding for the second measurement
+(`1 → 100`, `0.5 → 50`); products do not. From the spec:
 
 > **Service** `nKiekis` — *paslaugos kiekis antru matavimu (integer) arba pirmu jei nurodyta nPirmasMat=1. **Kiekis padaugintas iš 100.** Jeigu reikalingas kiekis 0.5 tada nKiekis = 50, jeigu reikalingas kiekis 1 tada nKiekis = 100. Jeigu naudojamas pirmas matavimas dauginti nereikia.*
 >
 > **Product** `nKiekis` — *prekės kiekis antru matavimu (integer) arba pirmu jei nurodyta nPirmasMat=1.* (no ×100)
 
-> **Unit conversion is the caller's job, not the SDK's.** For a unit like Ton with
-> first = ton and second = kg (ratio 1000), the SDK never multiplies by the ratio. You
-> decide which dimension to type the quantity in and set `firstMeasurement()`
-> accordingly; the SDK only applies the service ×100 fixed-point encoding. It cannot
-> see the product's unit configuration, so it deliberately does not convert kg↔ton.
-
 ##### What the SDK does for you
 
-This matches the spec exactly — the product/service difference is intentional, **not** an SDK quirk:
-
-| Builder helper | Default (no `firstMeasurement()`) | With `->firstMeasurement()` |
+| Builder helper | Default | Opt-out |
 |---|---|---|
-| `ServiceLine::make($code, $qty)` | Second measurement: emits `nKiekis = round($qty × 100)` | First measurement: emits `nKiekis = $qty` (as-is) and `nPirmasMat = 1` |
-| `ProductLine::make($code, $qty)` | Emits `nKiekis = $qty` **verbatim** (products have no ×100) | Sets `nPirmasMat = 1`; `nKiekis = $qty` |
-| `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` | Emit `nKiekis` **verbatim** (no scaling) | — |
+| `ProductLine::make($code, $qty)` | **First measurement**: emits `nKiekis = $qty` verbatim and `nPirmasMat = 1` | `->secondMeasurement()` (or `->firstMeasurement(false)`) drops `nPirmasMat` so Finvalda rescales by the unit ratio |
+| `ServiceLine::make($code, $qty)` | **Second measurement**: emits `nKiekis = round($qty × 100)` | `->firstMeasurement()` emits `nKiekis = $qty` as-is and `nPirmasMat = 1` |
+| `addProduct()` | Emits `nKiekis` **verbatim** and `nPirmasMat = 1` | Pass `additionalData: ['nPirmasMat' => 0]`, or use `addProductLine()` for raw control |
+| `addService()` | Emits `nKiekis` **verbatim** (no scaling, no `nPirmasMat`) | Pass `nPirmasMat` via `additionalData` |
+| `addProductLine()` / `addServiceLine()` | Emit the line array **verbatim** (no defaults) | — |
+
+> **Why product lines default to `nPirmasMat=1`:** real quantities are expressed in the
+> primary unit (you book "250 metres", not "25000 cm"). Omitting the flag silently
+> divided M/KG quantities by their ratio. Both `ProductLine::make()` and the
+> `addProduct()` helper default to the primary unit; `addProductLine()` stays a raw
+> passthrough for full control.
 
 ```php
+// Product (default, first measurement): qty sent verbatim in the primary unit
+$finvalda->sale()->client('CLI001')->product(
+    ProductLine::make('1141817', 250.0)        // nKiekis = 250, nPirmasMat = 1 → 250 m
+)->save('STANDARD');
+
+// Product, second measurement: Finvalda rescales by the unit ratio (rarely what you want)
+$finvalda->sale()->client('CLI001')->product(
+    ProductLine::make('1141817', 250.0)->secondMeasurement()  // nKiekis = 250 → 2.5 m on an "M" product
+)->save('STANDARD');
+
 // Service, second measurement (default): qty 1 → nKiekis 100, 0.5 → 50
 $finvalda->sale()->client('CLI001')->service(
     ServiceLine::make('TRANSPORT', 0.5)        // nKiekis = 50
@@ -543,22 +555,7 @@ $finvalda->sale()->client('CLI001')->service(
 $finvalda->sale()->client('CLI001')->service(
     ServiceLine::make('TRANSPORT', 1)->firstMeasurement()   // nKiekis = 1, nPirmasMat = 1
 )->save('STANDARD');
-
-// Product, first measurement: qty as-is (double)
-$finvalda->sale()->client('CLI001')->product(
-    ProductLine::make('MILTAI', 12.25)->firstMeasurement()  // nKiekis = 12.25, nPirmasMat = 1
-)->save('STANDARD');
-
-// Product, second measurement: integer quantity, NO ×100 — sent verbatim.
-$finvalda->sale()->client('CLI001')->product(
-    ProductLine::make('MILTAI', 1000)                       // nKiekis = 1000 (e.g. 1000 kg)
-)->save('STANDARD');
 ```
-
-> Products never get the ×100 — `ProductLine` is verbatim by design, matching the
-> spec. Services do — `ServiceLine` applies it for you (opt out with
-> `firstMeasurement()`). The legacy `addProduct()`/`addService()` helpers never
-> scale, so always pass the final `nKiekis` there.
 
 For rare/niche API fields not covered by named methods, use the `set()` escape hatch:
 

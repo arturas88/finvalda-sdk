@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.0] - 2026-06-23
+
+### Fixed (behavior change — product quantities)
+- **`ProductLine` now sends `nPirmasMat=1` by default.** Empirical testing against the live Finvalda API disproved the previous understanding (documented in 2.11.1) that an omitted `nPirmasMat` made product `nKiekis` a verbatim no-op. In reality, with `nPirmasMat` absent Finvalda reads the quantity in the unit's **second** dimension and rescales by the unit's first/second ratio (`pirm_antr_sant`): `250` on an "M" product (ratio 100) was stored as 250 cm = **2.5 m**. `KG` (ratio 1000) was off by 1000×; `VNT` (ratio 1) was unaffected, which masked the bug for piece quantities. `ProductLine::make()` now defaults to the primary unit (`nPirmasMat=1`), matching every official API example, so quantities are sent verbatim in the unit you expect.
+- Added **`ProductLine::secondMeasurement()`** to opt back into the legacy behavior (drops `nPirmasMat` so Finvalda rescales by the unit ratio). `firstMeasurement(false)` is now equivalent to `secondMeasurement()`.
+- **`OperationBuilder::addProduct()` now also defaults `nPirmasMat=1`**, matching `ProductLine::make()`. Opt out with `additionalData: ['nPirmasMat' => 0]`. The fully-raw `addProductLine()` is unchanged (no defaults).
+- **Compatibility:** code already calling `->firstMeasurement()` is unaffected (it was already sending `nPirmasMat=1`). `addProductLine()` keeps its raw-passthrough behavior (no `nPirmasMat`) for full control.
+
+### Documentation
+- Rewrote the `nKiekis` quantity-convention section: corrected the product second-measurement description (the ratio rescale is **not** a no-op), documented the new `ProductLine` default and `secondMeasurement()` opt-out, and fixed the misleading doc-comments on `ProductLine` and `OperationBuilder::addProduct()`.
+
 ## [2.11.3] - 2026-06-15
 
 ### Documentation

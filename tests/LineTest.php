@@ -22,6 +22,39 @@ class LineTest extends TestCase
         $this->assertSame(12.25, $line['nKiekis']);
     }
 
+    public function test_product_line_defaults_to_first_measurement(): void
+    {
+        // Default sends nPirmasMat=1 so nKiekis is read in the primary unit verbatim.
+        // Without this, an "M" (metres) product would have 250 read as 250 cm = 2.5 m.
+        $line = ProductLine::make('1141817', 250.0)->toArray();
+
+        $this->assertSame(250.0, $line['nKiekis']);
+        $this->assertSame(1, $line['nPirmasMat']);
+    }
+
+    public function test_product_line_second_measurement_omits_flag(): void
+    {
+        // Opt-out: nPirmasMat absent => Finvalda rescales by the unit's first/second ratio.
+        $line = ProductLine::make('1141817', 250.0)->secondMeasurement()->toArray();
+
+        $this->assertSame(250.0, $line['nKiekis']);
+        $this->assertArrayNotHasKey('nPirmasMat', $line);
+    }
+
+    public function test_product_line_first_measurement_false_equals_second(): void
+    {
+        $line = ProductLine::make('A', 1)->firstMeasurement(false)->toArray();
+
+        $this->assertArrayNotHasKey('nPirmasMat', $line);
+    }
+
+    public function test_product_line_first_measurement_after_second_reenables_flag(): void
+    {
+        $line = ProductLine::make('A', 1)->secondMeasurement()->firstMeasurement()->toArray();
+
+        $this->assertSame(1, $line['nPirmasMat']);
+    }
+
     public function test_product_line_full(): void
     {
         $line = ProductLine::make('MILTAI', 12.25)
@@ -232,6 +265,41 @@ class LineTest extends TestCase
         $this->assertSame('TRANSPORT', $data['PardDok']['PardDokPaslaugaDetEil'][0]['sKodas']);
         $this->assertSame(50.00, $data['PardDok']['PardDokPaslaugaDetEil'][0]['dSumaV']);
         $this->assertSame(10.50, $data['PardDok']['PardDokPaslaugaDetEil'][0]['dSumaPVMV']);
+    }
+
+    public function test_add_product_defaults_to_first_measurement(): void
+    {
+        $builder = new SaleBuilder();
+        $data = $builder
+            ->client('CLI001')
+            ->addProduct('B', quantity: 250, price: 1.00, warehouse: 'W1')
+            ->build();
+
+        $line = $data['PardDok']['PardDokPrekeDetEil'][0];
+        $this->assertSame(250.0, $line['nKiekis']);
+        $this->assertSame(1, $line['nPirmasMat']);
+    }
+
+    public function test_add_product_additional_data_overrides_first_measurement(): void
+    {
+        $builder = new SaleBuilder();
+        $data = $builder
+            ->client('CLI001')
+            ->addProduct('B', quantity: 250, additionalData: ['nPirmasMat' => 0])
+            ->build();
+
+        $this->assertSame(0, $data['PardDok']['PardDokPrekeDetEil'][0]['nPirmasMat']);
+    }
+
+    public function test_add_product_line_stays_raw_passthrough(): void
+    {
+        $builder = new SaleBuilder();
+        $data = $builder
+            ->client('CLI001')
+            ->addProductLine(['sKodas' => 'B', 'nKiekis' => 250])
+            ->build();
+
+        $this->assertArrayNotHasKey('nPirmasMat', $data['PardDok']['PardDokPrekeDetEil'][0]);
     }
 
     public function test_builder_mixes_dto_and_legacy_methods(): void

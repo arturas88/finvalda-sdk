@@ -24,14 +24,28 @@ final class ProductLine
 
     private function __construct(string $code, float $quantity)
     {
-        // nKiekis is sent verbatim. Per the API spec, PRODUCT rows have no ×100 scaling
-        // (unlike service rows, which ServiceLine multiplies by 100). The product code's
-        // measurement unit and the nPirmasMat flag decide how the server reads this value:
-        //   - first measurement (nPirmasMat=1): real quantity, as-is (double, e.g. 12.25)
-        //   - second measurement (default):     quantity as an integer, NO ×100 (e.g. 1000)
+        // nKiekis is always sent verbatim — the SDK never rescales product quantities.
+        // What changes how Finvalda READS nKiekis is the nPirmasMat flag plus the product's
+        // measurement unit, which has a first unit, a second unit, and a first/second ratio
+        // (pirm_antr_sant from GetMatavimoVienetus). Examples: M -> first=m, second=cm, ratio 100;
+        // KG -> first=kg, second=g, ratio 1000; VNT -> ratio 1.
+        //
+        //   - nPirmasMat=1  (default): nKiekis is read in the FIRST (primary) unit, as-is.
+        //                              250 on an "M" product means 250 m. This matches every
+        //                              official Finvalda API example.
+        //   - nPirmasMat absent (second measurement, via secondMeasurement()): Finvalda reads
+        //                              nKiekis in the SECOND unit and rescales by the ratio, so
+        //                              250 on an "M" product becomes 250 cm = 2.5 m. VNT products
+        //                              (ratio 1) are unaffected, which masks the difference for
+        //                              piece quantities.
+        //
+        // Default is nPirmasMat=1 because real quantities are expressed in the primary unit;
+        // omitting it silently divided M/KG quantities by their ratio. Call secondMeasurement()
+        // to opt back into the legacy second-unit behavior.
         $this->data = [
             'sKodas' => $code,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ];
     }
 
@@ -190,15 +204,35 @@ final class ProductLine
     }
 
     /**
-     * Use the first measurement unit for the quantity (nPirmasMat=1).
+     * Use the first (primary) measurement unit for the quantity (nPirmasMat=1).
      *
-     * The product code's measurement unit has two dimensions (first/second). Setting
-     * this flag tells the server nKiekis is expressed in the first (primary) dimension.
-     * ProductLine sends nKiekis verbatim regardless — this flag does not rescale it.
+     * This is the default, so calling it is only needed to re-enable the first
+     * measurement after secondMeasurement(). The server reads nKiekis as-is in the
+     * primary unit; nKiekis is never rescaled by the SDK. Passing false is equivalent
+     * to secondMeasurement().
      */
     public function firstMeasurement(bool $flag = true): self
     {
-        $this->data['nPirmasMat'] = $flag ? 1 : 0;
+        if ($flag) {
+            $this->data['nPirmasMat'] = 1;
+
+            return $this;
+        }
+
+        return $this->secondMeasurement();
+    }
+
+    /**
+     * Use the second measurement unit for the quantity (omits nPirmasMat).
+     *
+     * Opt-out of the default first-measurement behavior. With nPirmasMat absent,
+     * Finvalda reads nKiekis in the SECOND unit and rescales it by the product's
+     * first/second ratio (e.g. 250 on an "M" product = 250 cm = 2.5 m). Only use this
+     * if you are genuinely supplying second-unit quantities.
+     */
+    public function secondMeasurement(): self
+    {
+        unset($this->data['nPirmasMat']);
 
         return $this;
     }
