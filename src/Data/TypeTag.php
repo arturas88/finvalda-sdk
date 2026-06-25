@@ -12,8 +12,9 @@ namespace Finvalda\Data;
  * or one of the Tag groups — the request-side `nID` parameter is ignored by the
  * server, so the dictionary is filtered client-side by `tipas` instead.
  *
- * Columns: clients/services return [tipas, kodas, pavadinimas];
- * products additionally return [info1, info2].
+ * Columns (exact lowercase keys, verified against the live server):
+ * clients/services return [tipas, kodas, pavadinimas]; products additionally
+ * return [info1, info2]. `tipas` arrives as an integer.
  */
 final class TypeTag extends Entity
 {
@@ -31,13 +32,11 @@ final class TypeTag extends Entity
     public static function fromArray(array $data): static
     {
         return new self(
-            tipas: (int) ($data['tipas'] ?? $data['Tipas'] ?? $data['nTipas'] ?? 0),
-            code: (string) ($data['kodas'] ?? $data['Kodas'] ?? $data['sKodas'] ?? ''),
-            name: (string) ($data['pavadinimas'] ?? $data['Pavadinimas'] ?? $data['sPavadinimas'] ?? ''),
-            info1: isset($data['info1']) ? (string) $data['info1']
-                : ($data['Info1'] ?? $data['sInfo1'] ?? null),
-            info2: isset($data['info2']) ? (string) $data['info2']
-                : ($data['Info2'] ?? $data['sInfo2'] ?? null),
+            tipas: (int) ($data['tipas'] ?? 0),
+            code: (string) ($data['kodas'] ?? ''),
+            name: (string) ($data['pavadinimas'] ?? ''),
+            info1: isset($data['info1']) ? (string) $data['info1'] : null,
+            info2: isset($data['info2']) ? (string) $data['info2'] : null,
             raw: $data,
         );
     }
