@@ -1115,12 +1115,10 @@ $response = $finvalda->clients()->all(modifiedSince: '2024-01-01');
 // Find client by email
 $response = $finvalda->clients()->findByEmail('client@example.com');
 
-// Client types and tags (use enum for type-safety)
-$response = $finvalda->clients()->typesAndTags(ClientTypeId::Type);   // Client types
-$response = $finvalda->clients()->typesAndTags(ClientTypeId::Tag1);   // Tag 1 options
-$response = $finvalda->clients()->typesAndTags(ClientTypeId::Tag2);   // Tag 2 options
-$response = $finvalda->clients()->typesAndTags(ClientTypeId::Tag3);   // Tag 3 options
-$response = $finvalda->clients()->typesAndTags(22);                   // Also accepts int
+// Client types and tags — see "Types and tags" below for how this works
+$types = $finvalda->clients()->typesAndTags(ClientTypeId::Type);     // TypeTagCollection of client types
+$tag1  = $finvalda->clients()->typesAndTags(ClientTypeId::Tag1);     // Tag 1 options
+$all   = $finvalda->clients()->allTypesAndTags();                    // whole dictionary in one call
 
 // Clients by type
 $response = $finvalda->clients()->byType('VIP');
@@ -1199,10 +1197,10 @@ $jpg = $finvalda->products()->imageJpeg('PROD001');
 $response = $finvalda->products()->inWarehouse('WH01', modifiedSince: '2024-01-01');
 $response = $finvalda->products()->inWarehouseOrdered('WH01', order: 1);
 
-// Types and tags (use enum for type-safety)
-$response = $finvalda->products()->typesAndTags(ProductTypeId::Type);  // Product types
-$response = $finvalda->products()->typesAndTags(ProductTypeId::Tag1);  // Tag 1 options
-$response = $finvalda->products()->typesAndTags(ProductTypeId::Tag2);  // Tag 2-6...
+// Types and tags — see "Types and tags" below for how this works
+$types = $finvalda->products()->typesAndTags(ProductTypeId::Type);    // TypeTagCollection of product types
+$tag1  = $finvalda->products()->typesAndTags(ProductTypeId::Tag1);    // Tag 1 options
+$all   = $finvalda->products()->allTypesAndTags();                    // whole dictionary in one call
 $response = $finvalda->products()->typeGroups();
 $response = $finvalda->products()->typeGroupComposition('GRP01');
 $response = $finvalda->products()->byType('ELECTRONICS');
@@ -1255,9 +1253,10 @@ $services = $finvalda->services()->collect();           // Returns ServiceCollec
 // All services
 $response = $finvalda->services()->all(modifiedSince: '2024-01-01');
 
-// Types and tags (use enum for type-safety)
-$response = $finvalda->services()->typesAndTags(ServiceTypeId::Type);  // Service types
-$response = $finvalda->services()->typesAndTags(ServiceTypeId::Tag1);  // Tag 1 options
+// Types and tags — see "Types and tags" below for how this works
+$types = $finvalda->services()->typesAndTags(ServiceTypeId::Type);    // TypeTagCollection of service types
+$tag1  = $finvalda->services()->typesAndTags(ServiceTypeId::Tag1);    // Tag 1 options
+$all   = $finvalda->services()->allTypesAndTags();                    // whole dictionary in one call
 $response = $finvalda->services()->byType('CONSULTING');
 
 // CRUD operations
@@ -1269,6 +1268,92 @@ $result = $finvalda->services()->create([
 
 $result = $finvalda->services()->update(['sKodas' => 'SVC001', 'sPavadinimas' => 'Updated']);
 $result = $finvalda->services()->delete('SVC001');
+```
+
+### Types and tags (rūšys ir požymiai)
+
+Products, clients and services each have a "type" (rūšis) plus a number of "tag"
+groups (požymiai). Finvalda exposes them through one endpoint per entity:
+
+| Entity   | Endpoint                  | Accessor                          |
+|----------|---------------------------|-----------------------------------|
+| Products | `GetPrekiuRusisPozymius`  | `$finvalda->products()`           |
+| Clients  | `GetKlientuRusisPozymius` | `$finvalda->clients()`            |
+| Services | `GetPaslauguRusisPozymius`| `$finvalda->services()`           |
+
+**One call returns the whole dictionary.** Each endpoint returns *every* type and
+*every* tag group in a single response. The rows are discriminated by a `tipas`
+column. The legacy `nID` request parameter is **ignored by the server** — passing
+different values returns byte-identical results — so the SDK does not send it and
+filters by `tipas` client-side instead.
+
+**`tipas` → field mapping** (note the non-sequential numbering for clients/services):
+
+| Entity   | Type | Tag1 | Tag2 | Tag3 | Tag4 | Tag5 | Tag6 | Tag9 | Tag10 | Tag11 |
+|----------|------|------|------|------|------|------|------|------|-------|-------|
+| Products | 0    | 1    | 2    | 3    | 4    | 5    | 6    | 9    | 10    | 11    |
+| Clients  | 22   | 12   | 13   | 14   | —    | —    | —    | —    | —     | —     |
+| Services | 18   | 15   | 16   | 17   | —    | —    | —    | —    | —     | —     |
+
+These integers are the `ProductTypeId` / `ClientTypeId` / `ServiceTypeId` enum
+values. Servers may define additional `tipas` values that have no enum case — for
+example products often expose `tipas = 100` ("Apmokestinamieji gaminiai"). Pass
+those as a raw int. A tag group the server has not configured simply yields an
+empty collection; that is normal and not an error.
+
+**Returned columns** (mapped onto the `TypeTag` DTO):
+
+| Column        | DTO property | Notes                        |
+|---------------|--------------|------------------------------|
+| `tipas`       | `->tipas`    | int discriminator (see above)|
+| `kodas`       | `->code`     | the code you reference        |
+| `pavadinimas` | `->name`     | display name                  |
+| `info1`       | `->info1`    | products only                 |
+| `info2`       | `->info2`    | products only                 |
+
+```php
+use Finvalda\Enums\ProductTypeId;
+
+// A single type/tag group, filtered by tipas → TypeTagCollection of TypeTag
+$types = $finvalda->products()->typesAndTags(ProductTypeId::Type);
+foreach ($types as $t) {
+    echo "{$t->code}: {$t->name}\n";   // ->tipas, ->code, ->name, ->info1, ->info2
+}
+
+// Raw int works for server-defined tipas without an enum case
+$taxable = $finvalda->products()->typesAndTags(100);
+
+// The WHOLE dictionary in ONE HTTP call (cached on the resource instance)
+$all = $finvalda->products()->allTypesAndTags();          // TypeTagCollection (every row)
+$byTipas = $all->groupByType();                           // array<int, TypeTagCollection>
+$tag1Values = $byTipas[1] ?? new \Finvalda\Collections\TypeTagCollection();
+$present = $all->types();                                 // distinct tipas values present
+```
+
+`typesAndTags()` and `allTypesAndTags()` share a single cached request, so calling
+both (or several filtered reads) on the same resource instance does **not** fan out
+into multiple round-trips.
+
+**Creating types and tags, and using them.** The dictionary is read-only here;
+create entries via `References`:
+
+```php
+// Create a product type (Fvs.PrekesRusis) and a Tag-N value (Fvs.PrekesPoz{N}, N = 1..20)
+$finvalda->references()->createProductType(['sKodas' => 'ELECTRONICS', 'sPavadinimas' => 'Electronics']);
+$finvalda->references()->createProductTag(1, ['sKodas' => 'PROMO', 'sPavadinimas' => 'Promotional']);
+// Clients have References::createClientType() (Fvs.KlientoRusis).
+```
+
+The `kodas` returned by `typesAndTags()` is exactly what you pass into
+`Products::create()` as `sRusis` (type) and `sPozymis1..N` (tags):
+
+```php
+$finvalda->products()->create([
+    'sKodas'      => 'NEWPROD',
+    'sPavadinimas'=> 'New Product',
+    'sRusis'      => 'ELECTRONICS',   // a Type kodas (tipas 0)
+    'sPozymis1'   => 'PROMO',         // a Tag1 kodas (tipas 1)
+]);
 ```
 
 ### Objects (6 Levels)

@@ -6,6 +6,8 @@ namespace Finvalda\Resources;
 
 use DateTimeInterface;
 use Finvalda\Collections\ServiceCollection;
+use Finvalda\Collections\TypeTagCollection;
+use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Service;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Enums\ServiceTypeId;
@@ -18,6 +20,8 @@ use Finvalda\Responses\Response;
  */
 final class Services extends Resource
 {
+    use QueriesTypeTags;
+
     /**
      * Get services as a dataset with optional filtering. Calls GetPaslaugosSet.
      *
@@ -108,18 +112,34 @@ final class Services extends Resource
     }
 
     /**
-     * Get service types or tags. Calls GetPaslauguRusisPozymius.
+     * Get one service type/tag group from the dictionary. Calls GetPaslauguRusisPozymius.
      *
-     * @param  ServiceTypeId|int  $typeId  Use ServiceTypeId enum or: 18=service type, 15=tag 1, 16=tag 2, 17=tag 3
-     * @return Response
+     * The endpoint returns the FULL dictionary (all types and tag groups) in a
+     * single call; the legacy `nID` request parameter is ignored by the server.
+     * This method fetches that dictionary once (cached) and returns only the rows
+     * whose `tipas` matches $typeId.
+     *
+     * Service `tipas` mapping: 18=Type, 15=Tag1, 16=Tag2, 17=Tag3 (note the
+     * non-sequential numbering). Tag groups the server has not configured return
+     * an empty collection — that is normal.
+     *
+     * @param  ServiceTypeId|int  $typeId  Type/tag discriminator (ServiceTypeId or raw int)
      */
-    public function typesAndTags(ServiceTypeId|int $typeId = ServiceTypeId::Type): Response
+    public function typesAndTags(ServiceTypeId|int $typeId = ServiceTypeId::Type): TypeTagCollection
     {
-        $id = $typeId instanceof ServiceTypeId ? $typeId->value : $typeId;
+        return $this->fetchTypeTags('GetPaslauguRusisPozymius')->whereType($typeId);
+    }
 
-        return $this->http->get('GetPaslauguRusisPozymius', [
-            'nID' => $id,
-        ]);
+    /**
+     * Get the WHOLE service type/tag dictionary in one call. Calls GetPaslauguRusisPozymius.
+     *
+     * Returns every type and tag group as one collection. Use ->groupByType()
+     * for an array keyed by `tipas`. The underlying request is cached, so this
+     * shares its round-trip with typesAndTags().
+     */
+    public function allTypesAndTags(): TypeTagCollection
+    {
+        return $this->fetchTypeTags('GetPaslauguRusisPozymius');
     }
 
     /**
