@@ -5,7 +5,16 @@ declare(strict_types=1);
 namespace Finvalda\Enums;
 
 /**
- * Product type and tag identifiers for typesAndTags() method.
+ * Product `tipas` discriminators for typesAndTags() / allTypesAndTags().
+ *
+ * These values match the `tipas` column on the dictionary rows returned by
+ * GetPrekiuRusisPozymius — they filter the response, they are NOT sent as a
+ * request parameter (the server ignores the legacy `nID`).
+ *
+ * This enum covers the common cases (0=Type, 1-6/9-11=Tags). Servers may define
+ * further `tipas` values without a case here — e.g. 100 ("Apmokestinamieji
+ * gaminiai"). Pass those as a raw int to typesAndTags(); they are not errors.
+ * Tag groups with no configured rows return an empty collection (also normal).
  */
 enum ProductTypeId: int
 {

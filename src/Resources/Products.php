@@ -6,7 +6,9 @@ namespace Finvalda\Resources;
 
 use DateTimeInterface;
 use Finvalda\Collections\ProductCollection;
+use Finvalda\Collections\TypeTagCollection;
 use Finvalda\Concerns\DecodesBinaryResponse;
+use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Product;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Enums\ProductTypeId;
@@ -21,6 +23,7 @@ use Finvalda\Responses\Response;
 final class Products extends Resource
 {
     use DecodesBinaryResponse;
+    use QueriesTypeTags;
 
     /**
      * Get products as a dataset with optional filtering. Calls GetPrekesSet.
@@ -253,18 +256,35 @@ final class Products extends Resource
     }
 
     /**
-     * Get product types or tags. Calls GetPrekiuRusisPozymius.
+     * Get one product type/tag group from the dictionary. Calls GetPrekiuRusisPozymius.
      *
-     * @param  ProductTypeId|int  $typeId  Use ProductTypeId enum or: 0=product type, 1-6=tags 1-6, 9-11=tags 9-11
-     * @return Response
+     * The endpoint returns the FULL dictionary (all types and tag groups) in a
+     * single call; the legacy `nID` request parameter is ignored by the server.
+     * This method fetches that dictionary once (cached) and returns only the rows
+     * whose `tipas` matches $typeId.
+     *
+     * Product `tipas` mapping: 0=Type, 1-6=Tag1-6, 9-11=Tag9-11. Other
+     * server-defined values (e.g. 100 "Apmokestinamieji gaminiai") have no enum
+     * case but can be passed as a raw int. Tag groups the server has not
+     * configured return an empty collection — that is normal.
+     *
+     * @param  ProductTypeId|int  $typeId  Type/tag discriminator (ProductTypeId or raw int)
      */
-    public function typesAndTags(ProductTypeId|int $typeId = ProductTypeId::Type): Response
+    public function typesAndTags(ProductTypeId|int $typeId = ProductTypeId::Type): TypeTagCollection
     {
-        $id = $typeId instanceof ProductTypeId ? $typeId->value : $typeId;
+        return $this->fetchTypeTags('GetPrekiuRusisPozymius')->whereType($typeId);
+    }
 
-        return $this->http->get('GetPrekiuRusisPozymius', [
-            'nID' => $id,
-        ]);
+    /**
+     * Get the WHOLE product type/tag dictionary in one call. Calls GetPrekiuRusisPozymius.
+     *
+     * Returns every type and tag group as one collection. Use ->groupByType()
+     * for an array keyed by `tipas`. The underlying request is cached, so this
+     * shares its round-trip with typesAndTags().
+     */
+    public function allTypesAndTags(): TypeTagCollection
+    {
+        return $this->fetchTypeTags('GetPrekiuRusisPozymius');
     }
 
     /**

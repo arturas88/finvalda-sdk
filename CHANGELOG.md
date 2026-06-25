@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-06-25
+
+### Fixed (behavior change — types and tags)
+- **`typesAndTags()` now actually filters.** On Products/Clients/Services the
+  method previously sent the type/tag id as an `nID` GET parameter — but the
+  server **ignores `nID`** and always returns the full dictionary (verified against
+  the live API: two different `nID` values return byte-identical results). The real
+  discriminator is a `tipas` column on each row, whose values are exactly the
+  existing `ProductTypeId`/`ClientTypeId`/`ServiceTypeId` enum values. The SDK now
+  fetches the dictionary once (without `nID`) and filters rows by `tipas`, so the
+  method returns only the requested type/tag group — the behavior its signature
+  always implied.
+
+### Added
+- **`allTypesAndTags()`** on Products/Clients/Services — returns the whole type+tag
+  dictionary in a **single** HTTP call. Use `->groupByType()` for an
+  `array<int, TypeTagCollection>` keyed by `tipas`. The request is cached per
+  resource instance, so this and `typesAndTags()` never fan out into multiple calls.
+- **`Finvalda\Data\TypeTag`** DTO (`tipas`, `code`, `name`, `info1`, `info2`) and
+  **`Finvalda\Collections\TypeTagCollection`** (`whereType()`, `groupByType()`,
+  `types()`, `findByCode()`), matching the existing DTO/Collection patterns.
+
+### Changed (BREAKING)
+- **`Products|Clients|Services::typesAndTags()` now returns `TypeTagCollection`
+  instead of `Response`.** Iterate `TypeTag` objects (`->code`, `->name`, `->tipas`,
+  `->info1`, `->info2`) instead of reading `$response->data` rows. The `ProductTypeId|int`
+  (resp. Client/Service) parameter is unchanged and still accepts a raw int.
+
+### Notes
+- **Raw `tipas` values are tolerated.** Servers may expose `tipas` values with no
+  enum case — e.g. products' `tipas = 100` ("Apmokestinamieji gaminiai"). Pass them
+  as a raw int; they are returned normally, not treated as errors.
+- **Empty tag groups are normal.** A tag group the server has not configured returns
+  an empty `TypeTagCollection` (server-config dependent), not an error.
+
 ## [2.12.0] - 2026-06-23
 
 ### Fixed (behavior change — product quantities)
