@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Finvalda\Resources;
 
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\FinvaldaException;
+use Finvalda\Exceptions\OperationNotSupportedException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
 
@@ -259,6 +261,10 @@ final class References extends Resource
 
     /**
      * Delete a product type by code. Calls DeleteItem with Fvs.PrekesRusis class.
+     *
+     * Requires a FvsServicePure build that exposes DeleteItem (older builds 404).
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
      */
     public function deleteProductType(string $code): OperationResult
     {
@@ -268,7 +274,11 @@ final class References extends Resource
     /**
      * Delete a product tag value by code. Calls DeleteItem with Fvs.PrekesPoz{N} class.
      *
+     * Requires a FvsServicePure build that exposes DeleteItem (older builds 404).
+     *
      * @param  int  $tagNumber  Tag number (1-20)
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
      */
     public function deleteProductTag(int $tagNumber, string $code): OperationResult
     {
@@ -277,6 +287,10 @@ final class References extends Resource
 
     /**
      * Delete a client type by code. Calls DeleteItem with Fvs.KlientoRusis class.
+     *
+     * Requires a FvsServicePure build that exposes DeleteItem (older builds 404).
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
      */
     public function deleteClientType(string $code): OperationResult
     {
@@ -286,7 +300,11 @@ final class References extends Resource
     /**
      * Delete a client tag value by code. Calls DeleteItem with Fvs.Kliento{I|II|III}Poz class.
      *
+     * Requires a FvsServicePure build that exposes DeleteItem (older builds 404).
+     *
      * @param  int  $tagNumber  Tag number (1-3)
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
      */
     public function deleteClientTag(int $tagNumber, string $code): OperationResult
     {
@@ -307,15 +325,35 @@ final class References extends Resource
 
     /**
      * Delete a reference item by code via DeleteItem.
+     *
+     * `DeleteItem` is only available on FvsServicePure builds that expose it;
+     * older builds answer 404. When that happens we surface a clear
+     * OperationNotSupportedException rather than an opaque transport error.
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
      */
     private function deleteItem(ItemClass $itemClass, string $code): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => $itemClass->value,
-                'Code' => $code,
-            ],
-        ]);
+        try {
+            return $this->http->postOperationJson('DeleteItem', [
+                'input' => [
+                    'ItemClassName' => $itemClass->value,
+                    'Code' => $code,
+                ],
+            ]);
+        } catch (FinvaldaException $e) {
+            if ($e->getCode() === 404) {
+                throw new OperationNotSupportedException(
+                    'DeleteItem is not supported by this Finvalda server build (the '
+                    . 'FvsServicePure endpoint returned 404). Create (InsertNewItem) and '
+                    . 'update (EditItem) are available; deleting types/tags requires a '
+                    . 'newer Pure build that exposes DeleteItem.',
+                    'DeleteItem',
+                );
+            }
+
+            throw $e;
+        }
     }
 
     /**

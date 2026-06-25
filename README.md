@@ -1754,11 +1754,20 @@ $result = $finvalda->references()->updateProductTag(1, ['sKodas' => 'FEAT', 'sPa
 $result = $finvalda->references()->updateClientType(['sKodas' => 'VIP', 'sPavadinimas' => 'VIP+']);
 $result = $finvalda->references()->updateClientTag(1, ['sKodas' => 'KEY', 'sPavadinimas' => 'Key Account']);
 
-// Delete product/client types and tags by code
-$result = $finvalda->references()->deleteProductType('ELEC');
-$result = $finvalda->references()->deleteProductTag(1, 'FEAT');
-$result = $finvalda->references()->deleteClientType('VIP');
-$result = $finvalda->references()->deleteClientTag(1, 'KEY');
+// Delete product/client types and tags by code.
+// NOTE: deleting requires a FvsServicePure build that exposes the DeleteItem
+// endpoint. Older builds answer 404; in that case these methods throw
+// Finvalda\Exceptions\OperationNotSupportedException (a FinvaldaException) naming
+// the endpoint, rather than a raw transport error. Create (InsertNewItem) and
+// update (EditItem) are broadly available across builds.
+try {
+    $result = $finvalda->references()->deleteProductType('ELEC');
+    $result = $finvalda->references()->deleteProductTag(1, 'FEAT');
+    $result = $finvalda->references()->deleteClientType('VIP');
+    $result = $finvalda->references()->deleteClientTag(1, 'KEY');
+} catch (\Finvalda\Exceptions\OperationNotSupportedException $e) {
+    // $e->endpoint === 'DeleteItem' — this server build can't delete dictionary entries
+}
 
 // NOTE: service types/tags are read-only via the API — there is no Fvs.PaslaugosRusis
 // write class, so no create/update/delete counterpart exists for services.
