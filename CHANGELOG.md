@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-06-25
+
+### Added — type/tag dictionary write coverage
+Completes the create/update/delete lifecycle for product and client types and tags
+on `References` (read/query lives on Products/Clients via `typesAndTags()` /
+`allTypesAndTags()`):
+- **`createClientTag(int $n, array)`** — `n = 1..3` → `Fvs.Kliento{I|II|III}Poz`
+  (mirrors the existing `createProductTag()`; the item classes already existed but
+  had no method).
+- **`updateProductType()` / `updateProductTag(int $n, …)` / `updateClientType()` /
+  `updateClientTag(int $n, …)`** — `EditItem`, record identified by `sKodas`.
+- **`deleteProductType()` / `deleteProductTag(int $n, …)` / `deleteClientType()` /
+  `deleteClientTag(int $n, …)`** — `DeleteItem` by code.
+- **`ItemClass::clientTag(int)`** helper (1..3 → Roman-suffixed client tag classes).
+
+### Notes
+- **Services are read-only for types/tags.** The Finvalda write API exposes no
+  `Fvs.PaslaugosRusis` (or service-požymis) class, so there are no service
+  create/update/delete counterparts — only the read-side `typesAndTags()`.
+- The new `EditItem`/`DeleteItem` calls reuse the same transport already used for
+  Preke/Klientas writes; behaviour against the dictionary item classes should be
+  confirmed against the live server.
+
 ## [3.0.0] - 2026-06-25
 
 ### Fixed (behavior change — types and tags)
