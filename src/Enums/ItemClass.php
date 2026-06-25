@@ -61,4 +61,20 @@ enum ItemClass: string
     {
         return self::from("Fvs.PrekesPoz{$number}");
     }
+
+    /**
+     * Get the ClientTag case for a given tag number (1-3).
+     *
+     * Client tag classes use Roman-numeral suffixes (KlientoIPoz/IIPoz/IIIPoz),
+     * not a numeric one, so they are mapped explicitly.
+     */
+    public static function clientTag(int $number): self
+    {
+        return match ($number) {
+            1 => self::ClientTag1,
+            2 => self::ClientTag2,
+            3 => self::ClientTag3,
+            default => throw new \ValueError("Client tag number must be 1-3, got {$number}"),
+        };
+    }
 }

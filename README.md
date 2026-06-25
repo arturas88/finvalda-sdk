@@ -1334,14 +1334,18 @@ $present = $all->types();                                 // distinct tipas valu
 both (or several filtered reads) on the same resource instance does **not** fan out
 into multiple round-trips.
 
-**Creating types and tags, and using them.** The dictionary is read-only here;
-create entries via `References`:
+**Creating, updating and deleting types and tags.** The dictionary read above is
+read-only; manage entries via `References` (create/update/delete for product and
+client types and tags — see the [Reference Data](#reference-data) section):
 
 ```php
 // Create a product type (Fvs.PrekesRusis) and a Tag-N value (Fvs.PrekesPoz{N}, N = 1..20)
 $finvalda->references()->createProductType(['sKodas' => 'ELECTRONICS', 'sPavadinimas' => 'Electronics']);
 $finvalda->references()->createProductTag(1, ['sKodas' => 'PROMO', 'sPavadinimas' => 'Promotional']);
-// Clients have References::createClientType() (Fvs.KlientoRusis).
+$finvalda->references()->updateProductTag(1, ['sKodas' => 'PROMO', 'sPavadinimas' => 'Promo 2026']);
+$finvalda->references()->deleteProductTag(1, 'PROMO');
+// Clients: createClientType()/createClientTag(1..3) (Fvs.KlientoRusis / Fvs.Kliento{I|II|III}Poz),
+// plus update*/delete* counterparts. Service types/tags are read-only (no API write class).
 ```
 
 The `kodas` returned by `typesAndTags()` is exactly what you pass into
@@ -1739,9 +1743,25 @@ $result = $finvalda->references()->createPaymentTerm(['sKodas' => 'NET30', 'sPav
 $result = $finvalda->references()->createClientType(['sKodas' => 'VIP', 'sPavadinimas' => 'VIP Clients']);
 $result = $finvalda->references()->createProductType(['sKodas' => 'ELEC', 'sPavadinimas' => 'Electronics']);
 
-// Create product tag values (tags 1-20)
+// Create product tag values (tags 1-20) and client tag values (tags 1-3)
 $result = $finvalda->references()->createProductTag(1, ['sKodas' => 'FEAT', 'sPavadinimas' => 'Featured']);
 $result = $finvalda->references()->createProductTag(7, ['sKodas' => 'NEW', 'sPavadinimas' => 'New Arrival']);
+$result = $finvalda->references()->createClientTag(1, ['sKodas' => 'KEY', 'sPavadinimas' => 'Key Account']);
+
+// Update product/client types and tags (record identified by sKodas)
+$result = $finvalda->references()->updateProductType(['sKodas' => 'ELEC', 'sPavadinimas' => 'Electronics & IT']);
+$result = $finvalda->references()->updateProductTag(1, ['sKodas' => 'FEAT', 'sPavadinimas' => 'Featured ★']);
+$result = $finvalda->references()->updateClientType(['sKodas' => 'VIP', 'sPavadinimas' => 'VIP+']);
+$result = $finvalda->references()->updateClientTag(1, ['sKodas' => 'KEY', 'sPavadinimas' => 'Key Account']);
+
+// Delete product/client types and tags by code
+$result = $finvalda->references()->deleteProductType('ELEC');
+$result = $finvalda->references()->deleteProductTag(1, 'FEAT');
+$result = $finvalda->references()->deleteClientType('VIP');
+$result = $finvalda->references()->deleteClientTag(1, 'KEY');
+
+// NOTE: service types/tags are read-only via the API — there is no Fvs.PaslaugosRusis
+// write class, so no create/update/delete counterpart exists for services.
 ```
 
 ### User Permissions

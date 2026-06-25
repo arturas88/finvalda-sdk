@@ -200,6 +200,125 @@ final class References extends Resource
     }
 
     /**
+     * Create a new client tag value. Calls InsertNewItem with Fvs.Kliento{I|II|III}Poz class.
+     *
+     * @param  int  $tagNumber  Tag number (1-3)
+     * @param  array  $data  Tag data (keys: sKodas, sPavadinimas, etc.)
+     */
+    public function createClientTag(int $tagNumber, array $data): OperationResult
+    {
+        $itemClass = ItemClass::clientTag($tagNumber);
+
+        return $this->http->postOperation('InsertNewItem', [
+            'ItemClassName' => $itemClass->value,
+            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
+        ]);
+    }
+
+    /**
+     * Update a product type. Calls EditItem with Fvs.PrekesRusis class.
+     *
+     * @param  array  $data  Type data with sKodas identifying the record to update.
+     */
+    public function updateProductType(array $data): OperationResult
+    {
+        return $this->editItem(ItemClass::ProductType, $data);
+    }
+
+    /**
+     * Update a product tag value. Calls EditItem with Fvs.PrekesPoz{N} class.
+     *
+     * @param  int  $tagNumber  Tag number (1-20)
+     * @param  array  $data  Tag data with sKodas identifying the record to update.
+     */
+    public function updateProductTag(int $tagNumber, array $data): OperationResult
+    {
+        return $this->editItem(ItemClass::productTag($tagNumber), $data);
+    }
+
+    /**
+     * Update a client type. Calls EditItem with Fvs.KlientoRusis class.
+     *
+     * @param  array  $data  Type data with sKodas identifying the record to update.
+     */
+    public function updateClientType(array $data): OperationResult
+    {
+        return $this->editItem(ItemClass::ClientType, $data);
+    }
+
+    /**
+     * Update a client tag value. Calls EditItem with Fvs.Kliento{I|II|III}Poz class.
+     *
+     * @param  int  $tagNumber  Tag number (1-3)
+     * @param  array  $data  Tag data with sKodas identifying the record to update.
+     */
+    public function updateClientTag(int $tagNumber, array $data): OperationResult
+    {
+        return $this->editItem(ItemClass::clientTag($tagNumber), $data);
+    }
+
+    /**
+     * Delete a product type by code. Calls DeleteItem with Fvs.PrekesRusis class.
+     */
+    public function deleteProductType(string $code): OperationResult
+    {
+        return $this->deleteItem(ItemClass::ProductType, $code);
+    }
+
+    /**
+     * Delete a product tag value by code. Calls DeleteItem with Fvs.PrekesPoz{N} class.
+     *
+     * @param  int  $tagNumber  Tag number (1-20)
+     */
+    public function deleteProductTag(int $tagNumber, string $code): OperationResult
+    {
+        return $this->deleteItem(ItemClass::productTag($tagNumber), $code);
+    }
+
+    /**
+     * Delete a client type by code. Calls DeleteItem with Fvs.KlientoRusis class.
+     */
+    public function deleteClientType(string $code): OperationResult
+    {
+        return $this->deleteItem(ItemClass::ClientType, $code);
+    }
+
+    /**
+     * Delete a client tag value by code. Calls DeleteItem with Fvs.Kliento{I|II|III}Poz class.
+     *
+     * @param  int  $tagNumber  Tag number (1-3)
+     */
+    public function deleteClientTag(int $tagNumber, string $code): OperationResult
+    {
+        return $this->deleteItem(ItemClass::clientTag($tagNumber), $code);
+    }
+
+    /**
+     * Update a reference item via EditItem. The record is identified by its sKodas.
+     */
+    private function editItem(ItemClass $itemClass, array $data): OperationResult
+    {
+        return $this->http->postOperation('EditItem', [
+            'ItemClassName' => $itemClass->value,
+            'sItemCode' => $data['sKodas'] ?? '',
+            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
+        ]);
+    }
+
+    /**
+     * Delete a reference item by code via DeleteItem.
+     */
+    private function deleteItem(ItemClass $itemClass, string $code): OperationResult
+    {
+        return $this->http->postOperationJson('DeleteItem', [
+            'input' => [
+                'ItemClassName' => $itemClass->value,
+                'Code' => $code,
+            ],
+        ]);
+    }
+
+    /**
      * Add an item to a group. Calls AppendGroup.
      *
      * @param  string  $itemClassName  The Finvalda item class name (e.g., 'Fvs.Klientas')
