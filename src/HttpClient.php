@@ -481,9 +481,18 @@ final class HttpClient
                     $e
                 );
             }
+
+            // Other HTTP errors (4xx): preserve the status code so callers can
+            // react to it — e.g. a 404 on an action endpoint means this server
+            // build does not expose that endpoint.
+            return new FinvaldaException(
+                'HTTP request failed: ' . $e->getMessage(),
+                $statusCode,
+                $e
+            );
         }
 
-        // Default fallback
+        // Default fallback (no HTTP response, e.g. malformed request)
         return new FinvaldaException(
             'HTTP request failed: ' . $e->getMessage(),
             0,

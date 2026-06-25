@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\OperationNotSupportedException;
 use Finvalda\Resources\References;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use PHPUnit\Framework\TestCase;
 use ValueError;
 
@@ -153,5 +155,38 @@ class ReferencesTest extends TestCase
             ['input' => ['ItemClassName' => 'Fvs.KlientoIIPoz', 'Code' => 'TAG2']],
             $this->requestBody($history2),
         );
+    }
+
+    /**
+     * Build a client whose DeleteItem call hits the WCF "endpoint not found"
+     * page a Pure build without DeleteItem returns.
+     */
+    private function deleteItemNotFoundClient(): References
+    {
+        $wcfHtml = '<html><head><title>Service</title></head><body>'
+            . 'Endpoint not found.</body></html>';
+
+        return new References($this->createHttpClient([
+            new GuzzleResponse(404, ['Content-Type' => 'text/html'], $wcfHtml),
+        ]));
+    }
+
+    public function test_delete_product_type_throws_when_server_lacks_deleteitem(): void
+    {
+        $this->expectException(OperationNotSupportedException::class);
+        $this->expectExceptionMessage('DeleteItem is not supported by this Finvalda server build');
+
+        $this->deleteItemNotFoundClient()->deleteProductType('ELEC');
+    }
+
+    public function test_delete_client_tag_throws_operation_not_supported_with_endpoint(): void
+    {
+        try {
+            $this->deleteItemNotFoundClient()->deleteClientTag(1, 'KEY');
+            $this->fail('Expected OperationNotSupportedException');
+        } catch (OperationNotSupportedException $e) {
+            $this->assertSame('DeleteItem', $e->endpoint);
+            $this->assertSame(404, $e->getCode());
+        }
     }
 }

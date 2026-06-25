@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-06-25
+
+### Fixed — clear error when DeleteItem is unsupported by the server build
+- **`deleteProductType` / `deleteProductTag` / `deleteClientType` / `deleteClientTag`
+  now fail clearly when the server lacks `DeleteItem`.** Live validation found that
+  the `DeleteItem` endpoint exists only on newer FvsServicePure builds — older builds
+  answer **404** (a WCF "endpoint not found" page). Previously this surfaced as an
+  opaque transport error (`HTTP request failed: … 404 Not Found`). The shared
+  `References::deleteItem` helper now catches the 404 and throws a typed
+  **`Finvalda\Exceptions\OperationNotSupportedException`** (extends `FinvaldaException`)
+  whose message names the endpoint and whose `->endpoint` property is `'DeleteItem'`.
+  The request shape is unchanged and correct — this is a server-build capability gap,
+  not a wire-format bug.
+- `create` (`InsertNewItem`) and `update` (`EditItem`) are unaffected and broadly
+  available across builds.
+
+### Changed
+- `HttpClient` now preserves the HTTP status code on 4xx errors (the wrapped
+  `FinvaldaException` carries the status as its code instead of `0`), enabling
+  callers to distinguish a 404 from other failures.
+
 ## [3.1.0] - 2026-06-25
 
 ### Added — type/tag dictionary write coverage
