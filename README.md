@@ -1330,7 +1330,7 @@ $query = OperationQuery::sales()
     ->client('CLI001');
 
 // Use with operations resource
-$response = $finvalda->operations()->query($query->opClass(), $query->build());
+$response = $finvalda->operations()->query($query);
 
 // All factory methods
 $query = OperationQuery::sales();
@@ -1358,8 +1358,19 @@ $query = OperationQuery::sales()
     ->modifiedSince('2024-06-01')
     ->journalGroup('SALES_GRP')
     ->object1('DEPT01')
-    ->object2('PROJ01');
+    ->object2('PROJ01')
+    ->createdSince('2024-01-01')         // DateCreatedFrom
+    ->description('Avans*')              // Description; '*' is a wildcard, line: 2-5 for Description2..5
+    ->notCreatedByUser('ROBOT')          // NotCreatedByUser
+    ->notEditedByUser('ROBOT')           // NotEditedByUser
+    ->set('SomeFilter', 'value');        // raw filter escape hatch (exact tag case)
+
+// Clearings and inflows have their own filters
+OperationQuery::forClass(OpClass::ClearingOff)->debtorClient('DEB1')->creditorClient('CRE1');
+OperationQuery::inflows()->advancePaymentSettled(false);   // only unsettled advances
 ```
+
+Without `columns()` the server returns every column.
 
 ## Validation
 

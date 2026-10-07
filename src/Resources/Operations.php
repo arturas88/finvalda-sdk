@@ -8,6 +8,7 @@ use Finvalda\Enums\DeleteOperationClass;
 use Finvalda\Enums\OpClass;
 use Finvalda\Enums\OperationClass;
 use Finvalda\Enums\UpdateOperationClass;
+use Finvalda\Query\OperationQuery;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
 
@@ -99,12 +100,21 @@ final class Operations extends Resource
     /**
      * Read operations with JSON body filters. Calls GetOperations via POST.
      *
-     * @param  OpClass  $class  The operation class to query (e.g., Sales, Purchases, SalesDet)
-     * @param  array  $filters  Additional filter parameters (keys: fullOp, filter, columns, columnsDet)
+     * ```php
+     * $operations->query(OperationQuery::sales()->journal('PARD')->columns('op_number'));
+     * $operations->query(OpClass::Sales, ['filter' => ['Journal' => 'PARD']]);
+     * ```
+     *
+     * @param  OpClass|OperationQuery  $class  An OperationQuery, or the class to query with raw $filters
+     * @param  array  $filters  Raw filter parameters (keys: fullOp, filter, columns, columnsDet); ignored with an OperationQuery
      * @return Response
      */
-    public function query(OpClass $class, array $filters = []): Response
+    public function query(OpClass|OperationQuery $class, array $filters = []): Response
     {
+        if ($class instanceof OperationQuery) {
+            [$class, $filters] = [$class->opClass(), $class->build()];
+        }
+
         $opReadParams = array_merge(['OpClass' => $class->value], $filters);
 
         return $this->http->postJson('GetOperations', [

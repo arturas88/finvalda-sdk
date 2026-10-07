@@ -28,7 +28,7 @@ use Finvalda\Enums\OpClass;
  *     ->number(123)
  *     ->columns('op_number', 'op_date', 'amount');
  *
- * $results = $finvalda->operations()->query($query->opClass(), $query->build());
+ * $results = $finvalda->operations()->query($query);
  * ```
  */
 final class OperationQuery extends QueryBuilder
@@ -291,6 +291,81 @@ final class OperationQuery extends QueryBuilder
         return $this->set('Object6', $code);
     }
 
+    /**
+     * Filter by creation date (DateCreatedFrom).
+     */
+    public function createdSince(DateTimeInterface|string $date): self
+    {
+        return $this->setDate('DateCreatedFrom', $date);
+    }
+
+    /**
+     * Filter clearing operations by the debtor client (ClientDeb).
+     */
+    public function debtorClient(string $code): self
+    {
+        return $this->set('ClientDeb', $code);
+    }
+
+    /**
+     * Filter clearing operations by the creditor client (ClientCred).
+     */
+    public function creditorClient(string $code): self
+    {
+        return $this->set('ClientCred', $code);
+    }
+
+    /**
+     * Filter by operation name (Description, Description2..5). `*` matches any
+     * run of characters: 'text*', '*text', '*text*'.
+     *
+     * @param  int  $line  Which of the five name fields, 1-5
+     *
+     * @throws \InvalidArgumentException  On a line outside 1-5.
+     */
+    public function description(string $pattern, int $line = 1): self
+    {
+        if ($line < 1 || $line > 5) {
+            throw new \InvalidArgumentException("Description line must be 1-5, {$line} given");
+        }
+
+        return $this->set($line === 1 ? 'Description' : "Description{$line}", $pattern);
+    }
+
+    /**
+     * Inflows only: true returns settled advance payments, false unsettled ones
+     * (AdvancePaymentSettled).
+     */
+    public function advancePaymentSettled(bool $settled = true): self
+    {
+        return $this->set('AdvancePaymentSettled', $settled);
+    }
+
+    /**
+     * Exclude operations created by this user (NotCreatedByUser).
+     */
+    public function notCreatedByUser(string $user): self
+    {
+        return $this->set('NotCreatedByUser', $user);
+    }
+
+    /**
+     * Exclude operations edited by this user (NotEditedByUser).
+     */
+    public function notEditedByUser(string $user): self
+    {
+        return $this->set('NotEditedByUser', $user);
+    }
+
+    /**
+     * Set a raw filter field. Escape hatch for filters without a named method;
+     * the spec requires the exact tag case (`Journal`, not `journal`).
+     */
+    public function set(string $key, mixed $value): static
+    {
+        return parent::set($key, $value);
+    }
+
     // --- Payload-level parameters (not inside "filter") ---
 
     /**
@@ -304,8 +379,8 @@ final class OperationQuery extends QueryBuilder
     }
 
     /**
-     * Select which header columns to return. Required by the API — an empty
-     * columns list produces a "Value cannot be null" error.
+     * Select which header columns to return. Without columns() the server
+     * returns every column (spec §3.77).
      */
     public function columns(string ...$names): self
     {
