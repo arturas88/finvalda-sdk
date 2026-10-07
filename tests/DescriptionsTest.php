@@ -161,6 +161,72 @@ class DescriptionsTest extends TestCase
         ], $this->decodeBody($history[0]['request']));
     }
 
+    public function test_extra_read_params_reach_the_wire_for_multi_key_filters(): void
+    {
+        $history = [];
+        $descriptions = new Descriptions($this->createHttpClient([
+            $this->jsonResponse(['AccessResult' => 'Success', 'items' => []]),
+        ], $history));
+
+        $descriptions->get(
+            DescriptionType::Address,
+            ['Codes' => ['TEST']],
+            readParams: ['Address' => ['Codes' => ['SAN1']]],
+        );
+
+        $this->assertSame([
+            'readParams' => [
+                'type' => 'Address',
+                'Clients' => ['Codes' => ['TEST']],
+                'Address' => ['Codes' => ['SAN1']],
+            ],
+        ], $this->decodeBody($history[0]['request']));
+    }
+
+    public function test_addresses_sends_both_the_client_and_the_address_filter(): void
+    {
+        // FVS_Webservice §4.21: { type: "Address", Clients: {...}, Address: {...} }
+        $history = [];
+        $descriptions = new Descriptions($this->createHttpClient([
+            $this->jsonResponse(['AccessResult' => 'Success', 'items' => []]),
+        ], $history));
+
+        $descriptions->addresses(
+            clients: ['Codes' => ['TEST', 'TEST2']],
+            addresses: ['Codes' => ['SAN1', 'SAN2'], 'Tag1' => 'X'],
+            page: 1,
+            limit: 10,
+        );
+
+        $this->assertSame([
+            'readParams' => [
+                'type' => 'Address',
+                'page' => 1,
+                'limit' => 10,
+                'Clients' => ['Codes' => ['TEST', 'TEST2']],
+                'Address' => ['Codes' => ['SAN1', 'SAN2'], 'Tag1' => 'X'],
+            ],
+        ], $this->decodeBody($history[0]['request']));
+    }
+
+    public function test_stock_on_date_and_currency_rates_accept_date_objects(): void
+    {
+        $history = [];
+        $descriptions = new Descriptions($this->createHttpClient([
+            $this->jsonResponse(['AccessResult' => 'Success', 'items' => []]),
+            $this->jsonResponse(['AccessResult' => 'Success', 'items' => []]),
+        ], $history));
+
+        $descriptions->stockOnDate(new \DateTimeImmutable('2024-01-15 10:00'));
+        $descriptions->currencyRates(new \DateTimeImmutable('2024-01-01'), '2024-01-31');
+
+        $this->assertSame(['Date' => '2024-01-15'], $this->decodeBody($history[0]['request'])['readParams']['StockOnDate']);
+        $this->assertSame(
+            ['DateFrom' => '2024-01-01', 'DateTo' => '2024-01-31'],
+            $this->decodeBody($history[1]['request'])['readParams']['CurrencyRates'],
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -2161,6 +2161,17 @@ $response = $finvalda->descriptions()->barCodes(['Codes' => ['PROD001']]);
 $response = $finvalda->descriptions()->prices(['Client' => 'CLI001']);
 $response = $finvalda->descriptions()->currencyRates('2024-01-01', '2024-12-31', ['USD', 'GBP']);
 
+// Address cards take two filter objects: Clients and Address
+$response = $finvalda->descriptions()->addresses(
+    clients: ['Codes' => ['CLI001']],
+    addresses: ['Codes' => ['SAN1'], 'Tag1' => 'X'],
+);
+
+// Any extra readParams key (merged last) for shapes the helpers don't cover
+$response = $finvalda->descriptions()->get(DescriptionType::Address, ['Codes' => ['CLI001']], readParams: [
+    'Address' => ['Codes' => ['SAN1']],
+]);
+
 // Additional description types
 $response = $finvalda->descriptions()->get(DescriptionType::OperationStatuses);
 $response = $finvalda->descriptions()->get(DescriptionType::Accounts);
