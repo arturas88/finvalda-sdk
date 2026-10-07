@@ -36,7 +36,6 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [UVM (Order Management)](#uvm-order-management)
   - [Short / Simplified Operations](#short--simplified-operations)
 - [Query Builders](#query-builders)
-  - [Transaction Query](#transaction-query)
   - [Operation Query](#operation-query)
 - [Validation](#validation)
 - [Field Reference](#field-reference)
@@ -55,7 +54,6 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [Descriptions (Universal Query)](#descriptions-universal-query)
   - [Reference Data](#reference-data)
   - [User Permissions](#user-permissions)
-- [Pagination](#pagination)
 - [Error Handling](#error-handling)
 - [Server-Configured Parameters](#server-configured-parameters)
 - [API Versions](#api-versions)
@@ -1351,35 +1349,6 @@ where the spec offers no delete.
 
 Build queries fluently for better readability and IDE support.
 
-### Transaction Query
-
-```php
-use Finvalda\Query\TransactionQuery;
-
-// Create a fluent query
-$query = TransactionQuery::create()
-    ->journal('PARD')
-    ->series('AA')
-    ->dateRange('2024-01-01', '2024-12-31')
-    ->modifiedSince('2024-06-01');
-
-// Use with transactions resource
-$response = $finvalda->transactions()->sales($query->toFilter());
-$response = $finvalda->transactions()->salesDetail($query->toFilter());
-
-// Query methods
-$query = TransactionQuery::create()
-    ->journal('PARD')              // Filter by journal code
-    ->operationNumber(123)         // Filter by operation number
-    ->series('AA')                 // Filter by document series
-    ->orderNumber('SF-001')        // Filter by order/document number
-    ->journalGroup('SALES_GRP')    // Filter by journal group
-    ->dateFrom('2024-01-01')       // Operation date from
-    ->dateTo('2024-12-31')         // Operation date to
-    ->dateRange('2024-01-01', '2024-12-31')  // Both dates at once
-    ->modifiedSince('2024-06-01'); // Only modified since
-```
-
 ### Operation Query
 
 ```php
@@ -1868,20 +1837,12 @@ $result = $finvalda->objects()->update(level: 1, data: [
 ```php
 use Finvalda\Filters\TransactionFilter;
 use Finvalda\Filters\PaymentFilter;
-use Finvalda\Query\TransactionQuery;
 
-// Using filter DTO
 $filter = new TransactionFilter(
     dateFrom: '2024-01-01',
     dateTo: '2024-12-31',
     journalGroup: 'PARD_GRP',
 );
-
-// Or using fluent query builder
-$filter = TransactionQuery::create()
-    ->dateRange('2024-01-01', '2024-12-31')
-    ->journalGroup('PARD_GRP')
-    ->toFilter();
 
 // Sales
 $response = $finvalda->transactions()->sales($filter);
@@ -2270,48 +2231,6 @@ $warehouses = $finvalda->permissions()->warehouses('S5');     // id1 = warehouse
 $clients = $finvalda->permissions()->clients('S5');           // id1 = client code
 $types = $finvalda->permissions()->operationTypes('S5');      // id1 = op class, id2 = type code
 $journals = $finvalda->permissions()->operationJournals('S5'); // id1 = op class, id2 = journal
-```
-
-## Pagination
-
-For large datasets, use lazy pagination with the `Cursor` class:
-
-```php
-use Finvalda\Pagination\Cursor;
-use Finvalda\Pagination\LazyCollection;
-
-// Create a cursor for clients
-$cursor = new Cursor(
-    fetcher: fn($modifiedSince, $createdSince) =>
-        $finvalda->clients()->all($modifiedSince, $createdSince)->data,
-    dateExtractor: fn($item) => isset($item['tKoregavimoData'])
-        ? new \DateTime($item['tKoregavimoData'])
-        : null,
-    // Recommended: a stable identity per record so duplicates from
-    // overlapping date ranges are skipped reliably. Without it, items
-    // are compared by full content.
-    idExtractor: fn($item) => $item['sKodas'],
-);
-
-// Iterate lazily (memory efficient)
-foreach ($cursor->modifiedSince('2024-01-01')->getIterator() as $clientData) {
-    echo $clientData['sPavadinimas'] . "\n";
-}
-
-// Take first N items
-$first100 = $cursor->take(100);
-
-// Get all as array
-$allClients = $cursor->all();
-
-// LazyCollection for generator-based iteration
-$lazy = LazyCollection::make($finvalda->clients()->all()->data);
-
-$filtered = $lazy
-    ->filter(fn($c) => ($c['dSkola'] ?? 0) > 0)
-    ->map(fn($c) => $c['sPavadinimas'])
-    ->take(10)
-    ->all();
 ```
 
 ## Error Handling
