@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`JsonLinesLogger` no longer drops records whose body was cut mid-character.**
+  `BodyTruncator` cut on a raw byte offset, so a budget landing inside a Lithuanian
+  letter (2 bytes in UTF-8) left invalid UTF-8; `json_encode` refused the record and
+  the logger reported "Malformed UTF-8 characters" once, then went silent. The cut now
+  backs off to a character boundary (`mb_strcut`); the byte budget and the
+  `[truncated N bytes]` count (still the true number of omitted bytes) are unchanged.
+  This applies to recorded bodies too.
+- `JsonLinesLogger` encodes with `JSON_INVALID_UTF8_SUBSTITUTE`, so a body that was
+  never valid UTF-8 (e.g. Windows-1257) is logged with U+FFFD in place of the bad bytes
+  instead of being dropped.
+
 ## [3.7.0] - 2026-07-31
 
 ### Added — logging controls

@@ -123,6 +123,43 @@ class JsonLinesLoggerTest extends TestCase
         $this->assertSame(5, $entry['params']['nKiekis']);
     }
 
+    public function test_it_keeps_a_record_whose_context_string_is_cut_mid_character(): void
+    {
+        $path = $this->dir . '/finvalda.log';
+
+        // 'ą' is two bytes in UTF-8, so a 7-byte budget lands mid-character.
+        $errors = $this->captureErrorLog(function () use ($path): void {
+            (new JsonLinesLogger($path, maxBodyBytes: 7))->debug('Finvalda API response', [
+                'body' => str_repeat('ą', 10),
+            ]);
+        });
+
+        $this->assertSame('', $errors);
+
+        $entry = json_decode(trim(file_get_contents($path)), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ąąą... [truncated 14 bytes]', $entry['body']);
+    }
+
+    public function test_it_substitutes_invalid_utf8_instead_of_dropping_the_record(): void
+    {
+        $path = $this->dir . '/finvalda.log';
+
+        $errors = $this->captureErrorLog(function () use ($path): void {
+            (new JsonLinesLogger($path))->debug('Finvalda API response', ['body' => "abc\xC4"]);
+        });
+
+        $this->assertSame('', $errors, 'a substituted byte is not a failure worth reporting');
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES);
+
+        $this->assertCount(1, $lines);
+
+        $entry = json_decode($lines[0], true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame("abc\u{FFFD}", $entry['body']);
+    }
+
     public function test_it_stringifies_a_stringable_level(): void
     {
         $path = $this->dir . '/finvalda.log';
