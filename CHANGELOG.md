@@ -7,7 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+A major release: the builders and several resources now send only what the
+Finvalda WS spec defines. Before this, many setters wrote field names the spec
+does not have, and the server drops unknown fields silently, so those calls
+"succeeded" without doing what was asked. Everything here was checked against
+`docs/` (spec, Postman collection) and unit tests, **not against a live server**;
+run `bin/verify-live` against the test company before tagging.
+
+### Breaking — transport
+
+- **Writes are never retried.** `postOperation()`, `postOperationJson()` and the new
+  `postWrite()` send exactly once; a timeout after the request went out could
+  otherwise post a document twice. Only reads (`get()`, `post()`, `postJson()`) retry.
+- `RetryExhaustedException` is removed: once the attempts are used up the mapped SDK
+  exception (`NetworkException`, `ServerException`, `HttpException`) is rethrown, so
+  existing `catch` blocks fire. `RetryPolicy(maxAttempts: 0)` throws;
+  `RetryPolicy::aggressive()` is removed.
+- 4xx errors raise the new `HttpException` (code = HTTP status, `->response`);
+  `ServerException` extends it. Guzzle's exception is no longer chained as
+  `previous`, because its message carries the unscrubbed request URI.
+- Debug mode is removed (`setDebug()`, `getLastDebugInfo()`, `LastExchange`): it
+  paired a failed request with the previous response and showed no query params.
+  Use `record(1)` and `lastRecording()`.
+- `HttpClient::getRaw()` is removed (unused).
+- The config `baseUrl`, `timeout` and new `httpOptions` apply per request, so an
+  injected Guzzle client no longer needs (or can override) `base_uri`.
+- `ping()` throws on anything but a network, 5xx or access-denied failure, so a
+  wrong base URL is no longer reported as "down".
+- Laravel: the client is bound `scoped()` instead of as a singleton, so queue jobs
+  and Octane requests no longer share `record()` buffers, loggers or cached
+  dictionaries.
+- `FinvaldaConfig::fromArray()` throws `InvalidArgumentException` for an unknown
+  language; empty `company_id` / `conn_string` values mean "not set".
+
+### Breaking — builders
+
+- **Removed setters that wrote fields absent from the spec:** `paymentDays()`,
+  `isAdvance()`, `vatIncluded()`, `priceType()`, `responsiblePerson()`,
+  `supplierInvoice()`, `supplierInvoiceDate()`, `originalDocument()`,
+  `originalDocumentNumber()`, `reason()`, `operationType()`, `bankAccount()`,
+  `cashRegister()`, and payment `amount()`. Header setters (`client()`,
+  `currency()`, `description()`, `object1-6()`, ...) exist only on builders whose
+  envelope has the field.
+- `dueDate()` writes `tMokejimoData` (was the non-existent `tAtsiskData`).
+- `price` writes the unit price `dSumaVntV`/`dSumaVntL` (was the non-existent
+  `dKaina`) and is refused on purchase lines.
+- `warehouse()` on sales, purchases, write-offs and capitalizations no longer writes
+  a header `sSandelis`; it fills `sSandelis` on every product line that has none.
+- **Payments rewritten** on a shared `PaymentBuilder`: `IplDok` / `IsmDok` (was the
+  non-existent `IsmokasDok`), `type(PaymentType)` for `nTipas`, lines with `dSumaV`
+  **inside** the header wrapper (they were written next to it, so the server never
+  saw them). `forDocument(series, document, amount)` has a new signature.
+- Write-off, capitalization, internal-transfer and production product lines send
+  `nPirmasMat=1`, like `ProductLine` already did, so KG/M quantities are not divided
+  by the unit ratio.
+- `short()` variants throw on a field the Trumpas* table does not define;
+  `series()` on a full purchase throws; `addService()` throws on builders whose
+  envelope has no service lines; object levels outside 1-6 throw.
+- Date strings that are not `Y-m-d` throw `InvalidArgumentException`.
+- `Finvalda\Validation\*` is removed (unused anywhere in `src/`).
+
+### Breaking — resources
+
+- **Documents** rebuilt on the PURE `inParams` format; `attach()` and `attached()`
+  have new signatures. The old calls could not have worked.
+- **Pricing**: the four combined endpoints no longer send the invented
+  `sKliKod/sPreKod/sKliRusKod/sPreRusKod` filters (the spec defines none; the server
+  returned every client's prices). `clientItemPrices()` takes no arguments, the
+  other three take `(modifiedSince, createdSince)`.
+- `collect()`, `find()` and the type/tag readers **throw** on a failed request
+  instead of returning an empty result, and a failure is never cached.
+- `Permissions::get(?string $finUser)`: GetUserPermissions takes only `finUser`.
+- `OrderManagement` sends `tNuo`/`tIki` (was `tDataNuo`/`tDataIki`, ignored) and
+  accepts `DateTimeInterface`.
+- `Stock::balancesByGroup()` lost its two date arguments (not in the spec);
+  `purchaseOpFor()` throws under `Language::English` instead of returning `null`.
+- `update()` without `sKodas` throws; a 404 on any delete raises
+  `OperationNotSupportedException`.
+- Removed: `Cursor`, `LazyCollection` (the API has no pagination; Cursor fetched
+  everything twice), `TransactionQuery` (duplicated `TransactionFilter`),
+  `StockBalance`, `AnalyticalObject` (unreferenced).
+
+### Added
+
+- `Response::throw()` and `OperationResult::throw()`, raising `FinvaldaException` /
+  `OperationFailedException` (code, journal, number).
+- `http_options` config (`httpOptions`), merged into every request: `verify`,
+  `proxy`, `connect_timeout`.
+- A `request_id` on both log lines of a call and on each recorded `Exchange`.
+- `OperationQuery`: the remaining spec filters, a public `set()`, and
+  `Operations::query()` accepts an `OperationQuery`.
+- `Descriptions::get(readParams:)` raw escape hatch; `addresses()` sends both filter
+  objects.
+- `Products::image()` `tSukurimoData`, `Products::soldPerPeriod()`
+  `bItrauktiVisasPrekes`; `TrumpasUVMPardRezDok`/`TrumpasUVMPirkUzsDok` operation
+  classes; `OperationClass::deleteClass()`.
+- `bin/verify-live`: read-only checks against a server, plus a guarded `--write` mode
+  that creates, reads back and deletes test operations.
+
 ### Fixed
+
+- Credential values (`sPassword` and friends) are scrubbed from exception messages
+  and the retry warning log; before, a failed `GetFvsUser` put the password in both.
+- Uploads are no longer logged twice: the request log's `params` holds query
+  parameters only, so file elision and truncation apply to the whole payload.
+- An empty XML `<sError/>` no longer crashes `parseOperationResult()` with a
+  `TypeError`.
+- An invalid-JSON error names the HTTP status and the start of the body.
+- `log_body_bytes` above 200 KB no longer double-truncates in the file logger.
+- DTOs coerce scalar values, so a numeric company code no longer throws a
+  `TypeError` and `"N"` flags read false.
 
 - **`JsonLinesLogger` no longer drops records whose body was cut mid-character.**
   `BodyTruncator` cut on a raw byte offset, so a budget landing inside a Lithuanian
@@ -19,6 +128,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `JsonLinesLogger` encodes with `JSON_INVALID_UTF8_SUBSTITUTE`, so a body that was
   never valid UTF-8 (e.g. Windows-1257) is logged with U+FFFD in place of the bad bytes
   instead of being dropped.
+
+### Changed — requirements and tooling
+
+- Requires `ext-mbstring` (already used; now declared) and `guzzlehttp/guzzle` ^7.8.
+- PHPStan level 8 over all of `src/`, `src/Laravel` included; Laravel provider tests
+  via Orchestra Testbench; Pint; CI on PHP 8.3/8.4/8.5 plus a lowest-dependencies job.
 
 ## [3.7.0] - 2026-07-31
 
