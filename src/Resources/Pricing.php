@@ -13,73 +13,69 @@ use Finvalda\Responses\Response;
 final class Pricing extends Resource
 {
     // --- Combined client + item endpoints ---
+    //
+    // These four return EVERY row of their matrix: the endpoints take no
+    // client or item filter (only the last three take date filters). Narrow
+    // the rows client-side.
 
     /**
-     * Get discounts and additional prices for a client + item combination. Calls GetKliPrekPasNuolPapKain.
-     *
-     * @param  string|null  $clientCode  Filter by client code
-     * @param  string|null  $itemCode  Filter by product or service code
-     * @return Response
+     * Get all client discounts and additional prices for products and services. Calls GetKliPrekPasNuolPapKain.
      */
-    public function clientItemPrices(
-        ?string $clientCode = null,
-        ?string $itemCode = null,
-    ): Response {
-        return $this->http->get('GetKliPrekPasNuolPapKain', [
-            'sKliKod' => $clientCode,
-            'sPreKod' => $itemCode,
-        ]);
+    public function clientItemPrices(): Response
+    {
+        return $this->http->get('GetKliPrekPasNuolPapKain');
     }
 
     /**
-     * Get discounts and additional prices for a client type + item combination. Calls GetKliRusPrekPasNuolPapKain.
+     * Get all client-type discounts and additional prices for products and services. Calls GetKliRusPrekPasNuolPapKain.
      *
-     * @param  string|null  $clientTypeCode  Filter by client type code
-     * @param  string|null  $itemCode  Filter by product or service code
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function clientTypeItemPrices(
-        ?string $clientTypeCode = null,
-        ?string $itemCode = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetKliRusPrekPasNuolPapKain', [
-            'sKliRusKod' => $clientTypeCode,
-            'sPreKod' => $itemCode,
-        ]);
+        return $this->http->get('GetKliRusPrekPasNuolPapKain', $this->dateFilters($modifiedSince, $createdSince));
     }
 
     /**
-     * Get discounts and additional prices for a client + item type combination. Calls GetKliPrekPasRusNuolPapKain.
+     * Get all client discounts and additional prices for product and service types. Calls GetKliPrekPasRusNuolPapKain.
      *
-     * @param  string|null  $clientCode  Filter by client code
-     * @param  string|null  $itemTypeCode  Filter by product or service type code
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function clientItemTypePrices(
-        ?string $clientCode = null,
-        ?string $itemTypeCode = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetKliPrekPasRusNuolPapKain', [
-            'sKliKod' => $clientCode,
-            'sPreRusKod' => $itemTypeCode,
-        ]);
+        return $this->http->get('GetKliPrekPasRusNuolPapKain', $this->dateFilters($modifiedSince, $createdSince));
     }
 
     /**
-     * Get discounts and additional prices for a client type + item type combination. Calls GetKliRusPrekPasRusNuolPapKain.
+     * Get all client-type discounts and additional prices for product and service types. Calls GetKliRusPrekPasRusNuolPapKain.
      *
-     * @param  string|null  $clientTypeCode  Filter by client type code
-     * @param  string|null  $itemTypeCode  Filter by product or service type code
-     * @return Response
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function clientTypeItemTypePrices(
-        ?string $clientTypeCode = null,
-        ?string $itemTypeCode = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetKliRusPrekPasRusNuolPapKain', [
-            'sKliRusKod' => $clientTypeCode,
-            'sPreRusKod' => $itemTypeCode,
-        ]);
+        return $this->http->get('GetKliRusPrekPasRusNuolPapKain', $this->dateFilters($modifiedSince, $createdSince));
+    }
+
+    /**
+     * @return array{tKoregavimoData: ?string, tSukurimoData: ?string}
+     */
+    private function dateFilters(
+        DateTimeInterface|string|null $modifiedSince,
+        DateTimeInterface|string|null $createdSince,
+    ): array {
+        return [
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
+        ];
     }
 
     // --- Client + Product ---

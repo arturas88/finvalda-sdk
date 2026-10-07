@@ -2040,10 +2040,12 @@ $response = $finvalda->orderManagement()->orderedProducts(dateFrom: '2024-01-01'
 ### Pricing & Discounts
 
 ```php
-// Combined client + item prices
-$response = $finvalda->pricing()->clientItemPrices(clientCode: 'CLI001', itemCode: 'PROD001');
-$response = $finvalda->pricing()->clientTypeItemPrices(clientTypeCode: 'VIP', itemCode: 'PROD001');
-$response = $finvalda->pricing()->clientItemTypePrices(clientCode: 'CLI001', itemTypeCode: 'ELECTRONICS');
+// Combined client + item prices. These endpoints take NO client or item
+// filter — they return the whole matrix, so narrow the rows yourself.
+$response = $finvalda->pricing()->clientItemPrices();
+$response = $finvalda->pricing()->clientTypeItemPrices(modifiedSince: '2024-01-01');
+$response = $finvalda->pricing()->clientItemTypePrices();
+$response = $finvalda->pricing()->clientTypeItemTypePrices();
 
 // Product discounts and additional prices
 $response = $finvalda->pricing()->clientProductDiscounts('CLI001');
@@ -2062,9 +2064,6 @@ $response = $finvalda->pricing()->clientTypeServiceDiscounts('VIP');
 //   client[Type]  ×  Product|Service[Type]  ×  Discounts|AdditionalPrices
 // All of the following are available (each takes the relevant code plus
 // optional modifiedSince / createdSince date filters):
-$finvalda->pricing()->clientItemTypePrices(clientCode: 'CLI001', itemTypeCode: 'ELECTRONICS');
-$finvalda->pricing()->clientTypeItemPrices(clientTypeCode: 'VIP', itemCode: 'PROD001');
-$finvalda->pricing()->clientTypeItemTypePrices(clientTypeCode: 'VIP', itemTypeCode: 'ELECTRONICS');
 $finvalda->pricing()->clientProductTypeAdditionalPrices('CLI001');
 $finvalda->pricing()->clientServiceTypeDiscounts('CLI001');
 $finvalda->pricing()->clientServiceTypeAdditionalPrices('CLI001');
