@@ -51,7 +51,9 @@ run `bin/verify-live` against the test company before tagging.
   envelope has the field.
 - `dueDate()` writes `tMokejimoData` (was the non-existent `tAtsiskData`).
 - `price` writes the unit price `dSumaVntV`/`dSumaVntL` (was the non-existent
-  `dKaina`) and is refused on purchase lines.
+  `dKaina`) and is refused on purchase lines. A sales line with a price but no
+  `amount()` now throws: a live check showed the server books such a line at 0, taking
+  the amount from `dSumaV` only.
 - `warehouse()` on sales, purchases, write-offs and capitalizations no longer writes
   a header `sSandelis`; it fills `sSandelis` on every product line that has none.
 - **Payments rewritten** on a shared `PaymentBuilder`: `IplDok` / `IsmDok` (was the

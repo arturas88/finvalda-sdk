@@ -102,7 +102,7 @@ $result = $finvalda->sale()
     ->client('CLI001')
     ->date('2024-01-15')
     ->warehouse('MAIN')
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->addProduct('PRD002', quantity: 5, amount: 49.95)
     ->save('STANDARD');
 
@@ -746,6 +746,7 @@ $result = $finvalda->sale()
         ProductLine::make('PIENAS', 5)
             ->warehouse('CENTR.')
             ->price(5.00)
+            ->amount(23.75)               // 5 x 5.00 less 5%: the server books dSumaV, not price x qty
             ->vat(percent: 21)
             ->discount(percent: 5.0)
             ->object(1, 'DEPT01')
@@ -765,6 +766,8 @@ The `product()` / `service()` methods accept line DTOs. The existing `addProduct
 **Available ProductLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `additionalCost()`/`additionalCosts()` (purchases only), `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()` (sales only), `marked()`, `set()`
 
 **Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (sales only), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
+
+**Amounts are not calculated by the server.** Checked against a live server: the line amount comes from `dSumaV` (`amount()`) only. A sales line with just `price()` (`dSumaVntV`) is accepted and booked at 0, so `build()` refuses a sales line that has a price but no amount. VAT is not filled in either: a line sent without VAT fields was booked with VAT 0, although the product's 21% showed on it. Pass `vat(percent:, amount:)` when the document needs VAT.
 
 `object()`/`objects()` accept levels 1-6 and throw `ValidationException` otherwise.
 A line DTO cannot see which operation it will join, so a sales-only or purchase-only

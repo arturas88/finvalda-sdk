@@ -208,7 +208,7 @@ class BuilderTest extends TestCase
             ->discount(5.0)
             ->series('SF')
             ->fulfillmentDate('2024-01-20')
-            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->addProduct('PRD001', quantity: 10, amount: 199.9, price: 19.99)
             ->addService('SVC001', quantity: 1, amount: 50.00)
             ->build();
 
@@ -245,7 +245,7 @@ class BuilderTest extends TestCase
             ->date('2024-01-15')
             ->series('SF')
             ->documentType('S')
-            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->addProduct('PRD001', quantity: 10, amount: 199.9, price: 19.99)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPardDok', $data);
@@ -261,7 +261,7 @@ class BuilderTest extends TestCase
             ->short()
             ->client('CLI001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 2, price: 19.99)
+            ->addProduct('PRD001', quantity: 2, amount: 39.98, price: 19.99)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPardGrazDok', $data);
@@ -274,8 +274,8 @@ class BuilderTest extends TestCase
         $data = (new SalesReturnBuilder())
             ->client('CLI001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 2, price: 19.99)
-            ->addService('SRV001', quantity: 1, price: 5.00)
+            ->addProduct('PRD001', quantity: 2, amount: 39.98, price: 19.99)
+            ->addService('SRV001', quantity: 1, amount: 5.00, price: 5.00)
             ->build();
 
         $this->assertArrayHasKey('PardGrazDok', $data);
@@ -515,7 +515,7 @@ class BuilderTest extends TestCase
             ->date('2024-01-15')
             ->fulfillmentDate('2024-01-20')
             ->currency('EUR')
-            ->addService('5054', quantity: 1, price: 0, additionalData: [
+            ->addService('5054', quantity: 1, amount: 0, price: 0, additionalData: [
                 'sPavadinimas' => 'Test description',
             ])
             ->build();

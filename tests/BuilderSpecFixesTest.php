@@ -117,10 +117,30 @@ class BuilderSpecFixesTest extends TestCase
 
     public function test_price_is_sent_as_the_spec_unit_price(): void
     {
-        $line = (new SaleBuilder())->addProduct('A', 2, price: 9.5)->build()['PardDok']['PardDokPrekeDetEil'][0];
+        $line = (new SaleBuilder())->addProduct('A', 2, amount: 19.0, price: 9.5)->build()['PardDok']['PardDokPrekeDetEil'][0];
 
         $this->assertSame(9.5, $line['dSumaVntV']);
+        $this->assertSame(19.0, $line['dSumaV']);
         $this->assertArrayNotHasKey('dKaina', $line);
+    }
+
+    public function test_a_sale_line_with_a_unit_price_but_no_amount_is_refused(): void
+    {
+        // Verified on the server (2026-10-07): a PardDok line carrying only
+        // dSumaVntV is accepted and booked with amount 0. The amount comes from
+        // dSumaV alone.
+        foreach ([
+            fn () => (new SaleBuilder())->product(ProductLine::make('A', 1)->price(1.23)),
+            fn () => (new SaleBuilder())->service(ServiceLine::make('S', 1)->price(1.23)),
+            fn () => (new SaleBuilder())->addProduct('A', 1, price: 1.23),
+        ] as $make) {
+            try {
+                $make()->build();
+                $this->fail('Expected ValidationException');
+            } catch (ValidationException $e) {
+                $this->assertStringContainsString('dSumaV', $e->getMessage());
+            }
+        }
     }
 
     public function test_a_purchase_refuses_a_unit_price_its_lines_cannot_hold(): void

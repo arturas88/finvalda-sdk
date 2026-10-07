@@ -272,7 +272,7 @@ class LineTest extends TestCase
         $builder = new SaleBuilder();
         $data = $builder
             ->client('CLI001')
-            ->addProduct('B', quantity: 250, price: 1.00, warehouse: 'W1')
+            ->addProduct('B', quantity: 250, amount: 250.00, price: 1.00, warehouse: 'W1')
             ->build();
 
         $line = $data['PardDok']['PardDokPrekeDetEil'][0];
@@ -312,11 +312,11 @@ class LineTest extends TestCase
             ->product(
                 ProductLine::make('A', 1)->warehouse('W1')->amount(10.00)->vat(percent: 21)
             )
-            ->addProduct('B', quantity: 2, price: 5.00, warehouse: 'W1')
+            ->addProduct('B', quantity: 2, amount: 10.00, price: 5.00, warehouse: 'W1')
             ->service(
                 ServiceLine::make('S1', 1)->amount(20.00)->vat(percent: 21)
             )
-            ->addService('S2', quantity: 1, price: 15.00)
+            ->addService('S2', quantity: 1, amount: 15.00, price: 15.00)
             ->build();
 
         $this->assertCount(2, $data['PardDok']['PardDokPrekeDetEil']);

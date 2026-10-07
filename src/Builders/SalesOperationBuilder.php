@@ -98,7 +98,31 @@ abstract class SalesOperationBuilder extends OperationBuilder
             'additional costs are purchase-only',
         );
 
+        $this->requireAmountWithUnitPrice($this->productLines, $this->getProductLinesKey());
+        $this->requireAmountWithUnitPrice($this->serviceLines, $this->getServiceLinesKey());
+
         return $this->withDefaultWarehouseOnProductLines(parent::build());
+    }
+
+    /**
+     * The server takes a line's amount from dSumaV only: a line carrying just the
+     * unit price (dSumaVntV) is accepted and booked at 0 (verified on a live
+     * server, 2026-10-07). Refuse it rather than book a free sale.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     *
+     * @throws ValidationException
+     */
+    private function requireAmountWithUnitPrice(array $lines, string $element): void
+    {
+        foreach ($lines as $line) {
+            if (isset($line['dSumaVntV']) && ! isset($line['dSumaV'])) {
+                throw new ValidationException(
+                    "{$element} line {$line['sKodas']}: a unit price (dSumaVntV) alone is booked as amount 0; "
+                    . 'also set the line amount (dSumaV) with amount() / the $amount argument'
+                );
+            }
+        }
     }
 
     /**
