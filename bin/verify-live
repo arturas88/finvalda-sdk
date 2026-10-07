@@ -1,0 +1,188 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Checks the spec-derived wire formats against a real Finvalda server.
+ *
+ * Everything the SDK sends was checked against docs/, not against a server. This
+ * script closes that gap. By default it only reads, and prints the write
+ * payloads without sending them. With --write it creates each operation in the
+ * TEST company, reads it back so you can see which fields the server kept (the
+ * server drops unknown fields silently, so "success" alone proves nothing), and
+ * deletes it again unless --keep is given.
+ *
+ * Usage:
+ *   FINVALDA_BASE_URL=... FINVALDA_USERNAME=... FINVALDA_PASSWORD=... \
+ *   FINVALDA_COMPANY_ID=... bin/verify-live [--write] [--keep]
+ *
+ * --write also needs codes that exist in the test company:
+ *   VERIFY_CLIENT, VERIFY_PRODUCT, VERIFY_WAREHOUSE, VERIFY_PARAMETER
+ *   (the sFvsImportoParametras used for inserts)
+ * Optional: VERIFY_SERIES (sales/payment series), VERIFY_CURRENCY (default EUR).
+ */
+
+declare(strict_types=1);
+
+use Finvalda\Builders\OperationBuilder;
+use Finvalda\Builders\ProductLine;
+use Finvalda\Enums\OpClass;
+use Finvalda\Enums\PaymentType;
+use Finvalda\Finvalda;
+use Finvalda\FinvaldaConfig;
+use Finvalda\Query\OperationQuery;
+use Finvalda\Responses\Response;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$write = in_array('--write', $_SERVER['argv'], true);
+$keep = in_array('--keep', $_SERVER['argv'], true);
+
+$env = static fn (string $name): ?string => ($value = getenv($name)) !== false && $value !== '' ? $value : null;
+
+foreach (['FINVALDA_BASE_URL', 'FINVALDA_USERNAME', 'FINVALDA_PASSWORD'] as $required) {
+    if ($env($required) === null) {
+        fwrite(STDERR, "Set {$required}.\n");
+        exit(2);
+    }
+}
+
+$finvalda = new Finvalda(FinvaldaConfig::fromArray([
+    'base_url' => $env('FINVALDA_BASE_URL'),
+    'username' => $env('FINVALDA_USERNAME'),
+    'password' => $env('FINVALDA_PASSWORD'),
+    'company_id' => $env('FINVALDA_COMPANY_ID'),
+    'conn_string' => $env('FINVALDA_CONN_STRING'),
+]));
+
+$failures = 0;
+
+$report = static function (string $label, callable $check) use (&$failures): void {
+    try {
+        $result = $check();
+        echo "  ok    {$label}" . ($result !== null ? ": {$result}" : '') . "\n";
+    } catch (Throwable $e) {
+        $failures++;
+        echo "  FAIL  {$label}: " . $e::class . ': ' . $e->getMessage() . "\n";
+    }
+};
+
+$rows = static fn (Response $response): int => count($response->throw()->data);
+
+echo "Read-only checks\n";
+
+$report('ping', static fn (): string => $finvalda->ping() ? 'reachable' : throw new RuntimeException('ping returned false'));
+
+$report('GetUserPermissions takes finUser only', static fn (): string => $rows($finvalda->permissions()->get()) . ' rows');
+
+// tNuo/tIki: a one-day window in the far past must return fewer rows than no
+// window at all. Equal counts mean the server ignored the parameters.
+$report('UVM reads honour tNuo/tIki', static function () use ($finvalda, $rows): string {
+    $all = $rows($finvalda->orderManagement()->completedReservations());
+    $none = $rows($finvalda->orderManagement()->completedReservations(dateFrom: '2000-01-01', dateTo: '2000-01-02'));
+
+    return $all > 0 && $none === $all
+        ? throw new RuntimeException("{$all} rows with and without a date window: filter ignored")
+        : "{$all} without a window, {$none} in 2000-01-01..02";
+});
+
+$report('combined price endpoints take no client/item filter', static fn (): string => $rows($finvalda->pricing()->clientItemPrices()) . ' rows');
+
+if ($product = $env('VERIFY_PRODUCT')) {
+    $report("purchaseOpFor({$product})", static fn (): string => json_encode($finvalda->stock()->purchaseOpFor($product), JSON_UNESCAPED_UNICODE) ?: '');
+}
+
+$currency = $env('VERIFY_CURRENCY') ?? 'EUR';
+$client = $env('VERIFY_CLIENT') ?? 'CLIENT';
+$warehouse = $env('VERIFY_WAREHOUSE') ?? 'WAREHOUSE';
+$product ??= 'PRODUCT';
+$series = $env('VERIFY_SERIES');
+$today = date('Y-m-d');
+$due = date('Y-m-d', strtotime('+14 days'));
+
+/**
+ * Each case: the builder, the OpClass to read it back with, and the fields to
+ * look for in the read-back (what the spec says should survive).
+ *
+ * @var array<string, array{OperationBuilder, OpClass, list<string>}> $cases
+ */
+$cases = [
+    'sale: header warehouse pushed to lines, dSumaVntV unit price, tMokejimoData due date' => [
+        $finvalda->sale()->client($client)->date($today)->currency($currency)->dueDate($due)->warehouse($warehouse)
+            ->product(ProductLine::make($product, 1)->price(1.23)),
+        OpClass::SalesDet,
+        ['due date ' . $due, 'unit price 1.23', 'warehouse ' . $warehouse],
+    ],
+    'inflow: IplDok with nTipas and lines inside the wrapper' => [
+        $finvalda->inflow()->client($client)->date($today)->currency($currency)->type(PaymentType::Advance)
+            ->addLine(1.00),
+        OpClass::InflowsDet,
+        ['amount 1.00', 'one detail line'],
+    ],
+    'disbursement: IsmDok (spec name; the old IsmokasDok is absent from the spec)' => [
+        $finvalda->disbursement()->client($client)->date($today)->currency($currency)->type(PaymentType::Advance)
+            ->addLine(1.00),
+        OpClass::DisbursementDet,
+        ['amount 1.00', 'one detail line'],
+    ],
+];
+
+if ($series !== null) {
+    foreach ($cases as [$builder]) {
+        if (method_exists($builder, 'series')) {
+            $builder->series($series);
+        }
+    }
+}
+
+echo "\nWrite payloads" . ($write ? '' : ' (dry run: pass --write to send them to the TEST company)') . "\n";
+
+foreach ($cases as $label => [$builder]) {
+    echo "\n  {$label}\n  " . $builder->getOperationClass()->value . ' ' . json_encode($builder->build(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+}
+
+if ($write) {
+    foreach (['VERIFY_CLIENT', 'VERIFY_PRODUCT', 'VERIFY_WAREHOUSE', 'VERIFY_PARAMETER'] as $required) {
+        if ($env($required) === null) {
+            fwrite(STDERR, "\n--write needs {$required}.\n");
+            exit(2);
+        }
+    }
+
+    $company = $env('FINVALDA_COMPANY_ID') ?? '(default company)';
+    echo "\nThis creates real operations in company '{$company}'. Type the company id to continue: ";
+
+    if (trim((string) fgets(STDIN)) !== $company) {
+        fwrite(STDERR, "Aborted.\n");
+        exit(2);
+    }
+
+    echo "\nWrite checks\n";
+
+    foreach ($cases as $label => [$builder, $readClass, $expect]) {
+        $report($label, static function () use ($finvalda, $builder, $readClass, $expect, $env, $keep): string {
+            $result = $finvalda->operations()->create($builder->getOperationClass(), $builder->build(), (string) $env('VERIFY_PARAMETER'))->throw();
+
+            $readBack = $finvalda->operations()->query(
+                OperationQuery::forClass($readClass)->journal((string) $result->journal)->number((int) $result->number)->fullOp()
+            )->throw();
+
+            echo "\n        created {$result->journal}/{$result->number}; read back:\n        "
+                . json_encode($readBack->data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                . "\n        compare against: " . implode('; ', $expect) . "\n";
+
+            $deleteClass = $builder->getOperationClass()->deleteClass();
+
+            if (! $keep && $deleteClass !== null) {
+                $finvalda->operations()->delete($deleteClass, (string) $result->journal, (int) $result->number, (string) $env('VERIFY_PARAMETER'))->throw();
+
+                return 'deleted again';
+            }
+
+            return $deleteClass === null ? 'NOT deleted: no delete class for this operation, remove it by hand' : 'kept (--keep)';
+        });
+    }
+}
+
+echo $failures === 0 ? "\nAll checks passed.\n" : "\n{$failures} check(s) failed.\n";
+
+exit($failures === 0 ? 0 : 1);
