@@ -88,9 +88,10 @@ abstract class Resource
      */
     protected function editItem(ItemClass $itemClass, array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? null;
+        // An all-digit code read back from JSON arrives as an int.
+        $code = is_scalar($data['sKodas'] ?? null) ? (string) $data['sKodas'] : '';
 
-        if (! is_string($code) || $code === '') {
+        if ($code === '') {
             throw new InvalidArgumentException(
                 "Updating {$itemClass->value} needs the record's code in sKodas; EditItem identifies the record by it."
             );

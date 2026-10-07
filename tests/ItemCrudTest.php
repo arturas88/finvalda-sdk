@@ -62,6 +62,21 @@ class ItemCrudTest extends TestCase
         $this->assertSame([], $history);
     }
 
+    public function test_a_numeric_code_is_sent_as_a_string(): void
+    {
+        // An all-digit code read back from JSON arrives as an int.
+        $history = [];
+        $http = $this->createHttpClient([
+            new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success', 'nResult' => 0])),
+        ], $history);
+
+        (new Clients($http))->update(['sKodas' => 302589123, 'sPavadinimas' => 'N']);
+
+        $this->assertCount(1, $history);
+        $this->assertStringContainsString('sItemCode', (string) $history[0]['request']->getBody());
+        $this->assertStringContainsString('302589123', (string) $history[0]['request']->getBody());
+    }
+
     /**
      * @return array<string, array{Closure(HttpClient): mixed}>
      */
