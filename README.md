@@ -1363,72 +1363,25 @@ $query = OperationQuery::sales()
 
 ## Validation
 
-Validate data before sending to the API to catch errors early:
+Builders and line DTOs check their input against the spec before anything is
+sent, and throw `Finvalda\Exceptions\ValidationException` on a field the target
+envelope does not define, an out-of-range value (object level, clearing type,
+inventory mode, additional-cost slot) or a missing required correction field.
+Date strings must be `Y-m-d` (optionally with a time of day); anything else throws
+`InvalidArgumentException`.
 
 ```php
-use Finvalda\Validation\Validator;
-use Finvalda\Validation\Rules\Required;
-use Finvalda\Validation\Rules\StringLength;
-use Finvalda\Validation\Rules\NumericRange;
-use Finvalda\Validation\Rules\DateFormat;
 use Finvalda\Exceptions\ValidationException;
 
-// Define validation rules
-$validator = new Validator([
-    'sKodas' => [new Required(), StringLength::max(50)],
-    'sPavadinimas' => [new Required(), StringLength::max(200)],
-    'dKaina' => [NumericRange::positive()],
-    'tData' => [DateFormat::ymd()],
-]);
-
-// Validate data
-$result = $validator->validate([
-    'sKodas' => 'PRD001',
-    'sPavadinimas' => 'Product Name',
-    'dKaina' => 19.99,
-    'tData' => '2024-01-15',
-]);
-
-if ($result->fails()) {
-    foreach ($result->errors as $field => $errors) {
-        echo "{$field}: " . implode(', ', $errors) . "\n";
-    }
-}
-
-// Or validate and throw exception
 try {
-    $validator->validateOrFail($data);
+    $finvalda->purchase()->series('PF')->build();   // PirkDok has no sSerija
 } catch (ValidationException $e) {
-    $errors = $e->getErrors();
-    $allMessages = $e->getAllErrors();
+    echo $e->getMessage();
 }
-
-// Quick validation
-$result = Validator::check($data, [
-    'sKodas' => [new Required()],
-    'sPavadinimas' => [new Required(), StringLength::between(3, 200)],
-]);
-
-// Available rules
-new Required();                          // Field is required
-new Required('Custom message');          // With custom message
-StringLength::max(50);                   // Max 50 characters
-StringLength::min(3);                    // Min 3 characters
-StringLength::between(3, 50);            // Between 3 and 50
-StringLength::exact(10);                 // Exactly 10 characters
-NumericRange::positive();                // >= 0
-NumericRange::positiveNonZero();         // > 0
-NumericRange::min(10);                   // >= 10
-NumericRange::max(100);                  // <= 100
-NumericRange::between(10, 100);          // Between 10 and 100
-DateFormat::ymd();                       // Y-m-d format
-DateFormat::datetime();                  // Y-m-d H:i:s format
-new DateFormat('d/m/Y');                 // Custom format
 ```
 
-> The lengths above are illustrative. For the **real** per-field maximum lengths,
-> see the [Field Reference](#field-reference) — e.g. a client `sKodas` is max 15
-> chars, `sPavadinimas` max 100.
+The standalone `Finvalda\Validation` rule set was removed: nothing in the SDK used
+it. For per-field lengths see the [Field Reference](#field-reference).
 
 ## Field Reference
 
@@ -2298,8 +2251,7 @@ try {
 } catch (RetryExhaustedException $e) {
     echo "All {$e->attempts} retry attempts failed: {$e->getMessage()}";
 } catch (ValidationException $e) {
-    $errors = $e->getErrors();
-    $allMessages = $e->getAllErrors();
+    echo "Invalid input: {$e->getMessage()}";
 } catch (FinvaldaException $e) {
     echo "API error: {$e->getMessage()}";
 }
