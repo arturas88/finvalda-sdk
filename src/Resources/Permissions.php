@@ -4,63 +4,112 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
 
 /**
- * User permission queries for entity-level access control.
+ * User permission queries.
+ *
+ * GetUserPermissions takes only the Finvalda user (finUser) and answers every
+ * permission class at once, under `perrmissions` (the API's spelling): one
+ * record per class, each with its `permittedEntities` as {id1, id2} pairs.
  */
 final class Permissions extends Resource
 {
+    public const WAREHOUSES = 65;
+
+    public const CLIENTS = 6;
+
+    public const OPERATION_TYPES = 51;
+
+    public const OPERATION_JOURNALS = 81;
+
     /**
-     * Get entities the authenticated user has permission to access. Calls GetUserPermissions.
+     * Get every permission class for a Finvalda user. Calls GetUserPermissions.
      *
-     * @param  int  $permissionClass  65=warehouses, 6=clients, 51=operation types, 81=operation journals
-     * @return Response
+     * @param  string|null  $finUser  Finvalda user name (not the WS user)
      */
-    public function get(int $permissionClass): Response
+    public function get(?string $finUser = null): Response
     {
         return $this->http->get('GetUserPermissions', [
-            'nPermClass' => $permissionClass,
+            'finUser' => $finUser,
         ]);
     }
 
     /**
-     * Get warehouses the user has permission to access.
+     * The entities a user may access in one permission class.
      *
-     * @return Response
+     * @param  int  $permissionClass  One of the class constants (65, 6, 51, 81)
+     * @return list<array{id1: ?string, id2: ?string}>
+     *
+     * @throws FinvaldaException when the request or the lookup failed (e.g. unknown finUser)
      */
-    public function warehouses(): Response
+    public function entities(int $permissionClass, ?string $finUser = null): array
     {
-        return $this->get(65);
+        $raw = $this->requireSuccess($this->get($finUser), 'GetUserPermissions')->raw;
+        $result = $raw['results'] ?? $raw['result'] ?? [];
+        $result = is_array($result) ? $result : [];
+
+        if ((int) ($result['errorCode'] ?? 0) !== 0) {
+            $text = $result['errorText'] ?? null;
+
+            throw new FinvaldaException('GetUserPermissions failed: ' . (is_string($text) && $text !== '' ? $text : 'error code ' . $result['errorCode']));
+        }
+
+        $entities = [];
+
+        foreach ($result['perrmissions'] ?? [] as $record) {
+            if (! is_array($record) || (int) ($record['perrmisionClass'] ?? -1) !== $permissionClass) {
+                continue;
+            }
+
+            foreach ($record['permittedEntities'] ?? [] as $entity) {
+                if (is_array($entity)) {
+                    $entities[] = ['id1' => $entity['id1'] ?? null, 'id2' => $entity['id2'] ?? null];
+                }
+            }
+        }
+
+        return $entities;
     }
 
     /**
-     * Get clients the user has permission to access.
+     * Warehouses the user may access: id1 = warehouse code.
      *
-     * @return Response
+     * @return list<array{id1: ?string, id2: ?string}>
      */
-    public function clients(): Response
+    public function warehouses(?string $finUser = null): array
     {
-        return $this->get(6);
+        return $this->entities(self::WAREHOUSES, $finUser);
     }
 
     /**
-     * Get operation types the user has permission to access.
+     * Clients the user may access: id1 = client code.
      *
-     * @return Response
+     * @return list<array{id1: ?string, id2: ?string}>
      */
-    public function operationTypes(): Response
+    public function clients(?string $finUser = null): array
     {
-        return $this->get(51);
+        return $this->entities(self::CLIENTS, $finUser);
     }
 
     /**
-     * Get operation journals the user has permission to access.
+     * Operation types the user may access: id1 = operation class, id2 = type code.
      *
-     * @return Response
+     * @return list<array{id1: ?string, id2: ?string}>
      */
-    public function operationJournals(): Response
+    public function operationTypes(?string $finUser = null): array
     {
-        return $this->get(81);
+        return $this->entities(self::OPERATION_TYPES, $finUser);
+    }
+
+    /**
+     * Operation journals the user may access: id1 = operation class, id2 = journal code.
+     *
+     * @return list<array{id1: ?string, id2: ?string}>
+     */
+    public function operationJournals(?string $finUser = null): array
+    {
+        return $this->entities(self::OPERATION_JOURNALS, $finUser);
     }
 }

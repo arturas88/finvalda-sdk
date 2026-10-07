@@ -191,12 +191,17 @@ final class Products extends Resource
      *
      * @param  string  $productCode  The product code
      * @param  DateTimeInterface|string|null  $modifiedSince  Return only if modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return only if created since this date
      */
-    public function image(string $productCode, DateTimeInterface|string|null $modifiedSince = null): Response
-    {
+    public function image(
+        string $productCode,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): Response {
         return $this->http->get('GetPrekesImage', [
             'sPreKod' => $productCode,
             'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -205,10 +210,13 @@ final class Products extends Resource
      *
      * @throws FinvaldaException
      */
-    public function imageJpeg(string $productCode, DateTimeInterface|string|null $modifiedSince = null): string
-    {
+    public function imageJpeg(
+        string $productCode,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): string {
         return $this->decodeBinaryResponse(
-            $this->image($productCode, $modifiedSince),
+            $this->image($productCode, $modifiedSince, $createdSince),
             'GetPrekesImage',
         );
     }
@@ -349,6 +357,7 @@ final class Products extends Resource
      * @param  DateTimeInterface|string|null  $dateFrom  Period start date
      * @param  DateTimeInterface|string|null  $dateTo  Period end date
      * @param  string|null  $salesJournalCode  Filter by sales journal code
+     * @param  bool|null  $includeAllProducts  bItrauktiVisasPrekes — include products with no sales
      */
     public function soldPerPeriod(
         ?string $productCode = null,
@@ -356,6 +365,7 @@ final class Products extends Resource
         DateTimeInterface|string|null $dateFrom = null,
         DateTimeInterface|string|null $dateTo = null,
         ?string $salesJournalCode = null,
+        ?bool $includeAllProducts = null,
     ): Response {
         return $this->http->get('GetPardPrekPerPerioda', [
             'sPrekesKodas' => $productCode,
@@ -363,6 +373,7 @@ final class Products extends Resource
             'tDataNuo' => $this->formatDate($dateFrom),
             'tDataIki' => $this->formatDate($dateTo),
             'sPardZurKodas' => $salesJournalCode,
+            'bItrauktiVisasPrekes' => $includeAllProducts === null ? null : ($includeAllProducts ? 'true' : 'false'),
         ]);
     }
 

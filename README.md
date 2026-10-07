@@ -2263,10 +2263,13 @@ try {
 ### User Permissions
 
 ```php
-$response = $finvalda->permissions()->warehouses();
-$response = $finvalda->permissions()->clients();
-$response = $finvalda->permissions()->operationTypes();
-$response = $finvalda->permissions()->operationJournals();
+// GetUserPermissions answers every class for one Finvalda user (finUser);
+// the helpers return that class's permitted entities as [{id1, id2}, ...]
+$response = $finvalda->permissions()->get('S5');              // raw Response
+$warehouses = $finvalda->permissions()->warehouses('S5');     // id1 = warehouse code
+$clients = $finvalda->permissions()->clients('S5');           // id1 = client code
+$types = $finvalda->permissions()->operationTypes('S5');      // id1 = op class, id2 = type code
+$journals = $finvalda->permissions()->operationJournals('S5'); // id1 = op class, id2 = journal
 ```
 
 ## Pagination

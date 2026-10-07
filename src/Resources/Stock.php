@@ -98,22 +98,18 @@ final class Stock extends Resource
     /**
      * Get stock balances grouped by warehouse group. Calls GetEinamiejiLikuciaiGrp.
      *
+     * Unlike its siblings, the endpoint takes no date filters.
+     *
      * @param  string|null  $productCode  Filter by product code
      * @param  string|null  $warehouseGroupCode  Filter by warehouse group code
-     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
-     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function balancesByGroup(
         ?string $productCode = null,
         ?string $warehouseGroupCode = null,
-        DateTimeInterface|string|null $modifiedSince = null,
-        DateTimeInterface|string|null $createdSince = null,
     ): Response {
         return $this->http->get('GetEinamiejiLikuciaiGrp', [
             'sPrekesKodas' => $productCode,
             'sSandelioGrupesKodas' => $warehouseGroupCode,
-            'tKoregavimoData' => $this->formatDate($modifiedSince),
-            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
