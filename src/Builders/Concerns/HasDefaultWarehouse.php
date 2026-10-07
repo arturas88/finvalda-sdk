@@ -27,6 +27,25 @@ trait HasDefaultWarehouse
     }
 
     /**
+     * Fill the default warehouse into the product lines of a built payload. Works
+     * on the payload, not on $this->productLines, so a later warehouse() call
+     * still applies to the next build().
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function withDefaultWarehouseOnProductLines(array $data): array
+    {
+        $key = $this->getProductLinesKey();
+
+        if ($key !== null && isset($data[$this->getHeaderKey()][$key])) {
+            $data[$this->getHeaderKey()][$key] = $this->withDefaultWarehouse($data[$this->getHeaderKey()][$key]);
+        }
+
+        return $data;
+    }
+
+    /**
      * @param  array<int, array<string, mixed>>  $lines
      * @return array<int, array<string, mixed>>
      */

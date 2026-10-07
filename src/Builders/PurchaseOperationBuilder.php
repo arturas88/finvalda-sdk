@@ -110,9 +110,7 @@ abstract class PurchaseOperationBuilder extends OperationBuilder
             'purchase service lines carry amounts, not a unit price; use sPastaba for text',
         );
 
-        $this->productLines = $this->withDefaultWarehouse($this->productLines);
-
-        return parent::build();
+        return $this->withDefaultWarehouseOnProductLines(parent::build());
     }
 
     /**

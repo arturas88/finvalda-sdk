@@ -98,9 +98,7 @@ abstract class SalesOperationBuilder extends OperationBuilder
             'additional costs are purchase-only',
         );
 
-        $this->productLines = $this->withDefaultWarehouse($this->productLines);
-
-        return parent::build();
+        return $this->withDefaultWarehouseOnProductLines(parent::build());
     }
 
     /**

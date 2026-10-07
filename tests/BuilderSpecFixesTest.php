@@ -93,6 +93,18 @@ class BuilderSpecFixesTest extends TestCase
         $this->assertSame('OTHER', $data['PardDok']['PardDokPrekeDetEil'][1]['sSandelis']);
     }
 
+    public function test_build_does_not_freeze_the_default_warehouse(): void
+    {
+        foreach ([[new SaleBuilder(), 'PardDok'], [new PurchaseBuilder(), 'PirkDok']] as [$builder, $header]) {
+            $builder->warehouse('A')->addProduct('P', 1);
+            $builder->build();
+
+            $data = $builder->warehouse('B')->build();
+
+            $this->assertSame('B', $data[$header][$header . 'PrekeDetEil'][0]['sSandelis'], $header);
+        }
+    }
+
     public function test_write_off_warehouse_is_a_line_default(): void
     {
         $data = (new WriteOffBuilder())->warehouse('MAIN')->addItem('A', 1)->build();
