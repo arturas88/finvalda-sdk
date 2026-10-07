@@ -315,6 +315,80 @@ class FinvaldaConfigTest extends TestCase
             recordCredentials: CredentialMode::Real,
             logFileContents: true,
             logBodyBytes: 1234,
+            httpOptions: ['verify' => false],
         );
+    }
+
+    public function test_from_array_treats_empty_company_id_and_conn_string_as_unset(): void
+    {
+        // FINVALDA_COMPANY_ID= in .env yields '' — it must not become an empty header.
+        $config = FinvaldaConfig::fromArray([
+            'base_url' => 'https://example.com',
+            'username' => 'demo',
+            'password' => 'secret',
+            'company_id' => '',
+            'conn_string' => '',
+        ]);
+
+        $this->assertNull($config->companyId);
+        $this->assertNull($config->connString);
+    }
+
+    public function test_from_array_accepts_a_numeric_company_id(): void
+    {
+        $config = FinvaldaConfig::fromArray([
+            'base_url' => 'https://example.com',
+            'username' => 'demo',
+            'password' => 'secret',
+            'company_id' => 42,
+        ]);
+
+        $this->assertSame('42', $config->companyId);
+    }
+
+    public function test_from_array_rejects_an_unknown_language_with_a_clear_error(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Finvalda language must be 0 (Lithuanian) or 1 (English)');
+
+        FinvaldaConfig::fromArray([
+            'base_url' => 'https://example.com',
+            'username' => 'demo',
+            'password' => 'secret',
+            'language' => 7,
+        ]);
+    }
+
+    public function test_from_array_maps_http_options(): void
+    {
+        $config = FinvaldaConfig::fromArray([
+            'base_url' => 'https://example.com',
+            'username' => 'demo',
+            'password' => 'secret',
+            'http_options' => ['verify' => '/etc/ssl/finvalda.pem', 'proxy' => 'http://proxy:3128'],
+        ]);
+
+        $this->assertSame(['verify' => '/etc/ssl/finvalda.pem', 'proxy' => 'http://proxy:3128'], $config->httpOptions);
+    }
+
+    public function test_a_log_path_logger_keeps_bodies_up_to_a_raised_log_body_budget(): void
+    {
+        $path = sys_get_temp_dir() . '/finvalda-config-test-' . bin2hex(random_bytes(6)) . '.log';
+
+        $config = FinvaldaConfig::fromArray([
+            'base_url' => 'https://example.com',
+            'username' => 'demo',
+            'password' => 'secret',
+            'log_path' => $path,
+            'log_body_bytes' => 300_000,
+        ]);
+
+        try {
+            $config->logger?->debug('Finvalda API response', ['body' => str_repeat('a', 250_000)]);
+
+            $this->assertStringNotContainsString('[truncated', (string) file_get_contents($path));
+        } finally {
+            @unlink($path);
+        }
     }
 }

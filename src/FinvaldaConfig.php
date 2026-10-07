@@ -14,6 +14,11 @@ use Psr\Log\LoggerInterface;
 
 final class FinvaldaConfig
 {
+    /**
+     * @param  array<string, mixed>  $httpOptions  Guzzle request options applied to every request — `verify`,
+     *                                             `proxy`, `connect_timeout`, `cert`… Set the timeout with
+     *                                             $timeout; it is applied after these.
+     */
     public function __construct(
         public readonly string $baseUrl,
         public readonly string $username,
@@ -34,6 +39,7 @@ final class FinvaldaConfig
         public readonly CredentialMode $recordCredentials = CredentialMode::Masked,
         public readonly bool $logFileContents = false,
         public readonly int $logBodyBytes = BodyTruncator::MAX_BYTES,
+        public readonly array $httpOptions = [],
     ) {
         if ($this->baseUrl === '') {
             throw new InvalidArgumentException('Finvalda base URL is required');
@@ -78,6 +84,8 @@ final class FinvaldaConfig
      * The optional `log_path` key builds a JsonLinesLogger when no $logger is
      * passed in; an explicit $logger always wins.
      *
+     * The optional `http_options` array is passed through as $httpOptions.
+     *
      * @param  array<string, mixed>  $config
      */
     public static function fromArray(array $config, ?LoggerInterface $logger = null): self
@@ -94,19 +102,27 @@ final class FinvaldaConfig
             );
         }
 
+        $logBodyBytes = (int) ($config['log_body_bytes'] ?? BodyTruncator::MAX_BYTES);
+
         // An explicitly passed logger wins: the Laravel provider passes one when
-        // `log_channel` is configured.
+        // `log_channel` is configured. The file logger's own cap must stay at or
+        // above the SDK's body budget, or a body gets a second truncation marker.
         if ($logger === null && ! empty($config['log_path'])) {
-            $logger = new JsonLinesLogger((string) $config['log_path']);
+            $logger = new JsonLinesLogger((string) $config['log_path'], max(200_000, $logBodyBytes));
         }
+
+        $language = Language::tryFrom((int) ($config['language'] ?? 0))
+            ?? throw new InvalidArgumentException(
+                'Finvalda language must be 0 (Lithuanian) or 1 (English), got ' . var_export($config['language'], true)
+            );
 
         return new self(
             baseUrl: (string) ($config['base_url'] ?? ''),
             username: (string) ($config['username'] ?? ''),
             password: (string) ($config['password'] ?? ''),
-            connString: $config['conn_string'] ?? null,
-            companyId: $config['company_id'] ?? null,
-            language: Language::from((int) ($config['language'] ?? 0)),
+            connString: self::optionalString($config['conn_string'] ?? null),
+            companyId: self::optionalString($config['company_id'] ?? null),
+            language: $language,
             removeEmptyStringTags: (bool) ($config['remove_empty_string_tags'] ?? false),
             removeZeroNumberTags: (bool) ($config['remove_zero_number_tags'] ?? false),
             removeNewLines: (bool) ($config['remove_new_lines'] ?? false),
@@ -120,7 +136,22 @@ final class FinvaldaConfig
             recordCredentials: CredentialMode::tryFrom((string) ($config['record_credentials'] ?? ''))
                 ?? CredentialMode::Masked,
             logFileContents: (bool) ($config['log_file_contents'] ?? false),
-            logBodyBytes: (int) ($config['log_body_bytes'] ?? BodyTruncator::MAX_BYTES),
+            logBodyBytes: $logBodyBytes,
+            httpOptions: is_array($config['http_options'] ?? null) ? $config['http_options'] : [],
         );
+    }
+
+    /**
+     * An unset env var and an empty one (`FINVALDA_COMPANY_ID=`) both mean
+     * "not configured": an empty string would otherwise go out as an empty
+     * CompanyID/ConnString header. A numeric company id is accepted as text.
+     */
+    private static function optionalString(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
     }
 }
