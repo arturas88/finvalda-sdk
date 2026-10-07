@@ -715,8 +715,9 @@ final class HttpClient
         // HTTP errors with response. The status is the exception code, so callers
         // can react to it — e.g. a 404 on an action endpoint means this server
         // build does not expose that endpoint.
-        if ($e instanceof RequestException && $e->hasResponse()) {
-            $response = $e->getResponse();
+        $response = $e instanceof RequestException ? $e->getResponse() : null;
+
+        if ($response !== null) {
             $statusCode = $response->getStatusCode();
 
             return $statusCode >= 500

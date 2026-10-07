@@ -20,7 +20,7 @@ final class Exchange implements Stringable
 
     /**
      * @param  array<string, string>  $headers  Request headers, credentials already masked unless captured deliberately
-     * @param  array<string, list<string>>  $responseHeaders
+     * @param  array<array<string>>  $responseHeaders
      * @param  string|null  $error  Transport error message, or the exception message for an HTTP error status
      * @param  int  $attempt  1-based retry attempt number
      * @param  string|null  $requestId  Shared by every attempt of one call, and by its log lines
@@ -75,7 +75,7 @@ final class Exchange implements Stringable
     /**
      * @return array{
      *     request: array{method: string, url: string, headers: array<string, string>, body: string|null},
-     *     response: array{status_code: int|null, headers: array<string, list<string>>, body: string|null, duration_ms: float, error: string|null},
+     *     response: array{status_code: int|null, headers: array<array<string>>, body: string|null, duration_ms: float, error: string|null},
      *     attempt: int,
      *     request_id: string|null
      * }
@@ -208,9 +208,9 @@ final class Exchange implements Stringable
     }
 
     /**
-     * @param  array<string, list<string>>  $headers
+     * @param  array<array<string>>  $headers
      * @param  array<string, string>  $secrets
-     * @return array<string, list<string>>
+     * @return array<array<string>>
      */
     private function scrubHeaders(array $headers, array $secrets): array
     {
@@ -228,8 +228,8 @@ final class Exchange implements Stringable
     }
 
     /**
-     * @param  array<string, mixed>  $values
-     * @return array<string, mixed>
+     * @param  array<array-key, mixed>  $values
+     * @return array<array-key, mixed>
      */
     private function substitute(array $values, CredentialMode $mode): array
     {

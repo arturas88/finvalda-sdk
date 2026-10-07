@@ -91,7 +91,7 @@ abstract class Entity implements ArrayAccess
 
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<int, string>  $keys
+     * @param  array<array-key, string>  $keys
      */
     private static function first(array $data, array $keys): mixed
     {
