@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Finvalda\Resources;
 
 use DateTimeInterface;
+use Finvalda\Enums\Language;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
 
 /**
@@ -16,6 +18,9 @@ final class Stock extends Resource
      * GetPrekesIstorija reports the operation kind as a localised name in
      * op_rusis_pav. The spec documents the column but never enumerates its
      * values — these two are observed against a live Finvalda, not specified.
+     * The numeric op_tipid column would be language-independent, but its
+     * values are not documented either, so the labels stay — and only under
+     * Language::Lithuanian.
      */
     private const OP_KIND_PURCHASE = 'Pirkimai';
 
@@ -122,17 +127,33 @@ final class Stock extends Resource
      * belongs to a previous ownership cycle.
      *
      * Note this is derived, not raw: unlike the rest of this resource it returns a
-     * plain array rather than a Response, and never throws — it exists to be used
-     * as a pre-flight check (see PurchaseUpdateBuilder). Use Products::history()
-     * for the raw rows.
+     * plain array rather than a Response — it exists to be used as a pre-flight
+     * check (see PurchaseUpdateBuilder). Use Products::history() for the raw rows.
+     *
+     * Limits, all from what GetPrekesIstorija exposes:
+     * - Only a SALE counts as consumption. A write-off, purchase return or
+     *   internal transfer after the purchase leaves `sold` false.
+     * - `warehouse` is the purchase row's warehouse; a later transfer moves the
+     *   stock without changing it.
+     * - Lithuanian only: the kinds are matched on Lithuanian labels.
      *
      * @param  string  $productCode  Product code (for serialised stock, typically the serial/VIN).
      * @return array{journal:string, op_number:int, warehouse:string, op_date:string,
      *               sold:bool, sale_journal:?string, sale_op_number:?int, sale_date:?string}|null
      *         Null when the product has no purchase history, or the call failed.
+     *
+     * @throws FinvaldaException when the client is not configured with Language::Lithuanian
      */
     public function purchaseOpFor(string $productCode): ?array
     {
+        if ($this->http->getConfig()->language !== Language::Lithuanian) {
+            throw new FinvaldaException(
+                'purchaseOpFor() matches the Lithuanian operation-kind labels GetPrekesIstorija '
+                . 'returns ("Pirkimai", "Pardavimai"); call it on a client configured with '
+                . 'Language::Lithuanian.'
+            );
+        }
+
         $code = trim($productCode);
 
         if ($code === '') {

@@ -1561,14 +1561,19 @@ if ($op === null) {
   the most recent one holds the current stock layer.
 - **A sale counts only when dated at or after that purchase.** An older sale belongs
   to a previous ownership cycle (bought → sold → bought back).
-- Unlike the rest of this resource it returns a **plain array, not a `Response`**,
-  and **never throws** — it exists to be used as a pre-flight check (see
+- Unlike the rest of this resource it returns a **plain array, not a `Response`** —
+  it exists to be used as a pre-flight check (see
   [Correcting a Purchase](#correcting-a-purchase)). `null` means no purchase history
   or a failed call. Use `products()->history()` for the raw rows.
 - Operation kinds are matched on the literal strings `Pirkimai`/`Pardavimai` in
   `op_rusis_pav`. The spec documents the column but never enumerates its values, so
   these are **observed against a live Finvalda, not specified**; an unrecognised kind
-  is ignored rather than guessed at.
+  is ignored rather than guessed at. Those labels are Lithuanian, so on a client
+  configured with `Language::English` the method **throws** rather than return a
+  `null` that would read as "no purchase history".
+- **Only a sale counts as consumption.** A write-off, purchase return or internal
+  transfer after the purchase leaves `sold` false, and `warehouse` is the purchase
+  row's warehouse even if the stock has been moved since.
 
 ### Clients
 

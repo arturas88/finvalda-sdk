@@ -4,8 +4,16 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Enums\Language;
+use Finvalda\Exceptions\FinvaldaException;
+use Finvalda\FinvaldaConfig;
+use Finvalda\HttpClient;
 use Finvalda\Resources\Stock;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -203,6 +211,32 @@ class StockTest extends TestCase
 
         $this->assertSame(1421, $op['op_number']);
         $this->assertFalse($op['sold']);
+    }
+
+    public function test_refuses_to_guess_under_an_english_client_instead_of_returning_null(): void
+    {
+        // The operation kinds are matched on Lithuanian labels. Under
+        // Language::English they would never match, and the null that came
+        // back read as "no purchase history".
+        $history = [];
+        $mock = new MockHandler([]);
+        $stack = HandlerStack::create($mock);
+        $stack->push(Middleware::history($history));
+        $stock = new Stock(new HttpClient(new FinvaldaConfig(
+            baseUrl: 'https://example.com',
+            username: 'user',
+            password: 'pass',
+            language: Language::English,
+        ), new Client(['handler' => $stack])));
+
+        try {
+            $stock->purchaseOpFor('X');
+            $this->fail('purchaseOpFor() answered under Language::English');
+        } catch (FinvaldaException $e) {
+            $this->assertStringContainsString('Language::Lithuanian', $e->getMessage());
+        }
+
+        $this->assertSame([], $history, 'no request should be made');
     }
 
     public function test_handles_datetime_stamped_operation_dates(): void
