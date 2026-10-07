@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 use Finvalda\Builders\OperationBuilder;
 use Finvalda\Builders\ProductLine;
+use Finvalda\Enums\DocumentEntityType;
 use Finvalda\Enums\OpClass;
 use Finvalda\Enums\PaymentType;
 use Finvalda\Finvalda;
@@ -74,18 +75,22 @@ $report('ping', static fn (): string => $finvalda->ping() ? 'reachable' : throw 
 
 $report('GetUserPermissions takes finUser only', static fn (): string => $rows($finvalda->permissions()->get()) . ' rows');
 
-// tNuo/tIki: a one-day window in the far past must return fewer rows than no
-// window at all. Equal counts mean the server ignored the parameters.
-$report('UVM reads honour tNuo/tIki', static function () use ($finvalda, $rows): string {
-    $all = $rows($finvalda->orderManagement()->completedReservations());
-    $none = $rows($finvalda->orderManagement()->completedReservations(dateFrom: '2000-01-01', dateTo: '2000-01-02'));
+// Every check below is filtered so it matches nothing or next to nothing. The
+// server IGNORES a query parameter name it does not know, so a wrong name
+// returns the whole table: never add an unfiltered read here. Two unfiltered
+// GetKliPrekPasNuolPapKain calls (~30 s each) took a production service down.
 
-    return $all > 0 && $none === $all
-        ? throw new RuntimeException("{$all} rows with and without a date window: filter ignored")
-        : "{$all} without a window, {$none} in 2000-01-01..02";
+// tNuo/tIki: a two-day window long ago must be (nearly) empty. A full result
+// means the server ignored the names.
+$report('UVM reads honour tNuo/tIki', static function () use ($finvalda, $rows): string {
+    $count = $rows($finvalda->orderManagement()->completedReservations(dateFrom: '2000-01-01', dateTo: '2000-01-02'));
+
+    return $count > 0
+        ? throw new RuntimeException("{$count} rows in 2000-01-01..02: the date filter was probably ignored")
+        : 'no rows in 2000-01-01..02';
 });
 
-$report('combined price endpoints take no client/item filter', static fn (): string => $rows($finvalda->pricing()->clientItemPrices()) . ' rows');
+$report('GetAttachedDocument exists and answers in the result envelope', static fn (): string => $finvalda->documents()->attached(DocumentEntityType::Client, 'ZZZ_VERIFY_NONE')->throw()->successful() ? 'ok' : 'failed');
 
 if ($product = $env('VERIFY_PRODUCT')) {
     $report("purchaseOpFor({$product})", static fn (): string => json_encode($finvalda->stock()->purchaseOpFor($product), JSON_UNESCAPED_UNICODE) ?: '');
