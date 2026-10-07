@@ -28,6 +28,7 @@ use Finvalda\Builders\ProductLine;
 use Finvalda\Enums\DocumentEntityType;
 use Finvalda\Enums\OpClass;
 use Finvalda\Enums\PaymentType;
+use Finvalda\Exceptions\AccessDeniedException;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
 use Finvalda\Query\OperationQuery;
@@ -113,9 +114,9 @@ $due = date('Y-m-d', strtotime('+14 days'));
 $cases = [
     'sale: header warehouse pushed to lines, dSumaVntV unit price, tMokejimoData due date' => [
         $finvalda->sale()->client($client)->date($today)->currency($currency)->dueDate($due)->warehouse($warehouse)
-            ->product(ProductLine::make($product, 1)->price(1.23)),
+            ->product(ProductLine::make($product, 1)->price(1.23)->amount(1.23)),
         OpClass::SalesDet,
-        ['due date ' . $due, 'unit price 1.23', 'warehouse ' . $warehouse],
+        ['payment_date ' . $due, 'amount 1.23', 'warehouse ' . $warehouse],
     ],
     'inflow: IplDok with nTipas and lines inside the wrapper' => [
         $finvalda->inflow()->client($client)->date($today)->currency($currency)->type(PaymentType::Advance)
@@ -167,6 +168,12 @@ if ($write) {
         $report($label, static function () use ($finvalda, $builder, $readClass, $expect, $env, $keep): string {
             $result = $finvalda->operations()->create($builder->getOperationClass(), $builder->build(), (string) $env('VERIFY_PARAMETER'))->throw();
 
+            // An empty journal/number would turn the read-back into a scan of
+            // every operation of the class — heavy enough to reset the service.
+            if ((string) $result->journal === '' || (int) $result->number <= 0) {
+                throw new RuntimeException('created, but the server returned no journal/number to read back');
+            }
+
             $readBack = $finvalda->operations()->query(
                 OperationQuery::forClass($readClass)->journal((string) $result->journal)->number((int) $result->number)->fullOp()
             )->throw();
@@ -178,7 +185,11 @@ if ($write) {
             $deleteClass = $builder->getOperationClass()->deleteClass();
 
             if (! $keep && $deleteClass !== null) {
-                $finvalda->operations()->delete($deleteClass, (string) $result->journal, (int) $result->number, (string) $env('VERIFY_PARAMETER'))->throw();
+                try {
+                    $finvalda->operations()->delete($deleteClass, (string) $result->journal, (int) $result->number, (string) $env('VERIFY_PARAMETER'))->throw();
+                } catch (AccessDeniedException $e) {
+                    return "NOT deleted ({$e->getMessage()}): remove {$result->journal}/{$result->number} by hand";
+                }
 
                 return 'deleted again';
             }
