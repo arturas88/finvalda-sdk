@@ -32,11 +32,11 @@ final class TypeTag extends Entity
     public static function fromArray(array $data): static
     {
         return new self(
-            tipas: (int) ($data['tipas'] ?? 0),
-            code: (string) ($data['kodas'] ?? ''),
-            name: (string) ($data['pavadinimas'] ?? ''),
-            info1: isset($data['info1']) ? (string) $data['info1'] : null,
-            info2: isset($data['info2']) ? (string) $data['info2'] : null,
+            tipas: self::intValue($data, 'tipas') ?? 0,
+            code: self::stringValue($data, 'kodas') ?? '',
+            name: self::stringValue($data, 'pavadinimas') ?? '',
+            info1: self::stringValue($data, 'info1'),
+            info2: self::stringValue($data, 'info2'),
             raw: $data,
         );
     }
