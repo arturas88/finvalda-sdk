@@ -5,14 +5,26 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Enums\DocumentEntityType;
+use Finvalda\Exceptions\NetworkException;
+use Finvalda\FinvaldaConfig;
+use Finvalda\HttpClient;
 use Finvalda\Resources\Documents;
+use Finvalda\Retry\RetryPolicy;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Wire shapes follow the PURE examples in docs/FVS_Webservice.md §3.80–3.83,
- * which are captured requests, not hand-written ones.
+ * Wire shapes follow docs/FVS_Webservice.md §3.80–3.83. The PURE examples are
+ * captured requests; the writes go out as POST (the Pure service takes GET or
+ * POST with the same parameter names) so the transport never retries them.
  */
 class DocumentsTest extends TestCase
 {
@@ -154,18 +166,21 @@ class DocumentsTest extends TestCase
         $this->assertSame(['fileName' => 'a.txt'], $this->requestBody($history));
     }
 
-    public function test_attach_to_a_description_sends_the_flat_pure_query(): void
+    public function test_attach_to_a_description_posts_the_flat_pure_parameters(): void
     {
+        // The PURE example is a GET with these names as query parameters; the
+        // Pure service takes the same names as a flat JSON body on POST, and a
+        // write must be a POST so it is never retried.
         $history = [];
 
         $result = $this->documents($history)->attach(DocumentEntityType::Product, '010', 'a.txt', finUser: 'S2');
 
         $this->assertTrue($result->success);
-        $this->assertSame('GET', $history[0]['request']->getMethod());
+        $this->assertSame('POST', $history[0]['request']->getMethod());
         $this->assertSame('AttachDocument', $this->endpoint($history));
         $this->assertSame(
-            ['entityType' => '8', 'id1' => '010', 'documentId' => 'a.txt', 'finUser' => 'S2'],
-            $this->query($history),
+            ['entityType' => 8, 'id1' => '010', 'documentId' => 'a.txt', 'finUser' => 'S2'],
+            $this->requestBody($history),
         );
     }
 
@@ -176,9 +191,49 @@ class DocumentsTest extends TestCase
         $this->documents($history)->attach(DocumentEntityType::Sale, 'PARD', 'a.txt', 42);
 
         $this->assertSame(
-            ['entityType' => '3', 'id1' => 'PARD', 'id2' => '42', 'documentId' => 'a.txt'],
-            $this->query($history),
+            ['entityType' => 3, 'id1' => 'PARD', 'id2' => '42', 'documentId' => 'a.txt'],
+            $this->requestBody($history),
         );
+    }
+
+    /**
+     * @return array<string, array{\Closure(Documents): mixed}>
+     */
+    public static function writes(): array
+    {
+        return [
+            'upload' => [fn (Documents $d) => $d->upload('a.txt', '00')],
+            'delete' => [fn (Documents $d) => $d->delete('a.txt')],
+            'attach' => [fn (Documents $d) => $d->attach(DocumentEntityType::Client, 'K1', 'a.txt')],
+        ];
+    }
+
+    /**
+     * @param  \Closure(Documents): mixed  $write
+     */
+    #[DataProvider('writes')]
+    public function test_a_document_write_is_never_retried(\Closure $write): void
+    {
+        $history = [];
+        $stack = HandlerStack::create(new MockHandler([
+            new ConnectException('cURL error 28: Operation timed out', new Request('POST', 'x')),
+            $this->jsonResponse(['AccessResult' => 'Success', 'error' => '']),
+        ]));
+        $stack->push(Middleware::history($history));
+        $documents = new Documents(new HttpClient(new FinvaldaConfig(
+            baseUrl: 'https://example.com',
+            username: 'user',
+            password: 'pass',
+            retry: new RetryPolicy(maxAttempts: 3, delayMs: 1),
+        ), new Client(['handler' => $stack])));
+
+        try {
+            $write($documents);
+            $this->fail('Expected NetworkException');
+        } catch (NetworkException) {
+        }
+
+        $this->assertCount(1, $history);
     }
 
     public function test_attached_reads_one_entity_with_the_pure_get(): void

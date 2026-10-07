@@ -23,13 +23,14 @@ PHP SDK/Composer package for the Finvalda (FVS) Lithuanian accounting/ERP softwa
 The Pure endpoint (FvsServicePure.svc) supports both query params and JSON body. The SDK uses JSON body for all POST write operations:
 
 - **Headers** — `buildHeaders()` is merged into `$options['headers']` on every request, not set as Guzzle client defaults, so an injected `ClientInterface` still authenticates and tests can assert headers on the wire. Likewise the absolute URL (base + endpoint), `timeout` and `httpOptions` go per request, so an injected client needs no `base_uri`.
-- **Retries** — only `get()`, `post()` and `postJson()` (reads) are retried under a `RetryPolicy`. `postOperation()`/`postOperationJson()` (writes) are sent exactly once — never route a write through `postJson()`.
+- **Retries** — only `get()`, `post()` and `postJson()` (reads) are retried under a `RetryPolicy`. `postOperation()`/`postOperationJson()`/`postWrite()` (writes) are sent exactly once — never route a write through `postJson()`.
 - **Exceptions** — every Guzzle exception leaves `send()` as an SDK exception (`NetworkException`, `ServerException`/`HttpException` with the status as code) with credential values scrubbed; Guzzle's exception is not chained because its message holds the unscrubbed URI.
 - **`postOperation()`** — JSON body with `{"ItemClassName":"...","xmlstring":"..."}`. Used for: InsertNewItem, EditItem, InsertNewOperation, UpdateOperation, DeleteOperation, EditItemProps, AppendGroup
 - **`postOperationJson()`** — Flat JSON body or `{"input":{...}}` wrapper. Used for: LockOperation, UnLockOperation, ChangeJournal (`{sJournal, nOpNumber, sJournalNew}`), CopyOperation (`{input:{...}}`), DeleteItem (`{input:{ItemClassName, Code}}`)
-- **`postJson()`** — Custom JSON body returning Response. Used for: GetDescriptions (`{readParams:{...}}`), GetOperations POST (`{opReadParams:{...}}`), IsOperationLocked, GetVeiklaPagalObjektus, GetRecommendedPrice, InsertDocument (`{inParams:{...}}`), DeleteDocument (`{fileName}`) — Documents folds the `result.errorCode` envelope into an OperationResult itself
+- **`postJson()`** — Custom JSON body returning Response. Used for: GetDescriptions (`{readParams:{...}}`), GetOperations POST (`{opReadParams:{...}}`), IsOperationLocked, GetVeiklaPagalObjektus, GetRecommendedPrice
+- **`postWrite()`** — Non-retried write returning Response, for writes whose answer is not the `{nResult, sError}` envelope. Used for: InsertDocument (`{inParams:{...}}`), DeleteDocument (`{fileName}`), AttachDocument (flat `{entityType, id1, id2, documentId, finUser}`) — Documents folds the `result.errorCode` envelope into an OperationResult itself
 - **`post()`** — POST with query params returning Response. Used for: GetInvoicesRelatedToCustomer
-- **`get()`** — GET with query params. Used for all read-only endpoints (130+), plus AttachDocument / GetAttachedDocument (the PURE examples are GETs)
+- **`get()`** — GET with query params. Used for all read-only endpoints (130+), including GetAttachedDocument
 
 ## Builders
 All 25 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:

@@ -201,6 +201,16 @@ final class HttpClient
     }
 
     /**
+     * A write whose answer is not the `{nResult, sError}` operation envelope
+     * (the document endpoints answer `{result: {errorCode, errorText}}`), so
+     * the caller interprets the Response itself. Never retried, like every write.
+     */
+    public function postWrite(string $endpoint, array $data): Response
+    {
+        return $this->send('POST', $endpoint, ['json' => $data], false, $this->parseResponse(...));
+    }
+
+    /**
      * A write with the `{ItemClassName, xmlstring}` envelope. Never retried: a
      * timeout after the request went out may mean the server already committed it.
      */

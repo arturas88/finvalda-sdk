@@ -14,9 +14,11 @@ use Finvalda\Responses\Response;
  * Document upload, attachment, and management operations.
  *
  * The wire shapes follow the PURE examples in the API document (§3.80–3.83),
- * which are captured requests: InsertDocument posts an `inParams` object, while
- * AttachDocument and GetAttachedDocument are GETs with flat query parameters.
- * File bytes travel hex-encoded in both directions.
+ * which are captured requests: InsertDocument posts an `inParams` object, and
+ * GetAttachedDocument is a GET with flat query parameters. AttachDocument's
+ * example is a GET too, but the Pure service takes GET or POST with the same
+ * parameter names, and every write here is a POST through postWrite() so the
+ * transport never retries it. File bytes travel hex-encoded in both directions.
  */
 final class Documents extends Resource
 {
@@ -59,7 +61,7 @@ final class Documents extends Resource
         ], fn ($value) => $value !== null);
 
         return $this->toOperationResult(
-            $this->http->postJson('InsertDocument', ['inParams' => $inParams]),
+            $this->http->postWrite('InsertDocument', ['inParams' => $inParams]),
         );
     }
 
@@ -92,7 +94,7 @@ final class Documents extends Resource
     public function delete(string $filename): OperationResult
     {
         return $this->toOperationResult(
-            $this->http->postJson('DeleteDocument', ['fileName' => $filename]),
+            $this->http->postWrite('DeleteDocument', ['fileName' => $filename]),
         );
     }
 
@@ -115,13 +117,13 @@ final class Documents extends Resource
         string|int|null $id2 = null,
         ?string $finUser = null,
     ): OperationResult {
-        return $this->toOperationResult($this->http->get('AttachDocument', [
+        return $this->toOperationResult($this->http->postWrite('AttachDocument', array_filter([
             'entityType' => $entityType->value,
             'id1' => $id1,
             'id2' => $id2 === null ? null : (string) $id2,
             'documentId' => $filename,
             'finUser' => $finUser,
-        ]));
+        ], fn ($value) => $value !== null)));
     }
 
     /**

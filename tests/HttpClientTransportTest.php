@@ -254,7 +254,7 @@ class HttpClientTransportTest extends TestCase
         $logger = $this->spyLogger();
         $httpClient = $this->httpClient([$this->ok()], $this->config(logger: $logger));
 
-        $httpClient->postOperation('InsertDocument', ['sFileName' => 'a.pdf', 'sFileContent' => str_repeat('ab', 40_000)]);
+        $httpClient->postOperationJson('InsertDocument', ['inParams' => ['fileName' => 'a.pdf', 'content' => str_repeat('ab', 40_000)]]);
 
         $context = $logger->records[0][2];
 
