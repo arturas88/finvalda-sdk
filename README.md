@@ -1614,6 +1614,8 @@ $result = $finvalda->clients()->delete('CLIENT001');
 $response = $finvalda->clients()->invoicesRelatedToCustomer('CLIENT001', debtType: 0);
 ```
 
+Countries are maintained in Finvalda by hand — the web service cannot create or list them — so a client card whose `sValstybeKodas` names a country missing there fails with `Country 'XX' not found!`.
+
 ### Products
 
 ```php
