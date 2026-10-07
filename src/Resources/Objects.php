@@ -73,12 +73,8 @@ final class Objects extends Resource
     public function create(int $level, array $data): OperationResult
     {
         $this->validateLevel($level);
-        $className = self::LEVEL_CLASS_MAP[$level]->value;
 
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => $className,
-            'xmlstring' => $this->jsonEncode([$className => $data]),
-        ]);
+        return $this->insertItem(self::LEVEL_CLASS_MAP[$level], $data);
     }
 
     /**
@@ -92,14 +88,8 @@ final class Objects extends Resource
     public function update(int $level, array $data): OperationResult
     {
         $this->validateLevel($level);
-        $className = self::LEVEL_CLASS_MAP[$level]->value;
-        $code = $data['sKodas'] ?? '';
 
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => $className,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([$className => $data]),
-        ]);
+        return $this->editItem(self::LEVEL_CLASS_MAP[$level], $data);
     }
 
     private function validateLevel(int $level): void

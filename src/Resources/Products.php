@@ -386,10 +386,7 @@ final class Products extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Product->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Product, $data);
     }
 
     /**
@@ -401,13 +398,7 @@ final class Products extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Product->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Product, $data);
     }
 
     /**
@@ -432,11 +423,6 @@ final class Products extends Resource
      */
     public function delete(string $productCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Product->value,
-                'Code' => $productCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Product, $productCode);
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Finvalda\Resources;
 
 use Finvalda\Enums\ItemClass;
-use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\OperationNotSupportedException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -97,10 +96,7 @@ final class References extends Resource
      */
     public function createBank(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Bank->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Bank->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Bank, $data);
     }
 
     /**
@@ -110,10 +106,7 @@ final class References extends Resource
      */
     public function createWarehouse(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Warehouse->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Warehouse, $data);
     }
 
     /**
@@ -123,13 +116,7 @@ final class References extends Resource
      */
     public function updateWarehouse(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Warehouse->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Warehouse->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Warehouse, $data);
     }
 
     /**
@@ -139,10 +126,7 @@ final class References extends Resource
      */
     public function createPaymentTerm(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::PaymentTerm->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::PaymentTerm, $data);
     }
 
     /**
@@ -152,13 +136,7 @@ final class References extends Resource
      */
     public function updatePaymentTerm(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::PaymentTerm->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::PaymentTerm->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::PaymentTerm, $data);
     }
 
     /**
@@ -168,10 +146,7 @@ final class References extends Resource
      */
     public function createClientType(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::ClientType->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::ClientType->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::ClientType, $data);
     }
 
     /**
@@ -181,10 +156,7 @@ final class References extends Resource
      */
     public function createProductType(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::ProductType->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::ProductType->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::ProductType, $data);
     }
 
     /**
@@ -195,12 +167,7 @@ final class References extends Resource
      */
     public function createProductTag(int $tagNumber, array $data): OperationResult
     {
-        $itemClass = ItemClass::productTag($tagNumber);
-
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => $itemClass->value,
-            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::productTag($tagNumber), $data);
     }
 
     /**
@@ -211,12 +178,7 @@ final class References extends Resource
      */
     public function createClientTag(int $tagNumber, array $data): OperationResult
     {
-        $itemClass = ItemClass::clientTag($tagNumber);
-
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => $itemClass->value,
-            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::clientTag($tagNumber), $data);
     }
 
     /**
@@ -311,51 +273,6 @@ final class References extends Resource
     public function deleteClientTag(int $tagNumber, string $code): OperationResult
     {
         return $this->deleteItem(ItemClass::clientTag($tagNumber), $code);
-    }
-
-    /**
-     * Update a reference item via EditItem. The record is identified by its sKodas.
-     */
-    private function editItem(ItemClass $itemClass, array $data): OperationResult
-    {
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => $itemClass->value,
-            'sItemCode' => $data['sKodas'] ?? '',
-            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
-        ]);
-    }
-
-    /**
-     * Delete a reference item by code via DeleteItem.
-     *
-     * `DeleteItem` is only available on FvsServicePure builds that expose it;
-     * older builds answer 404. When that happens we surface a clear
-     * OperationNotSupportedException rather than an opaque transport error.
-     *
-     * @throws OperationNotSupportedException when the server build lacks DeleteItem
-     */
-    private function deleteItem(ItemClass $itemClass, string $code): OperationResult
-    {
-        try {
-            return $this->http->postOperationJson('DeleteItem', [
-                'input' => [
-                    'ItemClassName' => $itemClass->value,
-                    'Code' => $code,
-                ],
-            ]);
-        } catch (FinvaldaException $e) {
-            if ($e->getCode() === 404) {
-                throw new OperationNotSupportedException(
-                    'DeleteItem is not supported by this Finvalda server build (the '
-                    . 'FvsServicePure endpoint returned 404). Create (InsertNewItem) and '
-                    . 'update (EditItem) are available; deleting types/tags requires a '
-                    . 'newer Pure build that exposes DeleteItem.',
-                    'DeleteItem',
-                );
-            }
-
-            throw $e;
-        }
     }
 
     /**

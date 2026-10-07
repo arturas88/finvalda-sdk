@@ -353,10 +353,7 @@ final class Clients extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Client->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Client, $data);
     }
 
     /**
@@ -368,13 +365,7 @@ final class Clients extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Client->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Client, $data);
     }
 
     /**
@@ -384,12 +375,7 @@ final class Clients extends Resource
      */
     public function delete(string $clientCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Client->value,
-                'Code' => $clientCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Client, $clientCode);
     }
 
     /**

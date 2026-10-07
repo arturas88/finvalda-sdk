@@ -164,10 +164,7 @@ final class Services extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Service->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Service, $data);
     }
 
     /**
@@ -179,13 +176,7 @@ final class Services extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Service->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Service, $data);
     }
 
     /**
@@ -195,11 +186,6 @@ final class Services extends Resource
      */
     public function delete(string $serviceCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Service->value,
-                'Code' => $serviceCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Service, $serviceCode);
     }
 }
