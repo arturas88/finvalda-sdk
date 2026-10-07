@@ -2092,21 +2092,17 @@ $response = $finvalda->pricing()->recommendedPrice([
 ```php
 use Finvalda\Enums\DocumentEntityType;
 
-// Upload
+// Upload (InsertDocument) — content travels hex-encoded
 $result = $finvalda->documents()->uploadFile('invoice.pdf', '/path/to/invoice.pdf');
-$result = $finvalda->documents()->upload('doc.pdf', $hexContent);
+$result = $finvalda->documents()->upload('doc.pdf', $hexContent, description: 'Signed copy', finUser: 'ADMIN');
 
-// Attach to entity
-$result = $finvalda->documents()->attach(
-    DocumentEntityType::Sale,
-    entityCode: 'CLI001',
-    filename: 'invoice.pdf',
-    journal: 'PARD',
-    number: 123,
-);
+// Attach to an entity: a description by its code, an operation by journal + number
+$result = $finvalda->documents()->attach(DocumentEntityType::Client, 'CLI001', 'invoice.pdf');
+$result = $finvalda->documents()->attach(DocumentEntityType::Sale, 'PARD', 'invoice.pdf', 123);
 
-// Get attached documents
-$response = $finvalda->documents()->attached(DocumentEntityType::Client, 'CLI001');
+// Documents attached to one entity; files arrive hex-encoded under
+// $response->raw['result']['enitityDocs'][n]['docs'][m] as {name, data}
+$response = $finvalda->documents()->attached(DocumentEntityType::Sale, 'PARD', 123);
 
 // Delete
 $result = $finvalda->documents()->delete('invoice.pdf');

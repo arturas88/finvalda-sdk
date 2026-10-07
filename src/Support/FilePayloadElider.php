@@ -10,7 +10,7 @@ namespace Finvalda\Support;
  *
  * MakeInvoice/MakeReport/GetAutoReport answer with a document base64'd into one
  * JSON string — around 58 KB for a typical invoice PDF. `InsertDocument` sends
- * one the other way as hex, which is twice the file's size. Both sit under
+ * one the other way as hex (`inParams.content`), which is twice the file's size. Both sit under
  * BodyTruncator's budget, so both are logged in full, and neither is readable.
  *
  * Lowering the byte budget instead would be the wrong trade: the budget exists
@@ -25,10 +25,11 @@ final class FilePayloadElider
      * `data` is what MakeInvoice answers with:
      * {"AccessResult":"Success","error":"","data":"JVBERi0xLjcg…"}. The
      * fileContents spellings are the ones DecodesBinaryResponse::extractFileContents()
-     * accepts; keep the two lists in step. `sFileContent` is the request side —
-     * Documents::upload() and uploadFile().
+     * accepts; keep the two lists in step. `content` is the request side —
+     * Documents::upload() and uploadFile(). GetAttachedDocument answers with
+     * hex under `data`, already covered.
      */
-    public const PAYLOAD_KEYS = ['data', 'fileContents', 'FileContents', 'file_contents', 'sFileContent'];
+    public const PAYLOAD_KEYS = ['data', 'fileContents', 'FileContents', 'file_contents', 'content'];
 
     /** Shorter values are left alone — error text, one-line statuses. */
     public const MIN_BYTES = 512;

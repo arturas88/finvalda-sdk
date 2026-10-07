@@ -27,12 +27,12 @@ class FilePayloadEliderTest extends TestCase
         // Documents::uploadFile() bin2hex()es the file, so the REQUEST body is
         // twice the file size — larger than the response payloads, and missed
         // entirely if only response keys are covered.
-        $body = '{"sFileName":"invoice.pdf","sFileContent":"' . str_repeat('ab', 40_000) . '"}';
+        $body = '{"inParams":{"fileName":"invoice.pdf","content":"' . str_repeat('ab', 40_000) . '"}}';
 
         $elided = FilePayloadElider::apply($body);
 
-        $this->assertStringContainsString('"sFileContent":"[elided 80000 bytes]"', $elided);
-        $this->assertStringContainsString('"sFileName":"invoice.pdf"', $elided);
+        $this->assertStringContainsString('"content":"[elided 80000 bytes]"', $elided);
+        $this->assertStringContainsString('"fileName":"invoice.pdf"', $elided);
     }
 
     /**
@@ -45,7 +45,7 @@ class FilePayloadEliderTest extends TestCase
             'fileContents' => ['fileContents'],
             'FileContents' => ['FileContents'],
             'file_contents' => ['file_contents'],
-            'sFileContent' => ['sFileContent'],
+            'content' => ['content'],
         ];
     }
 
