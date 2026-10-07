@@ -579,7 +579,7 @@ try {
 }
 
 // Access raw API data if needed
-$rawData = $client->raw;
+$rawData = $client->getRaw();
 $specificField = $client['sSpecialField']; // ArrayAccess supported
 ```
 

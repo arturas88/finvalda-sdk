@@ -5,7 +5,7 @@ PHP SDK/Composer package for the Finvalda (FVS) Lithuanian accounting/ERP softwa
 
 ## Architecture
 - **Entry point**: `Finvalda\Finvalda` — creates an SDK instance with config, provides lazy-loaded resource accessors
-- **Resources**: 15 resource classes in `src/Resources/`, each covering a domain (clients, products, operations, etc.)
+- **Resources**: 14 resource classes in `src/Resources/` (plus the `Resource` base), each covering a domain (clients, products, operations, etc.)
 - **HTTP layer**: `HttpClient` wraps Guzzle, handles auth headers, JSON parsing, error mapping
 - **Enums**: Type-safe constants for operation classes, languages, access results, description types
 - **Filters**: `TransactionFilter` and `PaymentFilter` DTOs for query construction
@@ -36,7 +36,7 @@ The Pure endpoint (FvsServicePure.svc) supports both query params and JSON body.
 - **`get()`** — GET with query params. Used for all read-only endpoints (130+), including GetAttachedDocument
 
 ## Builders
-All 25 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
+All 26 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
 - **Sales**: `sale()`, `salesReservation()`, `salesReturn()`, `uvmSalesReservation()` — extend `SalesOperationBuilder`; each supports `->short()` for Trumpas* variants
 - **Purchases**: `purchase()`, `purchaseOrder()`, `purchaseReturn()`, `uvmPurchaseOrder()` — extend `PurchaseOperationBuilder`; each supports `->short()`; `series()` is short-only (PirkDok has no sSerija); `purchase()`/`purchaseOrder()` also carry `->additionalCostCodes()` (sPapIslaiduKodas1..4, full variants only)
 - **Transfers & Adjustments**: `internalTransfer()`, `writeOff()`, `capitalization()` (both extend `StockAdjustmentBuilder`), `inventoryCount()`
@@ -71,7 +71,7 @@ src/
   Finvalda.php              # Main client — $finvalda->clients(), ->products(), etc.
   FinvaldaConfig.php        # Config DTO (baseUrl, username, password, language, etc.)
   HttpClient.php            # HTTP transport layer (Guzzle, injectable)
-  Builders/                 # Fluent operation builders: OperationBuilder base, Sales/Purchase/Payment/StockAdjustment family bases, 18 concrete; Concerns/ header traits
+  Builders/                 # Fluent operation builders: OperationBuilder base, Sales/Purchase/Payment/StockAdjustment family bases, 19 concrete; Concerns/ header traits
   Enums/                    # AccessResult, Language, ItemClass, OperationClass, OpClass, CredentialMode, etc.
   Exceptions/               # FinvaldaException, HttpException/ServerException, NetworkException, AccessDeniedException, OperationFailedException, ValidationException
   Debug/                    # Diagnostics (shared logger/recorder state)
@@ -79,7 +79,7 @@ src/
   Logging/                  # JsonLinesLogger (PSR-3 file sink, one JSON object per line)
   Support/                  # BodyTruncator, FilePayloadElider (log-path only), Redactor, OutboundNumericNormalizer
   Recording/                # Exchange value object + Recorder ring buffer
-  Resources/                # 15 resource classes (Stock, Clients, Products, etc.)
+  Resources/                # 14 resource classes + Resource base (Stock, Clients, Products, etc.)
   Responses/                # Response, OperationResult
   Laravel/                  # ServiceProvider, Facade
 config/
