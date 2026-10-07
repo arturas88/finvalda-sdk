@@ -7,11 +7,18 @@ namespace Finvalda\Builders;
 use DateTimeInterface;
 use Finvalda\Concerns\FormatsDate;
 use Finvalda\Enums\OperationClass;
+use Finvalda\Exceptions\ValidationException;
 use Finvalda\Finvalda;
 use Finvalda\Responses\OperationResult;
 
 /**
  * Abstract base class for fluent operation builders.
+ *
+ * Only what every operation shares lives here: the operation date and the raw
+ * escape hatches. Header setters are composed per builder from
+ * Builders\Concerns\Sets* traits, so a builder offers a setter only when its
+ * envelope has the field in the spec — the server silently drops unknown tags,
+ * so an unsupported setter would be a silent no-op.
  */
 abstract class OperationBuilder
 {
@@ -38,17 +45,37 @@ abstract class OperationBuilder
     /**
      * Get the header key for the operation data.
      */
-    abstract protected function getHeaderKey(): string;
+    protected function getHeaderKey(): string
+    {
+        return $this->getOperationClass()->value;
+    }
 
     /**
-     * Get the product lines key for the operation data.
+     * Detail element for generic product lines, or null when the operation takes
+     * none (product() / addProduct() then throw).
      */
-    abstract protected function getProductLinesKey(): string;
+    protected function getProductLinesKey(): ?string
+    {
+        return null;
+    }
 
     /**
-     * Get the service lines key for the operation data.
+     * Detail element for generic service lines, or null when the operation takes
+     * none (service() / addService() then throw).
      */
-    abstract protected function getServiceLinesKey(): string;
+    protected function getServiceLinesKey(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * The builder's own line method, named in the error when a generic
+     * product/service line is added to an operation that has none.
+     */
+    protected function lineMethodHint(): string
+    {
+        return 'the builder\'s own line methods';
+    }
 
     /**
      * Set the Finvalda instance for saving.
@@ -84,32 +111,16 @@ abstract class OperationBuilder
         $payload = $this->header;
 
         $productKey = $this->getProductLinesKey();
-        if (! empty($this->productLines)) {
+        if ($productKey !== null && $this->productLines !== []) {
             $payload[$productKey] = $this->productLines;
         }
 
         $serviceKey = $this->getServiceLinesKey();
-        if (! empty($this->serviceLines)) {
+        if ($serviceKey !== null && $this->serviceLines !== []) {
             $payload[$serviceKey] = $this->serviceLines;
         }
 
         return [$this->getHeaderKey() => $payload];
-    }
-
-    /**
-     * Guard for builders whose build() uses dedicated line arrays: fail loudly
-     * if generic addProduct()/addService() lines were added, instead of
-     * silently discarding them.
-     *
-     * @throws \BadMethodCallException
-     */
-    protected function assertNoGenericLines(string $hint): void
-    {
-        if (! empty($this->productLines) || ! empty($this->serviceLines)) {
-            throw new \BadMethodCallException(
-                static::class . " does not support addProduct()/addService() lines; use {$hint} instead."
-            );
-        }
     }
 
     /**
@@ -135,20 +146,8 @@ abstract class OperationBuilder
         );
     }
 
-    // --- Common Header Methods ---
-
     /**
-     * Set the client code.
-     */
-    public function client(string $clientCode): static
-    {
-        $this->header['sKlientas'] = $clientCode;
-
-        return $this;
-    }
-
-    /**
-     * Set the operation date.
+     * Set the operation date (tData). Every operation envelope has it.
      */
     public function date(DateTimeInterface|string $date): static
     {
@@ -158,123 +157,8 @@ abstract class OperationBuilder
     }
 
     /**
-     * Set the currency.
-     */
-    public function currency(string $currency): static
-    {
-        $this->header['sValiuta'] = $currency;
-
-        return $this;
-    }
-
-    /**
-     * Set the warehouse code.
-     */
-    public function warehouse(string $warehouseCode): static
-    {
-        $this->header['sSandelis'] = $warehouseCode;
-
-        return $this;
-    }
-
-    /**
-     * Set the description/comment.
-     */
-    public function description(string $description): static
-    {
-        $this->header['sAprasymas'] = $description;
-
-        return $this;
-    }
-
-    /**
-     * Set document number (external reference).
-     */
-    public function documentNumber(string $number): static
-    {
-        $this->header['sDokumentas'] = $number;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 1.
-     */
-    public function object1(string $code): static
-    {
-        $this->header['sObjektas1'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 2.
-     */
-    public function object2(string $code): static
-    {
-        $this->header['sObjektas2'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 3.
-     */
-    public function object3(string $code): static
-    {
-        $this->header['sObjektas3'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 4.
-     */
-    public function object4(string $code): static
-    {
-        $this->header['sObjektas4'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 5.
-     */
-    public function object5(string $code): static
-    {
-        $this->header['sObjektas5'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set analytical object level 6.
-     */
-    public function object6(string $code): static
-    {
-        $this->header['sObjektas6'] = $code;
-
-        return $this;
-    }
-
-    /**
-     * Set multiple analytical objects at once.
-     *
-     * @param  array<int, string>  $objects  Array indexed by level (1-6)
-     */
-    public function objects(array $objects): static
-    {
-        foreach ($objects as $level => $code) {
-            if ($level >= 1 && $level <= 6) {
-                $this->header["sObjektas{$level}"] = $code;
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * Set a custom header field.
+     * Set a raw header field. Escape hatch for spec fields without a named
+     * setter; the key is sent as given and not checked.
      */
     public function setHeader(string $key, mixed $value): static
     {
@@ -297,9 +181,7 @@ abstract class OperationBuilder
      */
     public function product(ProductLine $line): static
     {
-        $this->productLines[] = $line->toArray();
-
-        return $this;
+        return $this->addProductLine($line->toArray());
     }
 
     /**
@@ -311,6 +193,9 @@ abstract class OperationBuilder
      * rescales it by the product's first/second ratio (e.g. 250 on an "M" product becomes
      * 2.5 m). To opt out, pass additionalData: ['nPirmasMat' => 0], or use the fully-raw
      * addProductLine() to control the line array (including omitting nPirmasMat).
+     *
+     * $price is the unit price without VAT and discount (dSumaVntV); sales lines
+     * only — purchase lines have no unit-price field.
      *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
      */
@@ -333,25 +218,27 @@ abstract class OperationBuilder
         }
 
         if ($price !== null) {
-            $line['dKaina'] = $price;
+            $line['dSumaVntV'] = $price;
         }
 
         if ($warehouse !== null) {
             $line['sSandelis'] = $warehouse;
         }
 
-        $this->productLines[] = $line;
-
-        return $this;
+        return $this->addProductLine($line);
     }
 
     /**
      * Add a product line with all fields.
      *
      * @param  array<string, mixed>  $line
+     *
+     * @throws \BadMethodCallException  When the operation has no generic product lines.
      */
     public function addProductLine(array $line): static
     {
+        $this->assertAcceptsLines($this->getProductLinesKey(), 'product');
+
         $this->productLines[] = $line;
 
         return $this;
@@ -370,9 +257,7 @@ abstract class OperationBuilder
      */
     public function service(ServiceLine $line): static
     {
-        $this->serviceLines[] = $line->toArray();
-
-        return $this;
+        return $this->addServiceLine($line->toArray());
     }
 
     /**
@@ -382,6 +267,9 @@ abstract class OperationBuilder
      * this helper does NOT apply the second-measurement ×100 scaling — pass
      * the already-scaled value (e.g. 100 for one unit) or use ServiceLine::make()
      * which handles the convention for you.
+     *
+     * $price is the unit price without VAT and discount (dSumaVntV); sales lines
+     * only — purchase lines have no unit-price field.
      *
      * @param  array<string, mixed>  $additionalData  Additional fields for the line
      */
@@ -402,8 +290,22 @@ abstract class OperationBuilder
         }
 
         if ($price !== null) {
-            $line['dKaina'] = $price;
+            $line['dSumaVntV'] = $price;
         }
+
+        return $this->addServiceLine($line);
+    }
+
+    /**
+     * Add a service line with all fields.
+     *
+     * @param  array<string, mixed>  $line
+     *
+     * @throws \BadMethodCallException  When the operation has no generic service lines.
+     */
+    public function addServiceLine(array $line): static
+    {
+        $this->assertAcceptsLines($this->getServiceLinesKey(), 'service');
 
         $this->serviceLines[] = $line;
 
@@ -411,14 +313,61 @@ abstract class OperationBuilder
     }
 
     /**
-     * Add a service line with all fields.
-     *
-     * @param  array<string, mixed>  $line
+     * @throws \BadMethodCallException
      */
-    public function addServiceLine(array $line): static
+    private function assertAcceptsLines(?string $key, string $kind): void
     {
-        $this->serviceLines[] = $line;
+        if ($key === null) {
+            throw new \BadMethodCallException(
+                static::class . " does not support generic {$kind} lines; use {$this->lineMethodHint()} instead."
+            );
+        }
+    }
 
-        return $this;
+    /**
+     * Refuse line fields the operation's detail element does not define — a
+     * field the server does not know is silently dropped.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     * @param  list<string>  $fields
+     *
+     * @throws ValidationException
+     */
+    protected function rejectLineFields(array $lines, string $element, array $fields, string $why): void
+    {
+        foreach ($lines as $line) {
+            $found = array_values(array_intersect(array_keys($line), $fields));
+
+            if ($found !== []) {
+                throw new ValidationException(sprintf(
+                    '%s does not accept %s (%s)',
+                    $element,
+                    implode(', ', $found),
+                    $why,
+                ));
+            }
+        }
+    }
+
+    /**
+     * Refuse header fields outside an allow-list — used by short (Trumpas*)
+     * variants, whose envelope accepts only a handful of fields.
+     *
+     * @param  list<string>  $allowed
+     *
+     * @throws ValidationException
+     */
+    protected function assertHeaderOnly(array $allowed): void
+    {
+        $extra = array_values(array_diff(array_keys($this->header), $allowed));
+
+        if ($extra !== []) {
+            throw new ValidationException(sprintf(
+                '%s does not accept %s; it takes only %s',
+                $this->getHeaderKey(),
+                implode(', ', $extra),
+                implode(', ', $allowed),
+            ));
+        }
     }
 }

@@ -31,22 +31,31 @@ The Pure endpoint (FvsServicePure.svc) supports both query params and JSON body.
 - **`getRaw()`** — GET returning raw string. Used for binary responses
 
 ## Builders
-All 23 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
-- **Sales**: `sale()`, `salesReservation()`, `salesReturn()` — each supports `->short()` for Trumpas* variants
-- **Purchases**: `purchase()`, `purchaseOrder()`, `purchaseReturn()` — each supports `->short()`; `purchase()`/`purchaseOrder()` also carry `->additionalCostCodes()` (sPapIslaiduKodas1..4, full variants only)
-- **Transfers & Adjustments**: `internalTransfer()`, `writeOff()`, `capitalization()`, `inventoryCount()`
-- **Payments**: `inflow()`, `disbursement()`, `clearing()`
+All 25 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
+- **Sales**: `sale()`, `salesReservation()`, `salesReturn()`, `uvmSalesReservation()` — extend `SalesOperationBuilder`; each supports `->short()` for Trumpas* variants
+- **Purchases**: `purchase()`, `purchaseOrder()`, `purchaseReturn()`, `uvmPurchaseOrder()` — extend `PurchaseOperationBuilder`; each supports `->short()`; `series()` is short-only (PirkDok has no sSerija); `purchase()`/`purchaseOrder()` also carry `->additionalCostCodes()` (sPapIslaiduKodas1..4, full variants only)
+- **Transfers & Adjustments**: `internalTransfer()`, `writeOff()`, `capitalization()` (both extend `StockAdjustmentBuilder`), `inventoryCount()`
+- **Payments**: `inflow()` (IplDok), `disbursement()` (IsmDok) — extend `PaymentBuilder`; `type(PaymentType)` sets the required nTipas, `forDocument(series, document, amount)`/`addLine()` add lines nested inside the wrapper; `clearing()` (types via `ClearingDocumentType`, validated per side)
 - **Production**: `production()` — three line types: finished goods, raw materials, services
 - **Other**: `nonAnalytical()` — general ledger debit/credit entries
-- **UVM**: `uvmSalesReservation()`, `uvmCancellation()`, `uvmPurchaseOrder()`
+- **UVM**: `uvmCancellation()` (reservations/orders are in the sales/purchase families above)
 - **Corrections**: `purchaseUpdate()` — `PurchaseUpdateBuilder` posts `KoregPirkDok` via `Operations::update()`. Does NOT extend `OperationBuilder` (different envelope: `sZurnalas`/`nNumeris` wrapper + `PirkDokHeadEil` sub-node + `Del*DetEil` delete nodes). DESTRUCTIVE — deletes and re-adds lines, rebuilding the FIFO stock layer; fails with error 4027 once the stock is consumed. Guard with `assertNotSold()` or `Stock::purchaseOpFor()`.
 
 Special build structures: ClearingBuilder (debit/credit lines), ProductionBuilder (3 line types), NonAnalyticalBuilder (accounting entries), UvmCancellationBuilder (cancellation refs), InventoryCountBuilder (flat items with mode wrapper).
 
+Spec conformance rules:
+- `OperationBuilder` holds only `date()`, `setHeader()` and the generic line adders. Header setters come from `Builders\Concerns\Sets*` traits (`SetsClient`, `SetsCurrency`, `SetsDocumentNumber`, `SetsNote`, `SetsEmployee`, `SetsName`, `SetsMarked`, `SetsLocked`, `SetsObjects`), composed per builder only where the envelope has the field — the server silently drops unknown tags.
+- `getProductLinesKey()`/`getServiceLinesKey()` return null by default; generic `product()`/`addProduct()`/`service()`/`addService()` then throw `BadMethodCallException` naming the builder's own line method.
+- `warehouse()` (`HasDefaultWarehouse`) is a per-line default copied into product lines at `build()`; sales/purchase/write-off headers have no sSandelis.
+- `price` writes `dSumaVntV`/`dSumaVntL` (sales lines only). `build()` throws `ValidationException` for a field the envelope lacks: Trumpas* header allow-lists, purchase-only/sales-only line fields, full-purchase sSerija.
+- Stock lines (write-off, capitalization, transfer, production) default `nPirmasMat` to 1.
+- `tests/Spec/BuilderSpecConformanceTest.php` calls every public setter (by reflection) and checks each emitted key against the tables in `docs/FVS_Webservice.md` §3.70/§3.72 (`tests/Spec/OperationSpec.php`). A field kept without spec backing must be listed in `OperationSpec::SUPPLEMENTS` with its source.
+- `OperationClass::deleteClass()` maps to `DeleteOperationClass` (null where the spec has no delete).
+
 ### Line DTOs
-- `ProductLine::make(code, qty)` — fluent DTO for product detail lines with `->warehouse()`, `->amount()`, `->vat()`, `->discount()`, `->object()`, `->objects()`, `->intrastat()`, `->weight()`, `->firstMeasurement()`, `->info()`, `->marked()`, `->additionalCost()`, `->additionalCosts()`, `->set()`
+- `ProductLine::make(code, qty)` — fluent DTO for product detail lines with `->price()` (sales only), `->warehouse()`, `->amount()`, `->vat()`, `->discount()`, `->object()`, `->objects()` (levels 1-6, else `ValidationException`), `->intrastat()`, `->weight()`, `->firstMeasurement()`, `->info()` (sales only), `->marked()`, `->additionalCost()`, `->additionalCosts()`, `->set()`
 - `->additionalCost(slot, currency, local)` writes `dPapIsldSumaV{slot}`/`dPapIsldSumaL{slot}` — product lines only (spec: `Tik PirkDokPrekeDetEil`), slot binds to the header's `sPapIslaiduKodas{slot}`
-- `ServiceLine::make(code, qty)` — fluent DTO for service detail lines (no warehouse/weight/intrastat)
+- `ServiceLine::make(code, qty)` — fluent DTO for service detail lines (no warehouse/weight/intrastat); quantity ×100 by default per the spec's second-measurement rule; `->description()` writes `sPavadinimas` (not in the spec table; kept on live evidence, commit c776ca7)
 - Used via `OperationBuilder::product(ProductLine)` and `OperationBuilder::service(ServiceLine)`
 - Existing `addProduct()`/`addService()`/`addProductLine()`/`addServiceLine()` remain for backward compatibility
 - `->set(key, value)` is the escape hatch for raw API field names not covered by named methods
@@ -57,7 +66,7 @@ src/
   Finvalda.php              # Main client — $finvalda->clients(), ->products(), etc.
   FinvaldaConfig.php        # Config DTO (baseUrl, username, password, language, etc.)
   HttpClient.php            # HTTP transport layer (Guzzle, injectable)
-  Builders/                 # 18 fluent operation builders (OperationBuilder base + 17 concrete)
+  Builders/                 # Fluent operation builders: OperationBuilder base, Sales/Purchase/Payment/StockAdjustment family bases, 18 concrete; Concerns/ header traits
   Enums/                    # AccessResult, Language, ItemClass, OperationClass, OpClass, CredentialMode, etc.
   Exceptions/               # FinvaldaException, AccessDeniedException, ValidationException
   Debug/                    # Diagnostics (shared logger/debug/recorder state) + LastExchange snapshot

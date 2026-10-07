@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Builders\Concerns\SetsClient;
+use Finvalda\Builders\Concerns\SetsDocumentNumber;
+use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsMarked;
+use Finvalda\Builders\Concerns\SetsName;
+use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\OperationClass;
+use Finvalda\Exceptions\ValidationException;
 
 /**
  * Fluent builder for internal transfer operations (VidPerkDok).
@@ -15,37 +22,49 @@ use Finvalda\Enums\OperationClass;
  *     ->date('2024-01-15')
  *     ->fromWarehouse('MAIN')
  *     ->toWarehouse('BRANCH')
- *     ->addProduct('PRD001', quantity: 50)
+ *     ->addTransfer('PRD001', quantity: 50)
+ *     ->addTransfer('PRD002', quantity: 25)
  *     ->save('TRANSFER');
  * ```
  */
 final class InternalTransferBuilder extends OperationBuilder
 {
+    use SetsClient;
+    use SetsDocumentNumber;
+    use SetsEmployee;
+    use SetsMarked;
+    use SetsName;
+    use SetsNote;
+
+    /** @var array<int, array<string, mixed>> */
+    private array $transfers = [];
+
     public function getOperationClass(): OperationClass
     {
         return OperationClass::InternalTransfer;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'VidPerkDok';
+        return 'addTransfer()';
     }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'VidPerkDokDetEil';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        // Internal transfers don't typically have services
-        return 'VidPerkDokPaslaugaDetEil';
-    }
-
-    // --- Transfer-specific methods ---
 
     /**
-     * Set the source warehouse (sIsSandelio).
+     * @return array<string, mixed>
+     */
+    public function build(): array
+    {
+        $data = parent::build();
+
+        if ($this->transfers !== []) {
+            $data['VidPerkDok']['VidPerkDokDetEil'] = $this->transfers;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Set the source warehouse code (sIsSandelio).
      */
     public function fromWarehouse(string $warehouseCode): self
     {
@@ -55,7 +74,7 @@ final class InternalTransferBuilder extends OperationBuilder
     }
 
     /**
-     * Set the destination warehouse (sISandeli).
+     * Set the destination warehouse code (sISandeli).
      */
     public function toWarehouse(string $warehouseCode): self
     {
@@ -65,17 +84,17 @@ final class InternalTransferBuilder extends OperationBuilder
     }
 
     /**
-     * Set the responsible person code.
+     * Set the document series (sSerija).
      */
-    public function responsiblePerson(string $personCode): self
+    public function series(string $series): self
     {
-        $this->header['sAtsakingasAsmuo'] = $personCode;
+        $this->header['sSerija'] = $series;
 
         return $this;
     }
 
     /**
-     * Set whether to export to iVAZ.
+     * Set whether to export to iVAZ (nIVAZ).
      */
     public function exportToIvaz(bool $export = true): self
     {
@@ -85,35 +104,19 @@ final class InternalTransferBuilder extends OperationBuilder
     }
 
     /**
-     * Set the operation marked flag.
-     */
-    public function marked(bool $marked = true): self
-    {
-        $this->header['nPozymis'] = $marked ? 1 : 0;
-
-        return $this;
-    }
-
-    /**
-     * Set the Finvalda employee name.
-     */
-    public function employee(string $employee): self
-    {
-        $this->header['sDarbuotojas'] = $employee;
-
-        return $this;
-    }
-
-    /**
      * Add a product transfer line.
      *
-     * Internal transfers carry a single source/destination warehouse pair at
-     * the header level (sIsSandelio/sISandeli); the detail rows (VidPerkDokDetEil)
-     * have no per-line warehouse fields. For convenience, passing
-     * $fromWarehouse/$toWarehouse here sets the header values (last call wins) —
-     * prefer fromWarehouse()/toWarehouse() for clarity.
+     * A transfer moves every line between ONE warehouse pair, held on the header
+     * (sIsSandelio/sISandeli); VidPerkDokDetEil has no warehouse fields.
+     * $fromWarehouse/$toWarehouse set that pair, and a value that contradicts
+     * one already set throws instead of silently re-routing earlier lines.
      *
-     * @param  array<string, mixed>  $additionalData
+     * nPirmasMat defaults to 1 (quantity in the product's first unit), as on
+     * ProductLine; pass ['nPirmasMat' => 0] in $additionalData to opt out.
+     *
+     * @param  array<string, mixed>  $additionalData  Further VidPerkDokDetEil fields
+     *
+     * @throws ValidationException  When a warehouse contradicts the one already set.
      */
     public function addTransfer(
         string $productCode,
@@ -122,19 +125,35 @@ final class InternalTransferBuilder extends OperationBuilder
         ?string $toWarehouse = null,
         array $additionalData = [],
     ): self {
-        if ($fromWarehouse !== null) {
-            $this->fromWarehouse($fromWarehouse);
-        }
+        $this->setWarehouseOnce('sIsSandelio', $fromWarehouse);
+        $this->setWarehouseOnce('sISandeli', $toWarehouse);
 
-        if ($toWarehouse !== null) {
-            $this->toWarehouse($toWarehouse);
-        }
-
-        $this->productLines[] = array_merge([
+        $this->transfers[] = array_merge([
             'sKodas' => $productCode,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ], $additionalData);
 
         return $this;
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function setWarehouseOnce(string $key, ?string $warehouse): void
+    {
+        if ($warehouse === null) {
+            return;
+        }
+
+        $current = $this->header[$key] ?? null;
+
+        if ($current !== null && $current !== $warehouse) {
+            throw new ValidationException(
+                "A transfer has one {$key} for all lines: '{$current}' is already set, '{$warehouse}' given"
+            );
+        }
+
+        $this->header[$key] = $warehouse;
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Exceptions\ValidationException;
+
 /**
  * Fluent value object for building service detail lines.
  *
@@ -38,11 +40,18 @@ final class ServiceLine
     }
 
     /**
-     * Set the unit price (dKaina).
+     * Set the unit price without VAT and discount.
+     *
+     * Sales lines only — purchase detail lines have no unit-price field, and a
+     * purchase build() rejects it.
+     *
+     * @param  float  $price  Unit price in operation currency (dSumaVntV)
+     * @param  float|null  $local  Unit price in EUR (dSumaVntL). Defaults to $price.
      */
-    public function price(float $price): self
+    public function price(float $price, ?float $local = null): self
     {
-        $this->data['dKaina'] = $price;
+        $this->data['dSumaVntV'] = $price;
+        $this->data['dSumaVntL'] = $local ?? $price;
 
         return $this;
     }
@@ -103,10 +112,12 @@ final class ServiceLine
 
     /**
      * Set a single analytical object by level (1-6).
+     *
+     * @throws ValidationException  On a level outside 1-6.
      */
     public function object(int $level, string $code): self
     {
-        $this->data["sObjektas{$level}"] = $code;
+        $this->data[ObjectLevel::key($level)] = $code;
 
         return $this;
     }
@@ -115,11 +126,13 @@ final class ServiceLine
      * Set multiple analytical objects at once, keyed by level.
      *
      * @param  array<int, string>  $map  e.g. [1 => 'DEPT01', 4 => '1234567']
+     *
+     * @throws ValidationException  On a level outside 1-6.
      */
     public function objects(array $map): self
     {
         foreach ($map as $level => $code) {
-            $this->data["sObjektas{$level}"] = $code;
+            $this->data[ObjectLevel::key($level)] = $code;
         }
 
         return $this;
@@ -127,6 +140,10 @@ final class ServiceLine
 
     /**
      * Set the description (sPavadinimas).
+     *
+     * Not in the spec's service-line table; kept because a production
+     * UVMPardRezDok booking showed the server reads the line description from
+     * sPavadinimas (v2.5.2). Sales lines only — a purchase build() rejects it.
      */
     public function description(string $text): self
     {
@@ -160,7 +177,7 @@ final class ServiceLine
     }
 
     /**
-     * Set additional info text (sPapInf).
+     * Set additional info text (sPapInf). Sales lines only.
      */
     public function info(string $text): self
     {

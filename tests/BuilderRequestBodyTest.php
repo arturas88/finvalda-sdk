@@ -43,6 +43,10 @@ class BuilderRequestBodyTest extends TestCase
         yield 'purchase order short' => ['purchaseOrder', true, 'TrumpasPirkUzsDok', 'TrumpasPirkUzsDok', 'PirkDokPrekeDetEil', 'PirkDokPaslaugaDetEil'];
         yield 'purchase return full' => ['purchaseReturn', false, 'PirkGrazDok', 'PirkGrazDok', 'PirkDokPrekeDetEil', 'PirkDokPaslaugaDetEil'];
         yield 'purchase return short' => ['purchaseReturn', true, 'TrumpasPirkGrazDok', 'TrumpasPirkGrazDok', 'PirkDokPrekeDetEil', 'PirkDokPaslaugaDetEil'];
+        yield 'uvm sales reservation full' => ['uvmSalesReservation', false, 'UVMPardRezDok', 'UVMPardRezDok', 'PardDokPrekeDetEil', 'PardDokPaslaugaDetEil'];
+        yield 'uvm sales reservation short' => ['uvmSalesReservation', true, 'TrumpasUVMPardRezDok', 'TrumpasUVMPardRezDok', 'PardDokPrekeDetEil', 'PardDokPaslaugaDetEil'];
+        yield 'uvm purchase order full' => ['uvmPurchaseOrder', false, 'UVMPirkUzsDok', 'UVMPirkUzsDok', 'PirkDokPrekeDetEil', 'PirkDokPaslaugaDetEil'];
+        yield 'uvm purchase order short' => ['uvmPurchaseOrder', true, 'TrumpasUVMPirkUzsDok', 'TrumpasUVMPirkUzsDok', 'PirkDokPrekeDetEil', 'PirkDokPaslaugaDetEil'];
     }
 
     #[DataProvider('builderWireFormats')]
@@ -76,8 +80,8 @@ class BuilderRequestBodyTest extends TestCase
             ->date('2024-01-20')
             ->currency('EUR')
             ->documentNumber('DOC-001')
-            ->addProduct('PRD001', quantity: 2, price: 19.99)
-            ->addService('SRV001', quantity: 1, price: 5.00)
+            ->addProduct('PRD001', quantity: 2, amount: 39.98)
+            ->addService('SRV001', quantity: 1, amount: 5.00)
             ->save('PARAM');
 
         $body = json_decode((string) $history[0]['request']->getBody(), true, flags: JSON_THROW_ON_ERROR);
@@ -129,7 +133,7 @@ class BuilderRequestBodyTest extends TestCase
         $operation = json_decode($body['xmlstring'], true, flags: JSON_THROW_ON_ERROR);
         $line = $operation['PardDok']['PardDokPrekeDetEil'][0];
 
-        $this->assertSame(0.3, $line['dKaina']);
+        $this->assertSame(0.3, $line['dSumaVntV']);
         $this->assertSame(3.3, $line['nKiekis']);
         $this->assertSame(12.345678, $line['dSumaV']);
         $this->assertSame(12.345678, $line['dSumaL']);
@@ -170,7 +174,7 @@ class BuilderRequestBodyTest extends TestCase
             $xmlstring = $body['xmlstring'];
 
             $this->assertStringContainsString('"dSumaV":21.49', $xmlstring);
-            $this->assertStringContainsString('"dKaina":0.3', $xmlstring);
+            $this->assertStringContainsString('"dSumaVntV":0.3', $xmlstring);
             $this->assertStringNotContainsString('21.4899999', $xmlstring);
         } finally {
             ini_set('serialize_precision', $previous);

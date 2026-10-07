@@ -657,45 +657,56 @@ Create operations using an intuitive fluent interface instead of complex nested 
 $result = $finvalda->sale()
     ->client('CLI001')
     ->date('2024-01-15')
-    ->warehouse('MAIN')
+    ->warehouse('MAIN')                 // default sSandelis for every product line
     ->currency('EUR')
-    ->description('January order')
+    ->note('January order')
     ->documentNumber('ORD-2024-001')
-    ->paymentDays(30)
-    ->priceType(1)
+    ->dueDate('2024-02-14')             // tMokejimoData
     ->discount(5.0)
     ->object1('DEPT01')
     ->object2('PROJ01')
     ->employee('JONAS')
     ->exportToIvaz()
     ->roundingAmount(0.01)
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->addProduct('PRD002', quantity: 5, amount: 49.95)
-    ->addService('SVC001', quantity: 2, price: 50.00)
+    ->addService('SVC001', quantity: 200, amount: 100.00)
     ->save('STANDARD');
 
 // Equivalent array-based approach (old way - still supported)
 $result = $finvalda->operations()->create(OperationClass::Sale, [
-    'sKlientas' => 'CLI001',
-    'tData' => '2024-01-15',
-    'sSandelis' => 'MAIN',
-    'sValiuta' => 'EUR',
-    'sAprasymas' => 'January order',
-    'sDokumentas' => 'ORD-2024-001',
-    'nAtsiskDien' => 30,
-    'nKainosTipas' => 1,
-    'dNuolaida' => 5.0,
-    'sObjektas1' => 'DEPT01',
-    'sObjektas2' => 'PROJ01',
-    'PardDokPrekeDetEil' => [
-        ['sKodas' => 'PRD001', 'nKiekis' => 10, 'dKaina' => 19.99],
-        ['sKodas' => 'PRD002', 'nKiekis' => 5, 'dSumaV' => 49.95],
-    ],
-    'PardDokPaslaugaDetEil' => [
-        ['sKodas' => 'SVC001', 'nKiekis' => 2, 'dKaina' => 50.00],
+    'PardDok' => [
+        'sKlientas' => 'CLI001',
+        'tData' => '2024-01-15',
+        'sValiuta' => 'EUR',
+        'sPastaba' => 'January order',
+        'sDokumentas' => 'ORD-2024-001',
+        'tMokejimoData' => '2024-02-14',
+        'dNuolaida' => 5.0,
+        'sObjektas1' => 'DEPT01',
+        'sObjektas2' => 'PROJ01',
+        'PardDokPrekeDetEil' => [
+            ['sKodas' => 'PRD001', 'nKiekis' => 10, 'nPirmasMat' => 1, 'sSandelis' => 'MAIN', 'dSumaV' => 199.90, 'dSumaVntV' => 19.99],
+            ['sKodas' => 'PRD002', 'nKiekis' => 5, 'nPirmasMat' => 1, 'sSandelis' => 'MAIN', 'dSumaV' => 49.95],
+        ],
+        'PardDokPaslaugaDetEil' => [
+            ['sKodas' => 'SVC001', 'nKiekis' => 200, 'dSumaV' => 100.00],
+        ],
     ],
 ], 'STANDARD');
 ```
+
+Every setter writes a field the spec defines for that operation's envelope — a
+builder offers no setter for a field its envelope lacks, because the server silently
+drops unknown fields. Where a mistake can only be seen at `build()` (a header field
+on a `short()` variant, a unit price on a purchase line), `build()` throws
+`ValidationException` instead of sending a payload that would quietly lose data.
+`tests/Spec/BuilderSpecConformanceTest.php` checks every setter against the spec
+tables in `docs/FVS_Webservice.md`.
+
+> **Unit price (`price`) is sales-only.** It writes `dSumaVntV`/`dSumaVntL` (unit
+> price without VAT and discount); purchase detail lines have no unit-price field,
+> so purchases take `amount` (`dSumaV`) only.
 
 ### Using Line DTOs (Recommended for Accounting)
 
@@ -737,9 +748,13 @@ $result = $finvalda->sale()
 
 The `product()` / `service()` methods accept line DTOs. The existing `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` methods still work — you can mix both styles in the same builder.
 
-**Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()`, `marked()`, `set()`
+**Available ProductLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `additionalCost()`/`additionalCosts()` (purchases only), `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()` (sales only), `marked()`, `set()`
 
-**Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+**Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (sales only), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
+
+`object()`/`objects()` accept levels 1-6 and throw `ValidationException` otherwise.
+A line DTO cannot see which operation it will join, so a sales-only or purchase-only
+field is rejected by the receiving builder's `build()`.
 
 #### Quantity convention (important)
 
@@ -824,16 +839,17 @@ $result = $finvalda->purchase()
     ->date('2024-01-15')
     ->warehouse('MAIN')
     ->currency('EUR')
-    ->series('SF')                          // sSerija — document series
+    ->documentNumber('INV-2024-001')         // sDokumentas — the supplier's invoice number
     ->documentType(DocumentType::VatInvoice) // sDokRusis — or pass 'SF'
-    ->supplierInvoice('INV-2024-001')
-    ->supplierInvoiceDate('2024-01-14')
-    ->paymentDays(60)
-    ->addProduct('PRD001', quantity: 100, price: 9.99)
-    ->addProduct('PRD002', quantity: 50, price: 14.99)
-    ->addService('FREIGHT', quantity: 1, amount: 150.00)
+    ->dueDate('2024-03-14')                  // tMokejimoData
+    ->addProduct('PRD001', quantity: 100, amount: 999.00)
+    ->addProduct('PRD002', quantity: 50, amount: 749.50)
+    ->addService('FREIGHT', quantity: 100, amount: 150.00)
     ->save('STANDARD');
 ```
+
+The full purchase header (`PirkDok`) has **no series field**: `series()` is accepted
+on `->short()` purchases only, and a full purchase with a series fails at `build()`.
 
 #### Document type, series & the operation parameter
 
@@ -862,7 +878,8 @@ inputs** to a create call — none of them is derived from the others:
 | `VK` | `LawyerVatInvoiceCredit` | Advokatų PVM sąskaita faktūra kreditinė |
 
 These methods are available on `sale()`, `salesReservation()`, `salesReturn()`,
-`purchase()`, `purchaseOrder()`, and `purchaseReturn()`.
+`uvmSalesReservation()`, `purchase()`, `purchaseOrder()`, `purchaseReturn()` and
+`uvmPurchaseOrder()` (`series()` on purchases: `short()` only).
 
 > **`sParametras` is required and cannot be bypassed.** The operation *type*
 > (purchase vs. sale, i.e. `ItemClassName`) is what you pick by choosing the
@@ -884,7 +901,7 @@ $finvalda->purchase()
     ->client('SUP001')
     ->date('2026-07-28')
     ->warehouse('WH01')
-    ->supplierInvoice('INV-2026-0042')
+    ->documentNumber('INV-2026-0042')
     ->additionalCostCodes(['KITOS', 'TRANSP', 'ILGALSAV', 'DRAUDIM'])  // slots 1-4
     ->product(
         ProductLine::make('WSM000001TB061527', 1)
@@ -997,8 +1014,8 @@ This emits the documented envelope — note that it is **not** the insert envelo
 | `additionalCostCodes([...])` | `PirkDokHeadEil` | Same method as on insert (*Tik KoregPirkDok ir KoregPirkUzsDok*). |
 | `removeProduct($code, $warehouse)` | `DelPrekeDetEil` | Warehouse optional. |
 | `removeService($code)` | `DelPaslaugaDetEil` | |
-| `product(ProductLine)` | `PirkDokPrekeDetEil` | Requires `sKodas`, `sSandelis`, `dSumaV`, `dSumaL`, `nKiekis`. |
-| `service(ServiceLine)` | `PirkDokPaslaugaDetEil` | Requires `sKodas`, `dSumaV`, `dSumaL`, `nKiekis`. |
+| `product(ProductLine)` | `PirkDokPrekeDetEil` | Requires `sKodas`, `sSandelis`, `dSumaV`, `dSumaL`, `nKiekis`. Rejects fields the correction table lacks (VAT percent, objects, intrastat, weights, `sPapInf`). |
+| `service(ServiceLine)` | `PirkDokPaslaugaDetEil` | Requires `sKodas`, `dSumaV`, `dSumaL`, `nKiekis`. Same rejection rule. |
 | `assertNotSold()` | — | One `purchaseOpFor()` round trip per distinct product code; throws `ConflictException` when a touched product is sold. |
 
 What `header()` deliberately **refuses**, because `PirkDokHeadEil` does not accept
@@ -1028,7 +1045,7 @@ $result = $finvalda->internalTransfer()
     ->date('2024-01-15')
     ->fromWarehouse('MAIN')      // header field sIsSandelio
     ->toWarehouse('BRANCH')      // header field sISandeli
-    ->description('Restock branch warehouse')
+    ->name('Restock branch warehouse')
     ->addTransfer('PRD001', quantity: 50)
     ->addTransfer('PRD002', quantity: 25)
     ->save('TRANSFER');
@@ -1037,28 +1054,33 @@ $result = $finvalda->internalTransfer()
 An internal transfer carries a **single** source/destination warehouse pair at the
 header level — the detail rows have no per-line warehouse fields. To move stock
 between different warehouse pairs, create separate transfer operations.
+`addTransfer()`'s `fromWarehouse`/`toWarehouse` arguments set that pair; one that
+contradicts a warehouse already set throws `ValidationException` rather than
+re-routing the earlier lines. Generic `product()`/`addProduct()` lines are rejected —
+`VidPerkDokDetEil` has no amounts, VAT or warehouse.
 
 ### Creating Returns
 
 ```php
 // Sales return
 $result = $finvalda->salesReturn()
+    ->short()
     ->client('CLI001')
     ->date('2024-01-20')
+    ->documentNumber('GRAZ-001')
+    ->currency('EUR')
     ->warehouse('MAIN')
-    ->originalDocument('SF-001', 'PARD', 123)
-    ->reason('Defective product')
-    ->addProduct('PRD001', quantity: 2, price: 19.99)
+    ->addProduct('PRD001', quantity: 2, amount: 39.98)
     ->save('RETURN');
 
 // Purchase return
 $result = $finvalda->purchaseReturn()
     ->client('SUP001')
     ->date('2024-01-20')
+    ->documentNumber('GRAZ-002')
+    ->currency('EUR')
     ->warehouse('MAIN')
-    ->originalDocument('PO-001', 'PIRK', 456)
-    ->reason('Wrong items delivered')
-    ->addProduct('PRD001', quantity: 10, price: 9.99)
+    ->addProduct('PRD001', quantity: 10, amount: 99.90)
     ->save('RETURN');
 ```
 
@@ -1067,36 +1089,46 @@ $result = $finvalda->purchaseReturn()
 > same fields via `->short()` (`TrumpasPardGrazDok`) succeeded. If a full-variant
 > return fails with 2012, use `->short()` — it is the shape proven to work.
 >
-> The `originalDocument()` / `reason()` fields (`sGrazDokumentas`, `sGrazZurnalas`,
-> `nGrazNumeris`, `sGrazPriezastis`) do not appear in the official FVS spec.
-> Finvalda silently ignores unknown fields, so verify against your server that the
-> linkage actually lands before relying on it.
+> The spec has no field linking a return to the original document. The former
+> `originalDocument()` / `reason()` setters wrote invented fields (`sGrazDokumentas`,
+> `sGrazZurnalas`, `nGrazNumeris`, `sGrazPriezastis`) that the server dropped, and
+> were removed.
 
 ### Creating Payments
 
 ```php
-// Payment received (inflow)
+use Finvalda\Enums\PaymentType;
+
+// Payment received (inflow, IplDok) settling a specific sale
 $result = $finvalda->inflow()
     ->client('CLI001')
     ->date('2024-01-15')
-    ->amount(500.00)
     ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for invoice SF-001')
-    ->forDocument('SF-001', 'PARD', 123, amount: 500.00)
+    ->documentNumber('KPO-001')
+    ->type(PaymentType::Documents)           // nTipas 3
+    ->name('Payment for invoice SF-001')
+    ->forDocument('SF', '001', 500.00)       // series, document, amount
     ->save('INFLOW');
 
-// Payment out (disbursement)
+// Payment out (disbursement, IsmDok) as an advance
 $result = $finvalda->disbursement()
     ->client('SUP001')
     ->date('2024-01-15')
-    ->amount(1000.00)
     ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for purchase PO-001')
-    ->forDocument('PO-001', 'PIRK', 456, amount: 1000.00)
+    ->documentNumber('KIO-001')
+    ->type(PaymentType::Advance)             // nTipas 0
+    ->addLine(1000.00, 'Advance for PO-001')
     ->save('DISBURSEMENT');
 ```
+
+`PaymentType`: `Advance` (0), `Fifo` (1, settles the client's open documents
+oldest-first) and `Documents` (3, settles the documents named on the lines). The
+payment total is the sum of the lines' `dSumaV`; the header has no amount field.
+Lines are nested inside the `IplDok`/`IsmDok` wrapper like every other operation.
+
+> **Disbursements are unverified live.** The spec documents the `IsmDok` envelope
+> (in the shared "IplDok, IsmDok" table) but leaves it out of the InsertNewOperation
+> class list. The `Mokejimas` payment-order node is not supported.
 
 ### Builder Advanced Usage
 
@@ -1107,19 +1139,19 @@ $sale = $finvalda->sale()->parameter('STANDARD');
 // Add custom header fields
 $sale->setHeader('sCustomField', 'value');
 
-// Add product lines with additional data
-$sale->addProduct('PRD001', quantity: 10, price: 19.99, warehouse: 'WH01', additionalData: [
-    'sLot' => 'LOT001',
-    'tExpiryDate' => '2025-12-31',
+// Add product lines with additional spec fields
+$sale->addProduct('PRD001', quantity: 10, amount: 199.90, warehouse: 'WH01', additionalData: [
+    'sPapInf' => 'LOT001',
+    'tIvykdymoData' => '2025-12-31',
 ]);
 
 // Add raw product line
 $sale->addProductLine([
     'sKodas' => 'PRD002',
     'nKiekis' => 5,
-    'dKaina' => 29.99,
+    'nPirmasMat' => 1,
+    'dSumaV' => 149.95,
     'sSandelis' => 'WH01',
-    'sSerialNumber' => 'SN12345',
 ]);
 
 // Build without saving (for inspection)
@@ -1139,8 +1171,9 @@ $result = $finvalda->writeOff()
     ->name('Monthly write-off')
     ->note('Damaged goods')
     ->employee('Jonas')
-    ->addItem('PRD001', quantity: 5, warehouse: 'MAIN', account: '6110')
-    ->addItem('PRD002', quantity: 3, warehouse: 'MAIN', account: '6110')
+    ->warehouse('MAIN')                  // default sSandelis for every line
+    ->addItem('PRD001', quantity: 5, account: '6110')
+    ->addItem('PRD002', quantity: 3, account: '6110')
     ->save('WRITEOFF');
 
 // Capitalization (receiving inventory)
@@ -1150,6 +1183,10 @@ $result = $finvalda->capitalization()
     ->addItem('PRD001', quantity: 10, amount: 199.90, warehouse: 'MAIN', account: '2010')
     ->save('CAPITALIZE');
 ```
+
+Write-off, capitalization, transfer and production lines default `nPirmasMat` to 1
+(quantity in the product's first unit), like `ProductLine`; pass
+`additionalData: ['nPirmasMat' => 0]` to opt out.
 
 ### Creating a Production Operation
 
@@ -1190,7 +1227,8 @@ $result = $finvalda->inventoryCount()
     ->addItem('B.DYZELINAS', quantity: 20.00, account: '1275')
     ->save('INVENTORY');
 
-// Append to an existing inventory count
+// mode 1 adds to a count the product already has that day in that warehouse;
+// mode 0 (the default) overwrites it. Anything else throws.
 $result = $finvalda->inventoryCount()
     ->mode(1)
     ->journal('INVENT')
@@ -1203,14 +1241,19 @@ $result = $finvalda->inventoryCount()
 ### Clearing / Set-Off
 
 ```php
+use Finvalda\Enums\ClearingDocumentType;
+
 $result = $finvalda->clearing()
     ->date('2024-01-15')
     ->name('Monthly clearing')
     ->debtor('CLI001')
     ->creditor('CLI002')
-    ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: 3)
-    ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: 2)
+    ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: ClearingDocumentType::Sale)
+    ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: ClearingDocumentType::Purchase)
     ->save('CLEARING');
+
+// The debit side accepts 1/3/4/6 and the credit side 0/2/5/6 (raw ints still
+// work); a type from the wrong side throws ValidationException.
 
 // Using account entries (type 6)
 $result = $finvalda->clearing()
@@ -1229,23 +1272,21 @@ $result = $finvalda->clearing()
 $result = $finvalda->uvmSalesReservation()
     ->client('HTNT')
     ->date('2024-01-15')
-    ->operationType('PARDSERV')
+    ->documentNumber('30608')
     ->fulfillmentDate('2024-01-20')
     ->currency('EUR')
     ->object1('SERVISAS')
-    ->description('Workshop order #30608')
-    ->addService('5054', quantity: 1, price: 0, additionalData: [
-        'sPavadinimas' => 'Service description',
-    ])
+    ->note('Workshop order #30608')
+    ->service(ServiceLine::make('5054', 1)->amount(0)->description('Service description'))
     ->save('WORKSHOP');
 
 // UVM purchase order
 $result = $finvalda->uvmPurchaseOrder()
     ->client('SUP001')
     ->date('2024-01-15')
+    ->documentNumber('UZS-001')
     ->currency('EUR')
-    ->operationType('PIRK')
-    ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+    ->addProduct('PRD001', quantity: 24, amount: 84.00, warehouse: 'CENTR.')
     ->save('ORDER');
 
 // UVM cancellation
@@ -1260,7 +1301,7 @@ $result = $finvalda->uvmCancellation()
 
 ### Short / Simplified Operations
 
-All sales, purchase, and return builders support a `short()` mode that uses simplified operation variants. Short operations send minimal headers and let the server fill in defaults.
+All sales, purchase, return and UVM reservation/order builders support a `short()` mode that uses the simplified `Trumpas*` variants. Short operations send minimal headers and let the server fill in defaults. A short sales header takes only client, date, series, document, currency, fulfillment date and document type; a short purchase header only client, date, series, document, currency and document type. Any other header field fails at `build()` with `ValidationException`.
 
 ```php
 // Short sale — server applies default settings
@@ -1270,20 +1311,25 @@ $result = $finvalda->sale()
     ->date('2024-01-15')
     ->series('SF')
     ->currency('EUR')
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->save('STANDARD');
 
 // Short purchase return
 $result = $finvalda->purchaseReturn()
     ->short()
     ->client('SUP001')
+    ->date('2024-01-20')
     ->currency('EUR')
     ->series('GR')
-    ->addProduct('PRD001', quantity: 10, price: 9.99)
+    ->addProduct('PRD001', quantity: 10, amount: 99.90)
     ->save('RETURN');
 ```
 
-Builders supporting `short()`: `sale()`, `salesReservation()`, `salesReturn()`, `purchase()`, `purchaseOrder()`, `purchaseReturn()`.
+Builders supporting `short()`: `sale()`, `salesReservation()`, `salesReturn()`, `uvmSalesReservation()` (`TrumpasUVMPardRezDok`), `purchase()`, `purchaseOrder()`, `purchaseReturn()`, `uvmPurchaseOrder()` (`TrumpasUVMPirkUzsDok`).
+
+To delete an operation you created, `OperationClass::deleteClass()` gives the
+matching `DeleteOperationClass` (short variants map to their full class), or `null`
+where the spec offers no delete.
 
 ## Query Builders
 

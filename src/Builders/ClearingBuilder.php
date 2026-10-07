@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsName;
+use Finvalda\Enums\ClearingDocumentType;
 use Finvalda\Enums\OperationClass;
+use Finvalda\Exceptions\ValidationException;
 
 /**
  * Fluent builder for clearing/set-off operations (UzskaitaDok).
@@ -20,13 +24,16 @@ use Finvalda\Enums\OperationClass;
  *     ->name('Monthly clearing')
  *     ->debtor('CLI001')
  *     ->creditor('CLI002')
- *     ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: 3)
- *     ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: 2)
+ *     ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: ClearingDocumentType::Sale)
+ *     ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: ClearingDocumentType::Purchase)
  *     ->save('CLEARING');
  * ```
  */
 final class ClearingBuilder extends OperationBuilder
 {
+    use SetsEmployee;
+    use SetsName;
+
     /** @var array<int, array<string, mixed>> */
     protected array $debitLines = [];
 
@@ -38,19 +45,9 @@ final class ClearingBuilder extends OperationBuilder
         return OperationClass::Clearing;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'UzskaitaDok';
-    }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'UzskaitaDebitDetEil';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        return 'UzskaitaKreditDetEil';
+        return 'addDebitLine()/addCreditLine()';
     }
 
     /**
@@ -63,8 +60,6 @@ final class ClearingBuilder extends OperationBuilder
      */
     public function build(): array
     {
-        $this->assertNoGenericLines('addDebitLine()/addCreditLine()');
-
         $payload = $this->header;
 
         if (! empty($this->debitLines)) {
@@ -101,44 +96,26 @@ final class ClearingBuilder extends OperationBuilder
     }
 
     /**
-     * Set the operation name/title.
-     */
-    public function name(string $name): self
-    {
-        $this->header['sPavadinimas'] = $name;
-
-        return $this;
-    }
-
-    /**
-     * Set the employee name.
-     */
-    public function employee(string $name): self
-    {
-        $this->header['sDarbuotojas'] = $name;
-
-        return $this;
-    }
-
-    /**
      * Add a debit clearing line.
      *
      * Types: 1=Disbursement, 3=Sales, 4=Purchase returns, 6=Account.
      *
      * @param  array<string, mixed>  $additionalData
+     *
+     * @throws ValidationException  On a type the debit side does not accept.
      */
     public function addDebitLine(
         float $amount,
         string $series,
         string $document,
-        int $type,
+        ClearingDocumentType|int $type,
         array $additionalData = [],
     ): self {
         $this->debitLines[] = array_merge([
             'dSumaV' => $amount,
             'sSerija' => $series,
             'sDokumentas' => $document,
-            'nTipas' => $type,
+            'nTipas' => self::typeFor($type, debit: true),
         ], $additionalData);
 
         return $this;
@@ -150,19 +127,21 @@ final class ClearingBuilder extends OperationBuilder
      * Types: 0=Inflow, 2=Purchases, 5=Sales returns, 6=Account.
      *
      * @param  array<string, mixed>  $additionalData
+     *
+     * @throws ValidationException  On a type the credit side does not accept.
      */
     public function addCreditLine(
         float $amount,
         string $series,
         string $document,
-        int $type,
+        ClearingDocumentType|int $type,
         array $additionalData = [],
     ): self {
         $this->creditLines[] = array_merge([
             'dSumaV' => $amount,
             'sSerija' => $series,
             'sDokumentas' => $document,
-            'nTipas' => $type,
+            'nTipas' => self::typeFor($type, debit: false),
         ], $additionalData);
 
         return $this;
@@ -180,7 +159,7 @@ final class ClearingBuilder extends OperationBuilder
     ): self {
         $this->debitLines[] = array_merge([
             'dSumaV' => $amount,
-            'nTipas' => 6,
+            'nTipas' => ClearingDocumentType::Account->value,
             'sSaskaita' => $account,
         ], $additionalData);
 
@@ -199,10 +178,30 @@ final class ClearingBuilder extends OperationBuilder
     ): self {
         $this->creditLines[] = array_merge([
             'dSumaV' => $amount,
-            'nTipas' => 6,
+            'nTipas' => ClearingDocumentType::Account->value,
             'sSaskaita' => $account,
         ], $additionalData);
 
         return $this;
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private static function typeFor(ClearingDocumentType|int $type, bool $debit): int
+    {
+        $case = $type instanceof ClearingDocumentType ? $type : ClearingDocumentType::tryFrom($type);
+        $side = $debit ? 'debit' : 'credit';
+
+        if ($case === null || ! ($debit ? $case->isDebit() : $case->isCredit())) {
+            $given = $type instanceof ClearingDocumentType ? $type->name : (string) $type;
+
+            throw new ValidationException(
+                "Clearing type {$given} is not valid on the {$side} side; "
+                . ($debit ? 'use 1, 3, 4 or 6' : 'use 0, 2, 5 or 6')
+            );
+        }
+
+        return $case->value;
     }
 }
