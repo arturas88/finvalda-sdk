@@ -14,7 +14,15 @@ class FinvaldaServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/finvalda.php', 'finvalda');
 
-        $this->app->singleton(Finvalda::class, function () {
+        // Scoped, not a singleton: the client carries mutable state — a logger
+        // set with setLogger(), record() buffers, company-scoped copies, cached
+        // type/tag dictionaries. Laravel flushes scoped instances between Octane
+        // requests and queue jobs, so one job's record() or setLogger() cannot
+        // leak into the next. A Laravel too old to have scoped() keeps a
+        // singleton.
+        $bind = method_exists($this->app, 'scoped') ? 'scoped' : 'singleton';
+
+        $this->app->{$bind}(Finvalda::class, function () {
             /** @var array<string, mixed> $config */
             $config = config('finvalda');
 

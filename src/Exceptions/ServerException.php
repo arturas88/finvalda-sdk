@@ -7,4 +7,4 @@ namespace Finvalda\Exceptions;
 /**
  * Thrown when the server returns a 5xx error.
  */
-class ServerException extends FinvaldaException {}
+class ServerException extends HttpException {}

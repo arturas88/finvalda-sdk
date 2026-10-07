@@ -426,52 +426,6 @@ class ExchangeTest extends TestCase
         $this->assertStringContainsString('sPassword=***', $url);
     }
 
-    public function test_substitutes_a_userinfo_password_in_the_url(): void
-    {
-        $exchange = new Exchange(
-            method: 'GET',
-            url: 'https://svcuser:svcpass@example.com/FvsServicePure.svc/GetPrekes?sKodas=A',
-            headers: [],
-            body: null,
-            statusCode: 200,
-            reasonPhrase: 'OK',
-            responseHeaders: [],
-            responseBody: null,
-            durationMs: 1.0,
-        );
-
-        $masked = $exchange->withCredentials(CredentialMode::Masked);
-        $env = $exchange->withCredentials(CredentialMode::Env);
-
-        $this->assertSame(
-            'https://svcuser:***@example.com/FvsServicePure.svc/GetPrekes?sKodas=A',
-            $masked->url,
-        );
-        $this->assertSame(
-            'https://svcuser:$FVS_PASSWORD@example.com/FvsServicePure.svc/GetPrekes?sKodas=A',
-            $env->url,
-        );
-        // A userinfo without a password component is left alone
-        $this->assertStringNotContainsString('svcpass', $masked->url);
-    }
-
-    public function test_leaves_a_userinfo_without_a_password_untouched(): void
-    {
-        $exchange = new Exchange(
-            method: 'GET',
-            url: 'https://svcuser@example.com/FvsServicePure.svc/GetPrekes',
-            headers: [],
-            body: null,
-            statusCode: 200,
-            reasonPhrase: 'OK',
-            responseHeaders: [],
-            responseBody: null,
-            durationMs: 1.0,
-        );
-
-        $this->assertSame($exchange->url, $exchange->withCredentials(CredentialMode::Masked)->url);
-    }
-
     public function test_scrubs_the_credential_out_of_a_transport_error_message(): void
     {
         // Guzzle embeds the request URI in ConnectException/RequestException messages

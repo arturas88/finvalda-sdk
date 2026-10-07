@@ -136,6 +136,7 @@ $config = new FinvaldaConfig(
     removeZeroNumberTags: false,
     removeNewLines: false,
     timeout: 30,
+    httpOptions: [],                     // Guzzle request options: verify, proxy, connect_timeout…
     logger: null,                        // PSR-3 logger instance
     retry: null,                         // RetryPolicy instance
     record: false,                              // Keep the last N exchanges in memory
@@ -192,6 +193,11 @@ use Finvalda\Laravel\Facades\Finvalda;
 $clients = Finvalda::clients()->collect();
 ```
 
+The container binding is **scoped**: Laravel builds a fresh client per Octane request and
+per queue job, so a `record()`, `setLogger()` or company-scoped copy made while handling
+one job does not carry into the next. (On a Laravel too old to have `scoped()` it falls
+back to a singleton.)
+
 ### Company-Scoped Clients
 
 `companyId` sets the `CompanyID` header on every request. Some things are registered
@@ -208,13 +214,12 @@ $clients = $finvalda->withCompany('HTNT')->clients()->collect();
 ```
 
 Both return a client that shares this one's transport and observability state —
-logger, debug capture and recorder — so company-scoped calls show up in
-`getLastDebugInfo()` and `recordings()` whether logging, debug or recording was
-switched on before or after the company client was created, and turning any of them
-off reaches both. A custom `HttpClient` you injected keeps being used. Repeated calls
-for the same company return the same client, so calling this in a loop over one company
-is fine — but each *distinct* company you pass is retained for the parent's lifetime,
-which matters when the parent is a long-lived singleton (e.g. the Laravel binding).
+logger and recorder — so company-scoped calls show up in `recordings()` whether logging
+or recording was switched on before or after the company client was created, and turning
+either off reaches both. A custom `HttpClient` you injected keeps being used. Repeated
+calls for the same company return the same client, so calling this in a loop over one
+company is fine — but each *distinct* company you pass is retained for the parent's
+lifetime, which matters when the parent is long-lived.
 
 `FinvaldaConfig::withCompanyId()` does the same at the config level.
 
@@ -263,7 +268,7 @@ only values above 512 bytes qualify. **Recording is unaffected** —
 `$finvalda->record()` still captures bodies verbatim, because you reach for it
 precisely when you need the bytes, and it is bounded and opt-in.
 
-Both records are logged at `debug` level. `Finvalda API request` includes method, endpoint, parameters, and the full request body (`body`, string or null for GET). `Finvalda API response` includes method, endpoint, status code, response time, and the full response body (`body`). Bodies larger than 100 KB are truncated with a `... [truncated N bytes]` marker — route the SDK's debug-level records to a suitable handler if log volume is a concern.
+Both records are logged at `debug` level and share a `request_id`. `Finvalda API request` includes method, endpoint, query parameters (`params`; a JSON payload is logged once, as `body`), and the full request body (`body`, string or null for GET). `Finvalda API response` includes method, endpoint, status code, response time, and the full response body (`body`). Bodies larger than 100 KB are truncated with a `... [truncated N bytes]` marker — route the SDK's debug-level records to a suitable handler if log volume is a concern.
 
 #### Logging to a file without a logging framework
 
@@ -300,30 +305,11 @@ In Laravel, set `FINVALDA_LOG_PATH=/var/log/finvalda/finvalda.log` instead of
 constructing the logger by hand — `FINVALDA_LOG_CHANNEL` takes precedence when both are
 set.
 
-### Debug Mode
-
-Capture full request/response details for troubleshooting:
-
-```php
-$finvalda->setDebug(true);
-
-// Make any API call
-$result = $finvalda->operations()->create(OperationClass::Sale, $data, 'PARAM');
-
-// Inspect what was sent and received
-$debug = $finvalda->getLastDebugInfo();
-print_r($debug['request']);   // method, url, headers, body
-print_r($debug['response']);  // status_code, headers, body
-
-// Disable debug mode (clears stored info)
-$finvalda->setDebug(false);
-```
-
 ### Recording Requests
 
-Debug mode holds only the last exchange, as arrays, and captures nothing when a request
-fails. Recording keeps a short history of exchanges as objects that render themselves —
-including failed attempts and each retry.
+Recording keeps a short history of exchanges as objects that render themselves —
+including failed attempts and each retry. `record(1)` plus `lastRecording()` is the
+"what did the last call send and get back" view.
 
 ```php
 use Finvalda\Enums\CredentialMode;
@@ -451,16 +437,18 @@ Worth knowing:
 - **PSR-3 logging always masks**, whatever the recording mode is set to.
 - **`Content-Type: application/json` in curl output is inferred.** Guzzle adds it for JSON
   bodies; the SDK does not set it itself.
-- **Recordings are the SDK's view of the request.** The recorded URL and body reproduce
-  Guzzle's own resolution and encoding (RFC 3986 query encoding, the same JSON encoding
-  Guzzle applies to the `json` option), but if you inject your own Guzzle client with extra
-  default headers or middleware, those additions are not reflected.
+- **Recordings are the SDK's view of the request.** The recorded URL is the absolute URL the
+  SDK hands Guzzle, and the body reproduces Guzzle's own encoding (RFC 3986 query encoding,
+  the same JSON encoding Guzzle applies to the `json` option), but if you inject your own
+  Guzzle client with extra default headers or middleware, those additions are not reflected.
+- **Each call carries a `requestId`**, shared by all its retry attempts and by its two log
+  records (`request_id`), so a recording can be matched to its log lines.
 - **Failures are recorded, then rethrown.** A 4xx/5xx exchange carries the status and error
   body; a connection failure carries `error` with no status.
 - **Retries record one exchange per attempt**, each with its own `attempt` number and duration.
 - **Bodies are capped at 100 KB each**, the same budget PSR-3 logging uses, with the excess
-  replaced by a `... [truncated N bytes]` marker. Without the cap a long-lived process (the
-  Laravel binding is a singleton, so a queue worker keeps one buffer for its lifetime) would
+  replaced by a `... [truncated N bytes]` marker. Without the cap a long-lived process (a
+  client you keep in a static or a long-running script keeps one buffer for its lifetime) would
   retain `limit` whole bodies — and `Reports` endpoints answer with PDFs. A truncated body
   makes `toCurl()` non-reproducible for that exchange: the `-d` payload is no longer the
   bytes that were sent. Keep `limit` modest in long-running processes.
@@ -469,7 +457,12 @@ Worth knowing:
 
 ### Retry Policy
 
-Configure automatic retries for transient failures:
+Configure automatic retries for transient failures. **Only reads are retried.** Writes
+(`InsertNewOperation`, `EditItem`, `DeleteOperation`, …) are sent once whatever the
+policy: a timeout after the request went out may mean the server already committed the
+operation, and a second attempt would post it twice. After the last attempt the
+original exception is thrown (`NetworkException`, `ServerException`, `HttpException`),
+exactly as without a policy.
 
 ```php
 use Finvalda\Retry\RetryPolicy;
@@ -508,7 +501,25 @@ $config = new FinvaldaConfig(
 
 ### Custom HTTP Client (Testing)
 
-Inject a custom Guzzle client for testing or custom configuration:
+For TLS, proxy or connection settings you do not need your own client — pass Guzzle
+request options through the config:
+
+```php
+$config = new FinvaldaConfig(
+    // ...
+    httpOptions: [
+        'verify' => '/etc/ssl/finvalda.pem',   // CA bundle for a self-signed server
+        'proxy' => 'http://proxy:3128',
+        'connect_timeout' => 5,
+    ],
+);
+```
+
+In Laravel, set `http_options` in the published `config/finvalda.php`.
+
+Inject a custom Guzzle client for testing or custom middleware. The SDK requests absolute
+URLs built from `baseUrl` and applies `timeout` and `httpOptions` per request, so the client
+needs no `base_uri` of its own:
 
 ```php
 use GuzzleHttp\Client;
@@ -2283,7 +2294,8 @@ use Finvalda\Exceptions\ValidationException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Exceptions\NetworkException;
 use Finvalda\Exceptions\ServerException;
-use Finvalda\Exceptions\RetryExhaustedException;
+use Finvalda\Exceptions\HttpException;
+use Finvalda\Exceptions\OperationFailedException;
 
 try {
     $client = $finvalda->clients()->find('CLI001');
@@ -2294,9 +2306,9 @@ try {
 } catch (NetworkException $e) {
     echo "Network error (connection failed, timeout): {$e->getMessage()}";
 } catch (ServerException $e) {
-    echo "Server error (5xx): {$e->getMessage()}";
-} catch (RetryExhaustedException $e) {
-    echo "All {$e->attempts} retry attempts failed: {$e->getMessage()}";
+    echo "Server error ({$e->getCode()}): {$e->getMessage()}";
+} catch (HttpException $e) {
+    echo "HTTP error ({$e->getCode()}): {$e->getMessage()}";   // other 4xx; $e->response holds the response
 } catch (ValidationException $e) {
     $errors = $e->getErrors();
     $allMessages = $e->getAllErrors();
@@ -2319,7 +2331,23 @@ if ($result->success) {
 } else {
     echo "Error #{$result->errorCode}: {$result->error}";
 }
+
+// Or let a failure throw: Response::throw() raises FinvaldaException,
+// OperationResult::throw() raises OperationFailedException (errorCode, journal, number).
+$data = $finvalda->clients()->list()->throw()->data;
+
+try {
+    $result = $finvalda->clients()->create($data)->throw();
+} catch (OperationFailedException $e) {
+    echo "Error #{$e->errorCode}: {$e->getMessage()}";
+}
 ```
+
+An exception's message never carries a credential: Guzzle embeds the request URI in its
+own messages (and `GetFvsUser` sends `sPassword` in the query), so the SDK scrubs those
+values and does not chain Guzzle's exception as `previous`. With a retry policy, the
+exception thrown after the last attempt is the same `NetworkException`/`ServerException`
+you get without one.
 
 ## Server-Configured Parameters
 

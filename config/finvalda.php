@@ -69,6 +69,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | HTTP Options
+    |--------------------------------------------------------------------------
+    |
+    | Extra Guzzle request options applied to every request, e.g. a CA bundle
+    | for a self-signed server certificate, a proxy, or a connect timeout:
+    | ['verify' => '/etc/ssl/finvalda.pem', 'proxy' => 'http://proxy:3128',
+    |  'connect_timeout' => 5]. Set the request timeout with `timeout` above.
+    |
+    */
+    'http_options' => [],
+
+    /*
+    |--------------------------------------------------------------------------
     | Response Filtering
     |--------------------------------------------------------------------------
     |

@@ -60,9 +60,10 @@ final class References extends Resource
      *
      * Security note: the wire format sends sPassword as a GET query parameter,
      * so the password appears in the request URL (server access logs, proxies).
-     * The SDK redacts it from its own PSR-3 logs, debug capture, and recordings
-     * (including the request URI Guzzle embeds in its exception messages), but
-     * the URL exposure is inherent to the endpoint.
+     * The SDK redacts it from its own PSR-3 logs, recordings, and the messages
+     * of the exceptions it throws (Guzzle embeds the request URI in its own
+     * messages, so its exception is not chained), but the URL exposure is
+     * inherent to the endpoint.
      *
      * @param  string|null  $userName  The username to look up
      * @param  string|null  $password  The password to validate

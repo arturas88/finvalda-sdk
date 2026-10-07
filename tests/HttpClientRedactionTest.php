@@ -48,31 +48,6 @@ class HttpClientRedactionTest extends TestCase
         };
     }
 
-    public function test_debug_info_redacts_password_and_conn_string_headers(): void
-    {
-        $config = new FinvaldaConfig(
-            baseUrl: 'https://example.com',
-            username: 'user',
-            password: 'secret-password',
-            connString: 'Server=db;User=sa;Password=db-secret',
-        );
-
-        $httpClient = $this->createHttpClient([
-            new Response(200, [], json_encode(['AccessResult' => 'Success', 'nResult' => 0])),
-        ], $config);
-
-        $httpClient->setDebug(true);
-        $httpClient->postOperation('InsertNewItem', ['ItemClassName' => 'Fvs.Preke']);
-
-        $headers = $httpClient->getLastDebugInfo()['request']['headers'];
-
-        $this->assertSame('***', $headers['Password']);
-        $this->assertSame('***', $headers['ConnString']);
-        $this->assertStringNotContainsString('secret-password', json_encode($headers));
-        // Non-sensitive headers stay intact
-        $this->assertSame('user', $headers['UserName']);
-    }
-
     public function test_log_request_redacts_password_query_params(): void
     {
         $logger = $this->createSpyLogger();
