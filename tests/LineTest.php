@@ -7,7 +7,6 @@ namespace Finvalda\Tests;
 use Finvalda\Builders\ProductLine;
 use Finvalda\Builders\SaleBuilder;
 use Finvalda\Builders\ServiceLine;
-use Finvalda\Enums\OperationClass;
 use PHPUnit\Framework\TestCase;
 
 class LineTest extends TestCase

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Builders\ProductLine;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
-use Finvalda\Builders\ProductLine;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

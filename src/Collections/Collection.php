@@ -20,7 +20,7 @@ use Traversable;
  *
  * @phpstan-consistent-constructor
  */
-abstract class Collection implements IteratorAggregate, Countable, ArrayAccess
+abstract class Collection implements ArrayAccess, Countable, IteratorAggregate
 {
     /**
      * @param array<int, T> $items

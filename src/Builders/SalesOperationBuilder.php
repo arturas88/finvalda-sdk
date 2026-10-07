@@ -16,6 +16,7 @@ use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Builders\Concerns\SetsObjects;
 use Finvalda\Enums\DocumentType;
 use Finvalda\Enums\OperationClass;
+use Finvalda\Exceptions\ValidationException;
 
 /**
  * Shared shape of the sales family: PardDok, PardRezDok, PardGrazDok and
@@ -82,7 +83,7 @@ abstract class SalesOperationBuilder extends OperationBuilder
     /**
      * @return array<string, mixed>
      *
-     * @throws \Finvalda\Exceptions\ValidationException  On a field the envelope does not define.
+     * @throws ValidationException  On a field the envelope does not define.
      */
     public function build(): array
     {

@@ -12,6 +12,8 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
+use Psr\Log\AbstractLogger;
 
 class HttpClientTest extends TestCase
 {
@@ -48,7 +50,7 @@ class HttpClientTest extends TestCase
 
     /**
      * @param  array<int, Response>  $responses
-     * @param  array<int, array{request: \Psr\Http\Message\RequestInterface}>  $history
+     * @param  array<int, array{request: RequestInterface}>  $history
      */
     private function createHttpClientWithConfig(
         FinvaldaConfig $config,
@@ -294,11 +296,11 @@ class HttpClientTest extends TestCase
     }
 
     /**
-     * @return \Psr\Log\AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
      */
     private function createSpyLogger(): object
     {
-        return new class extends \Psr\Log\AbstractLogger
+        return new class extends AbstractLogger
         {
             public array $records = [];
 

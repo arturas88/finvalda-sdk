@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
 use Finvalda\HttpClient;
@@ -28,6 +29,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
 use Psr\Log\AbstractLogger;
 
 class FinvaldaTest extends TestCase
@@ -178,7 +180,7 @@ class FinvaldaTest extends TestCase
 
     /**
      * @param  array<int, GuzzleResponse>  $responses
-     * @param  array<int, array{request: \Psr\Http\Message\RequestInterface}>  $history
+     * @param  array<int, array{request: RequestInterface}>  $history
      */
     private function createFinvaldaWithHistory(
         FinvaldaConfig $config,
@@ -228,7 +230,7 @@ class FinvaldaTest extends TestCase
             $history,
         );
 
-        $this->expectException(\Finvalda\Exceptions\FinvaldaException::class);
+        $this->expectException(FinvaldaException::class);
         $this->expectExceptionCode(404);
 
         $finvalda->ping();
@@ -347,7 +349,8 @@ class FinvaldaTest extends TestCase
 
         $child = $finvalda->withoutCompany();
 
-        $spy = new class extends AbstractLogger {
+        $spy = new class extends AbstractLogger
+        {
             /** @var array<int, array{0: mixed, 1: string}> */
             public array $records = [];
 
@@ -385,7 +388,8 @@ class FinvaldaTest extends TestCase
 
         $child = $finvalda->withoutCompany();
 
-        $spy = new class extends AbstractLogger {
+        $spy = new class extends AbstractLogger
+        {
             /** @var array<int, array{0: mixed, 1: string}> */
             public array $records = [];
 

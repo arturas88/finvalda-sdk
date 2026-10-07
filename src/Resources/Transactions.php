@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
-use DateTimeInterface;
 use Finvalda\Filters\PaymentFilter;
 use Finvalda\Filters\TransactionFilter;
 use Finvalda\Responses\Response;

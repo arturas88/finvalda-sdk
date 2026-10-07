@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Exceptions\OperationFailedException;
 use Finvalda\Responses\OperationResult;
 use PHPUnit\Framework\TestCase;
 
@@ -65,7 +66,7 @@ class OperationResultTest extends TestCase
         try {
             $result->throw();
             $this->fail('Expected OperationFailedException');
-        } catch (\Finvalda\Exceptions\OperationFailedException $e) {
+        } catch (OperationFailedException $e) {
             $this->assertSame('Operacija užrakinta', $e->getMessage());
             $this->assertSame(4002, $e->errorCode);
             $this->assertSame(4002, $e->getCode());
@@ -78,7 +79,7 @@ class OperationResultTest extends TestCase
     {
         $result = new OperationResult(success: false, errorCode: 5);
 
-        $this->expectException(\Finvalda\Exceptions\OperationFailedException::class);
+        $this->expectException(OperationFailedException::class);
         $this->expectExceptionMessage('Finvalda operation failed (code 5)');
 
         $result->throw();

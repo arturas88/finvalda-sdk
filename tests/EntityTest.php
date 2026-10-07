@@ -7,6 +7,7 @@ namespace Finvalda\Tests;
 use Finvalda\Data\Client;
 use Finvalda\Data\Product;
 use LogicException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class EntityTest extends TestCase
@@ -109,7 +110,7 @@ class EntityTest extends TestCase
         ];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('flags')]
+    #[DataProvider('flags')]
     public function test_flags_read_the_spellings_finvalda_uses(mixed $raw, ?bool $expected): void
     {
         $client = Client::fromArray(['sKodas' => 'K1', 'sPavadinimas' => 'Acme', 'nAktyvus' => $raw]);

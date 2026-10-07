@@ -11,6 +11,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 
 class HttpClientRedactionTest extends TestCase
 {
@@ -29,11 +30,11 @@ class HttpClientRedactionTest extends TestCase
     }
 
     /**
-     * @return \Psr\Log\AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
      */
     private function createSpyLogger(): object
     {
-        return new class extends \Psr\Log\AbstractLogger
+        return new class extends AbstractLogger
         {
             public array $records = [];
 

@@ -22,6 +22,7 @@ use Finvalda\Builders\UvmCancellationBuilder;
 use Finvalda\Builders\UvmPurchaseOrderBuilder;
 use Finvalda\Builders\UvmSalesReservationBuilder;
 use Finvalda\Builders\WriteOffBuilder;
+use Finvalda\Enums\DocumentType;
 use Finvalda\Enums\OperationClass;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
@@ -620,7 +621,7 @@ class BuilderTest extends TestCase
         $data = (new PurchaseBuilder())
             ->client('SUP001')
             ->date('2024-01-15')
-            ->documentType(\Finvalda\Enums\DocumentType::VatInvoice)
+            ->documentType(DocumentType::VatInvoice)
             ->build();
 
         $this->assertSame('SF', $data['PirkDok']['sDokRusis']);
@@ -631,7 +632,7 @@ class BuilderTest extends TestCase
         $data = (new SaleBuilder())
             ->client('CLI001')
             ->date('2024-01-15')
-            ->documentType(\Finvalda\Enums\DocumentType::CreditVatInvoice)
+            ->documentType(DocumentType::CreditVatInvoice)
             ->build();
 
         $this->assertSame('KS', $data['PardDok']['sDokRusis']);

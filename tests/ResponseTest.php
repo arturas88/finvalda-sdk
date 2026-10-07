@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Enums\AccessResult;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
 use PHPUnit\Framework\TestCase;
 
@@ -72,7 +73,7 @@ class ResponseTest extends TestCase
     {
         $response = new Response(accessResult: AccessResult::Fail, data: [], error: 'Klientas nerastas');
 
-        $this->expectException(\Finvalda\Exceptions\FinvaldaException::class);
+        $this->expectException(FinvaldaException::class);
         $this->expectExceptionMessage('Klientas nerastas');
 
         $response->throw();
@@ -82,7 +83,7 @@ class ResponseTest extends TestCase
     {
         $response = new Response(accessResult: AccessResult::Fail, data: []);
 
-        $this->expectException(\Finvalda\Exceptions\FinvaldaException::class);
+        $this->expectException(FinvaldaException::class);
         $this->expectExceptionMessage('AccessResult: Fail');
 
         $response->throw();

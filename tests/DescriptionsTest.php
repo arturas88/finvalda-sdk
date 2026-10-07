@@ -8,6 +8,7 @@ use Finvalda\Enums\DescriptionType;
 use Finvalda\Resources\Descriptions;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
 
 class DescriptionsTest extends TestCase
 {
@@ -230,7 +231,7 @@ class DescriptionsTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function decodeBody(\Psr\Http\Message\RequestInterface $request): array
+    private function decodeBody(RequestInterface $request): array
     {
         return json_decode((string) $request->getBody(), true, flags: JSON_THROW_ON_ERROR);
     }
