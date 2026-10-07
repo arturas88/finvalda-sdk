@@ -71,7 +71,7 @@ class ProductsTest extends TestCase
         $this->assertSame('Pirma preke', $product->name);
     }
 
-    public function test_find_throws_not_found_when_response_failed(): void
+    public function test_find_throws_the_failure_when_response_failed(): void
     {
         $products = new Products($this->createHttpClient([
             $this->jsonResponse([
@@ -80,7 +80,8 @@ class ProductsTest extends TestCase
             ]),
         ]));
 
-        $this->expectException(NotFoundException::class);
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('GetPreke failed: some error');
 
         $products->find('PRE_01');
     }

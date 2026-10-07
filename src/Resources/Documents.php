@@ -53,7 +53,7 @@ final class Documents extends Resource
                 array_map('intval', explode('-', $date)),
             ),
             'searchPhrase' => $searchPhrase,
-            'info' => $info === [] ? null : array_values($info),
+            'info' => $info === [] ? null : $info,
             'content' => $hexContent,
             'finUser' => $finUser,
         ], fn ($value) => $value !== null);

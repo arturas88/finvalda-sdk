@@ -11,6 +11,7 @@ use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Service;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Enums\ServiceTypeId;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -60,13 +61,14 @@ final class Services extends Resource
      * @param  string  $serviceCode  The service code
      * @return Service
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $serviceCode): Service
     {
         $response = $this->get($serviceCode);
 
-        $data = $this->extractEntity($response, ItemClass::Service);
+        $data = $this->extractEntity($response, ItemClass::Service, 'GetPaslauga');
 
         if ($data === null) {
             throw new NotFoundException("Service '{$serviceCode}' not found");
@@ -81,16 +83,14 @@ final class Services extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ServiceCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ServiceCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ServiceCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetPaslaugos');
 
         return ServiceCollection::fromArray($response->data);
     }

@@ -133,13 +133,14 @@ final class Products extends Resource
      * @param  string  $productCode  The product code
      * @return Product
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $productCode): Product
     {
         $response = $this->get($productCode);
 
-        $data = $this->extractEntity($response, ItemClass::Product);
+        $data = $this->extractEntity($response, ItemClass::Product, 'GetPreke');
 
         if ($data === null) {
             throw new NotFoundException("Product '{$productCode}' not found");
@@ -154,16 +155,14 @@ final class Products extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ProductCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ProductCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ProductCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetPrekes');
 
         return ProductCollection::fromArray($response->data);
     }

@@ -11,6 +11,7 @@ use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Client;
 use Finvalda\Enums\ClientTypeId;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -60,13 +61,14 @@ final class Clients extends Resource
      * @param  string  $clientCode  The client code
      * @return Client
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $clientCode): Client
     {
         $response = $this->get($clientCode);
 
-        $data = $this->extractEntity($response, ItemClass::Client);
+        $data = $this->extractEntity($response, ItemClass::Client, 'GetKlientas');
 
         if ($data === null) {
             throw new NotFoundException("Client '{$clientCode}' not found");
@@ -81,16 +83,14 @@ final class Clients extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ClientCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ClientCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ClientCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetKlientus');
 
         return ClientCollection::fromArray($response->data);
     }

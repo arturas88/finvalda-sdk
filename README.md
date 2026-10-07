@@ -547,6 +547,7 @@ Use `find()` to get a single entity as a typed DTO with full IDE autocomplete:
 use Finvalda\Data\Client;
 use Finvalda\Data\Product;
 use Finvalda\Data\Service;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 
 // Find a client - returns typed Client DTO
@@ -568,11 +569,15 @@ $service = $finvalda->services()->find('SVC001');
 echo $service->name;
 echo $service->price;
 
-// Handle not found
+// Handle not found. A failed request is NOT "not found": find(), collect()
+// and typesAndTags() throw FinvaldaException for it, so an outage can never
+// look like an empty result set.
 try {
     $client = $finvalda->clients()->find('NONEXISTENT');
 } catch (NotFoundException $e) {
     echo "Client not found";
+} catch (FinvaldaException $e) {
+    echo "Request failed: {$e->getMessage()}";
 }
 
 // Access raw API data if needed
