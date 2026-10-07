@@ -77,7 +77,8 @@ class LineTest extends TestCase
         $this->assertSame('MILTAI', $line['sKodas']);
         $this->assertSame(12.25, $line['nKiekis']);
         $this->assertSame('CENTR.', $line['sSandelis']);
-        $this->assertSame(13.15, $line['dKaina']);
+        $this->assertSame(13.15, $line['dSumaVntV']);
+        $this->assertSame(13.15, $line['dSumaVntL']);
         $this->assertSame(161.16, $line['dSumaV']);
         $this->assertSame(161.16, $line['dSumaL']);
         $this->assertSame(21.0, $line['dPVM_Procentas']);
@@ -199,7 +200,7 @@ class LineTest extends TestCase
             ->toArray();
 
         $this->assertSame('TRANSPORT', $line['sKodas']);
-        $this->assertSame(50.00, $line['dKaina']);
+        $this->assertSame(50.00, $line['dSumaVntV']);
         $this->assertSame(50.00, $line['dSumaV']);
         $this->assertSame(21.0, $line['dPVM_Procentas']);
         $this->assertSame(10.50, $line['dSumaPVMV']);

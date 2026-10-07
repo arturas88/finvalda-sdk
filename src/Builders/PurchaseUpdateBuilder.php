@@ -87,6 +87,24 @@ final class PurchaseUpdateBuilder
         'sVairuotojas', 'sMasina', 'sPapInfo',
     ];
 
+    /**
+     * The documented column sets of the §3.72 correction line tables. They are
+     * narrower than the InsertNewOperation ones — no VAT percent, objects,
+     * intrastat or weights — so a ProductLine/ServiceLine carrying those would
+     * have them silently dropped; product()/service() reject them instead.
+     */
+    private const PRODUCT_LINE_FIELDS = [
+        'sKodas', 'sSandelis', 'dSumaV', 'dSumaL', 'dSumaPVMV', 'dSumaPVML', 'dSumaNV', 'dSumaNL',
+        'dNlProc', 'nKiekis', 'nPirmasMat',
+        'dPapIsldSumaL1', 'dPapIsldSumaV1', 'dPapIsldSumaL2', 'dPapIsldSumaV2',
+        'dPapIsldSumaL3', 'dPapIsldSumaV3', 'dPapIsldSumaL4', 'dPapIsldSumaV4',
+    ];
+
+    private const SERVICE_LINE_FIELDS = [
+        'sKodas', 'dSumaV', 'dSumaL', 'dSumaPVMV', 'dSumaPVML', 'dSumaNV', 'dSumaNL',
+        'dNlProc', 'nKiekis', 'nPirmasMat',
+    ];
+
     /** PirkDokHeadEil node. @var array<string, mixed> */
     protected array $header = [];
 
@@ -211,7 +229,8 @@ final class PurchaseUpdateBuilder
      * A re-added line is a replacement, not an edit — see the class docblock. Adding
      * without a matching removeProduct() is legal but rarely what a correction means.
      *
-     * @throws ValidationException  When the line lacks a field the spec requires.
+     * @throws ValidationException  When the line lacks a field the spec requires,
+     *                              or carries one the correction table does not define.
      */
     public function product(ProductLine $line): self
     {
@@ -219,6 +238,7 @@ final class PurchaseUpdateBuilder
             $line->toArray(),
             ['sKodas', 'sSandelis', 'dSumaV', 'dSumaL', 'nKiekis'],
             'PirkDokPrekeDetEil',
+            self::PRODUCT_LINE_FIELDS,
         );
 
         return $this;
@@ -227,7 +247,8 @@ final class PurchaseUpdateBuilder
     /**
      * Add/replace a service line (PirkDokPaslaugaDetEil).
      *
-     * @throws ValidationException  When the line lacks a field the spec requires.
+     * @throws ValidationException  When the line lacks a field the spec requires,
+     *                              or carries one the correction table does not define.
      */
     public function service(ServiceLine $line): self
     {
@@ -235,6 +256,7 @@ final class PurchaseUpdateBuilder
             $line->toArray(),
             ['sKodas', 'dSumaV', 'dSumaL', 'nKiekis'],
             'PirkDokPaslaugaDetEil',
+            self::SERVICE_LINE_FIELDS,
         );
 
         return $this;
@@ -422,11 +444,12 @@ final class PurchaseUpdateBuilder
     /**
      * @param  array<string, mixed>  $line
      * @param  array<int, string>  $required
+     * @param  array<int, string>  $known
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    private function assertRequiredLineFields(array $line, array $required, string $node): array
+    private function assertRequiredLineFields(array $line, array $required, string $node, array $known): array
     {
         foreach ($required as $field) {
             if (! isset($line[$field])) {
@@ -434,6 +457,16 @@ final class PurchaseUpdateBuilder
                     "{$node} requires {$field}; the spec marks it mandatory on a corrected line."
                 );
             }
+        }
+
+        $unknown = array_diff(array_keys($line), $known);
+
+        if ($unknown !== []) {
+            throw new ValidationException(sprintf(
+                '%s in a correction does not accept %s; the server would drop it.',
+                $node,
+                implode(', ', $unknown),
+            ));
         }
 
         return $line;

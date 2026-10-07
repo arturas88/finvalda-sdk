@@ -124,4 +124,43 @@ class OperationQueryTest extends TestCase
         $this->assertSame(OpClass::Disbursement, OperationQuery::disbursement()->opClass());
         $this->assertSame(OpClass::DisbursementDet, OperationQuery::disbursementDetail()->opClass());
     }
+
+    public function test_it_sets_the_filters_the_spec_lists_beyond_the_basics(): void
+    {
+        $payload = OperationQuery::inflows()
+            ->createdSince('2024-01-01')
+            ->debtorClient('DEB1')
+            ->creditorClient('CRE1')
+            ->description('Avans*')
+            ->description('*kitas', line: 3)
+            ->advancePaymentSettled(false)
+            ->notCreatedByUser('ROBOT')
+            ->notEditedByUser('ROBOT2')
+            ->build();
+
+        $this->assertSame([
+            'DateCreatedFrom' => '2024-01-01',
+            'ClientDeb' => 'DEB1',
+            'ClientCred' => 'CRE1',
+            'Description' => 'Avans*',
+            'Description3' => '*kitas',
+            'AdvancePaymentSettled' => false,
+            'NotCreatedByUser' => 'ROBOT',
+            'NotEditedByUser' => 'ROBOT2',
+        ], $payload['filter']);
+    }
+
+    public function test_description_line_must_be_one_to_five(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        OperationQuery::sales()->description('x', line: 6);
+    }
+
+    public function test_set_is_a_public_escape_hatch_for_filters_without_a_method(): void
+    {
+        $payload = OperationQuery::sales()->set('SomeNewFilter', 'X')->build();
+
+        $this->assertSame(['SomeNewFilter' => 'X'], $payload['filter']);
+    }
 }

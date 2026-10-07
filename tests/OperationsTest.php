@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Enums\OpClass;
+use Finvalda\Query\OperationQuery;
 use Finvalda\Resources\Operations;
 use Finvalda\Tests\Concerns\CreatesMockHttpClient;
 use JsonException;
@@ -33,6 +34,24 @@ class OperationsTest extends TestCase
             'filter' => ['Journal' => 'PARD', 'OpDateFrom' => '2024-01-01'],
             'fullOp' => false,
         ], json_decode($query['opReadParams'], true, flags: JSON_THROW_ON_ERROR));
+    }
+
+    public function test_query_accepts_an_operation_query(): void
+    {
+        $history = [];
+        $operations = new Operations($this->createHttpClient([
+            $this->jsonResponse(['AccessResult' => 'Success', 'items' => []]),
+        ], $history));
+
+        $operations->query(OperationQuery::sales()->journal('PARD')->columns('op_number'));
+
+        $body = json_decode((string) $history[0]['request']->getBody(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame([
+            'OpClass' => 'Sales',
+            'fullOp' => false,
+            'filter' => ['Journal' => 'PARD'],
+            'columns' => ['column' => ['op_number']],
+        ], $body['opReadParams']);
     }
 
     public function test_change_journal_decodes_json_string_input(): void

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Builders\Concerns\SetsCurrency;
+use Finvalda\Builders\Concerns\SetsDocumentNumber;
+use Finvalda\Builders\Concerns\SetsMarked;
+use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\OperationClass;
 
 /**
@@ -25,6 +29,11 @@ use Finvalda\Enums\OperationClass;
  */
 final class NonAnalyticalBuilder extends OperationBuilder
 {
+    use SetsCurrency;
+    use SetsDocumentNumber;
+    use SetsMarked;
+    use SetsNote;
+
     /** @var array<int, array<string, mixed>> */
     protected array $entries = [];
 
@@ -33,20 +42,9 @@ final class NonAnalyticalBuilder extends OperationBuilder
         return OperationClass::NonAnalytical;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'KtNeanalitDok';
-    }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'KtNeanalitDetEil';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        // Non-analytical operations don't have service lines
-        return 'KtNeanalitPaslaugaDetEil';
+        return 'addEntry()';
     }
 
     /**
@@ -59,8 +57,6 @@ final class NonAnalyticalBuilder extends OperationBuilder
      */
     public function build(): array
     {
-        $this->assertNoGenericLines('addEntry()');
-
         $payload = $this->header;
 
         if (! empty($this->entries)) {
@@ -88,26 +84,6 @@ final class NonAnalyticalBuilder extends OperationBuilder
     public function description2(string $description): self
     {
         $this->header['sPavadinimas2'] = $description;
-
-        return $this;
-    }
-
-    /**
-     * Set a note/comment.
-     */
-    public function note(string $note): self
-    {
-        $this->header['sPastaba'] = $note;
-
-        return $this;
-    }
-
-    /**
-     * Set the marked/flagged status.
-     */
-    public function marked(bool $marked = true): self
-    {
-        $this->header['nPozymis'] = $marked ? 1 : 0;
 
         return $this;
     }

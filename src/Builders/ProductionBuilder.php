@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Builders\Concerns\SetsClient;
+use Finvalda\Builders\Concerns\SetsDocumentNumber;
+use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsMarked;
+use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\OperationClass;
 
 /**
@@ -24,9 +29,18 @@ use Finvalda\Enums\OperationClass;
  *     ->addProductionService('SVC001', amount: 100.00, quantity: 1)
  *     ->save('PRODUCTION');
  * ```
+ *
+ * Every line type defaults nPirmasMat to 1 (quantity in the first unit), as on
+ * ProductLine; pass ['nPirmasMat' => 0] in $additionalData to opt out.
  */
 final class ProductionBuilder extends OperationBuilder
 {
+    use SetsClient;
+    use SetsDocumentNumber;
+    use SetsEmployee;
+    use SetsMarked;
+    use SetsNote;
+
     /** @var array<int, array<string, mixed>> */
     protected array $finishedGoods = [];
 
@@ -41,19 +55,9 @@ final class ProductionBuilder extends OperationBuilder
         return OperationClass::Production;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'GamybaDok';
-    }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'GamybaGDetEil';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        return 'GamybaPDetEil';
+        return 'addFinishedGood()/addRawMaterial()/addProductionService()';
     }
 
     /**
@@ -66,8 +70,6 @@ final class ProductionBuilder extends OperationBuilder
      */
     public function build(): array
     {
-        $this->assertNoGenericLines('addFinishedGood()/addRawMaterial()/addProductionService()');
-
         $payload = $this->header;
 
         if (! empty($this->finishedGoods)) {
@@ -98,7 +100,7 @@ final class ProductionBuilder extends OperationBuilder
     }
 
     /**
-     * Set the production quantity.
+     * Set the production quantity (dKiekis).
      */
     public function quantity(float $quantity): self
     {
@@ -108,7 +110,17 @@ final class ProductionBuilder extends OperationBuilder
     }
 
     /**
-     * Set the second description line.
+     * Set the description (sAprasymas).
+     */
+    public function description(string $description): self
+    {
+        $this->header['sAprasymas'] = $description;
+
+        return $this;
+    }
+
+    /**
+     * Set the second description line (sAprasymas2).
      */
     public function description2(string $description): self
     {
@@ -118,27 +130,7 @@ final class ProductionBuilder extends OperationBuilder
     }
 
     /**
-     * Set a note/comment.
-     */
-    public function note(string $note): self
-    {
-        $this->header['sPastaba'] = $note;
-
-        return $this;
-    }
-
-    /**
-     * Set the employee name.
-     */
-    public function employee(string $name): self
-    {
-        $this->header['sDarbuotojas'] = $name;
-
-        return $this;
-    }
-
-    /**
-     * Set the transfer flag.
+     * Set the transfer flag (nPerkelta).
      */
     public function transferred(bool $transferred = true): self
     {
@@ -148,17 +140,7 @@ final class ProductionBuilder extends OperationBuilder
     }
 
     /**
-     * Set the marked/flagged status.
-     */
-    public function marked(bool $marked = true): self
-    {
-        $this->header['nPozymis'] = $marked ? 1 : 0;
-
-        return $this;
-    }
-
-    /**
-     * Add a finished goods line.
+     * Add a finished goods line (GamybaGDetEil).
      *
      * @param  array<string, mixed>  $additionalData
      */
@@ -173,6 +155,7 @@ final class ProductionBuilder extends OperationBuilder
             'sKodas' => $code,
             'sSandelis' => $warehouse,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ], $additionalData);
 
         if ($amount !== null) {
@@ -185,7 +168,7 @@ final class ProductionBuilder extends OperationBuilder
     }
 
     /**
-     * Add a raw material line.
+     * Add a raw material line (GamybaZDetEil).
      *
      * @param  array<string, mixed>  $additionalData
      */
@@ -199,13 +182,14 @@ final class ProductionBuilder extends OperationBuilder
             'sKodas' => $code,
             'sSandelis' => $warehouse,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ], $additionalData);
 
         return $this;
     }
 
     /**
-     * Add a production service line.
+     * Add a production service line (GamybaPDetEil).
      *
      * @param  array<string, mixed>  $additionalData
      */
@@ -219,6 +203,7 @@ final class ProductionBuilder extends OperationBuilder
             'sKodas' => $code,
             'dSuma' => $amount,
             'nKiekis' => $quantity,
+            'nPirmasMat' => 1,
         ], $additionalData);
 
         return $this;
