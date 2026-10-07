@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace Finvalda\Retry;
 
+use Finvalda\Exceptions\HttpException;
 use Finvalda\Exceptions\NetworkException;
-use Finvalda\Exceptions\RetryExhaustedException;
-use Finvalda\Exceptions\ServerException;
-use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
  * Handles request retries with exponential backoff.
+ *
+ * Sees SDK exceptions only: HttpClient maps (and credential-scrubs) Guzzle's
+ * exceptions before they reach here, so the warning logged per failed attempt
+ * is as safe to log as the exception a caller finally receives.
  */
 final class RetryHandler
 {
@@ -25,24 +26,22 @@ final class RetryHandler
     /**
      * Execute a callable with retry logic.
      *
-     * On a non-retryable exception, the original exception is thrown immediately.
-     * On a retryable exception after all attempts are exhausted, a
-     * RetryExhaustedException is thrown with the last exception as `previous`.
+     * A non-retryable exception is thrown immediately. Once all attempts are
+     * used, the last exception is thrown unchanged — so a caller catches the
+     * same NetworkException/ServerException with or without a retry policy.
      *
      * @template T
      *
      * @param  callable(): T  $callable
      * @return T
      *
-     * @throws RetryExhaustedException
      * @throws Throwable
      */
     public function execute(callable $callable): mixed
     {
-        $lastException = null;
         $attempt = 0;
 
-        while ($attempt < $this->policy->maxAttempts) {
+        while (true) {
             if ($attempt > 0) {
                 $delayMs = $this->policy->getDelayForAttempt($attempt);
                 $this->logger?->debug('Retrying request', [
@@ -56,27 +55,19 @@ final class RetryHandler
             try {
                 return $callable();
             } catch (Throwable $exception) {
-                $lastException = $exception;
+                $attempt++;
 
-                if (! $this->isRetryable($exception)) {
+                if ($attempt >= $this->policy->maxAttempts || ! $this->isRetryable($exception)) {
                     throw $exception;
                 }
 
                 $this->logger?->warning('Request failed, will retry', [
-                    'attempt' => $attempt + 1,
+                    'attempt' => $attempt,
                     'error' => $exception->getMessage(),
                     'exception_class' => $exception::class,
                 ]);
             }
-
-            $attempt++;
         }
-
-        throw new RetryExhaustedException(
-            "Request failed after {$this->policy->maxAttempts} attempts: " . ($lastException?->getMessage() ?? 'Unknown error'),
-            $this->policy->maxAttempts,
-            $lastException,
-        );
     }
 
     /**
@@ -84,18 +75,12 @@ final class RetryHandler
      */
     private function isRetryable(Throwable $exception): bool
     {
-        if ($exception instanceof ConnectException || $exception instanceof NetworkException) {
+        if ($exception instanceof NetworkException) {
             return $this->policy->retryOnNetworkError;
         }
 
-        if ($exception instanceof RequestException && $exception->hasResponse()) {
-            $statusCode = $exception->getResponse()->getStatusCode();
-
-            return $this->policy->isRetryableStatusCode($statusCode);
-        }
-
-        if ($exception instanceof ServerException) {
-            return true;
+        if ($exception instanceof HttpException) {
+            return $this->policy->isRetryableStatusCode($exception->getCode());
         }
 
         return false;

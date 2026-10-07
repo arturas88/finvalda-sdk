@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Finvalda\Retry;
 
+use InvalidArgumentException;
+
 /**
- * Configuration for retry behavior.
+ * Configuration for retry behavior. Applies to reads only: HttpClient never
+ * retries a write, since a timeout after the request went out may mean the
+ * server already committed it.
  */
 final class RetryPolicy
 {
@@ -24,7 +28,11 @@ final class RetryPolicy
         public readonly int $maxDelayMs = 10000,
         public readonly array $retryableStatusCodes = [429, 500, 502, 503, 504],
         public readonly bool $retryOnNetworkError = true,
-    ) {}
+    ) {
+        if ($this->maxAttempts < 1) {
+            throw new InvalidArgumentException('Retry maxAttempts must be at least 1 (the initial request)');
+        }
+    }
 
     /**
      * Create a policy that does not retry.
@@ -40,19 +48,6 @@ final class RetryPolicy
     public static function default(): self
     {
         return new self();
-    }
-
-    /**
-     * Create a policy for aggressive retrying.
-     */
-    public static function aggressive(): self
-    {
-        return new self(
-            maxAttempts: 5,
-            delayMs: 50,
-            multiplier: 1.5,
-            maxDelayMs: 5000,
-        );
     }
 
     /**

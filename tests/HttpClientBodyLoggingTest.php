@@ -103,6 +103,10 @@ class HttpClientBodyLoggingTest extends TestCase
 
         $this->assertStringContainsString('"sFileContent":"[elided 80000 bytes]"', (string) $body);
         $this->assertStringContainsString('"sFileName":"invoice.pdf"', (string) $body);
+
+        // The payload is logged once, as `body` — never again under `params`.
+        $params = $logger->records[0][1]['params'];
+        $this->assertStringNotContainsString('abab', (string) json_encode($params));
     }
 
     public function test_log_file_contents_keeps_the_payload_verbatim(): void

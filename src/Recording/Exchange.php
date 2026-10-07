@@ -23,6 +23,7 @@ final class Exchange implements Stringable
      * @param  array<string, list<string>>  $responseHeaders
      * @param  string|null  $error  Transport error message, or the exception message for an HTTP error status
      * @param  int  $attempt  1-based retry attempt number
+     * @param  string|null  $requestId  Shared by every attempt of one call, and by its log lines
      */
     public function __construct(
         public readonly string $method,
@@ -36,6 +37,7 @@ final class Exchange implements Stringable
         public readonly float $durationMs,
         public readonly ?string $error = null,
         public readonly int $attempt = 1,
+        public readonly ?string $requestId = null,
     ) {}
 
     public function __toString(): string
@@ -74,7 +76,8 @@ final class Exchange implements Stringable
      * @return array{
      *     request: array{method: string, url: string, headers: array<string, string>, body: string|null},
      *     response: array{status_code: int|null, headers: array<string, list<string>>, body: string|null, duration_ms: float, error: string|null},
-     *     attempt: int
+     *     attempt: int,
+     *     request_id: string|null
      * }
      */
     public function toArray(): array
@@ -94,6 +97,7 @@ final class Exchange implements Stringable
                 'error' => $this->error,
             ],
             'attempt' => $this->attempt,
+            'request_id' => $this->requestId,
         ];
     }
 
@@ -149,7 +153,7 @@ final class Exchange implements Stringable
 
         return new self(
             method: $this->method,
-            url: $this->substituteUrl($this->url, $mode),
+            url: $this->substituteQuery($this->url, $mode),
             headers: $headers,
             body: $this->scrub($this->substituteBody($this->body, $mode), $secrets),
             statusCode: $this->statusCode,
@@ -159,6 +163,7 @@ final class Exchange implements Stringable
             durationMs: $this->durationMs,
             error: $this->scrub($this->error, $secrets),
             attempt: $this->attempt,
+            requestId: $this->requestId,
         );
     }
 
@@ -166,17 +171,8 @@ final class Exchange implements Stringable
      * Real credential values carried by this exchange, mapped to their
      * replacement text under the given mode. Collected from the request
      * headers, the URL query, and a JSON request body — the three places the
-     * SDK puts a credential.
-     *
-     * Each value is registered together with the encoded forms it can appear in
-     * downstream: Guzzle embeds the percent-encoded query string in its
-     * exception messages, and a JSON response body carries the JSON-escaped
-     * form. Without those, a password holding any character outside the
-     * unreserved set survives in `error` (recoverable with one `urldecode()`).
-     *
-     * Longest values first, so replacing one that is a prefix of another cannot
-     * leave a fragment behind. Empty values are skipped so nothing ever
-     * replaces ''.
+     * SDK puts a credential. See Redactor::secrets() for the encoded forms
+     * each value is registered under.
      *
      * @return array<string, string>
      */
@@ -200,53 +196,7 @@ final class Exchange implements Stringable
             }
         }
 
-        $secrets = [];
-
-        foreach (Redactor::KEYS as $key) {
-            foreach ($sources as $source) {
-                $value = $source[$key] ?? null;
-
-                if (! is_string($value) || $value === '') {
-                    continue;
-                }
-
-                $replacement = $this->replacementFor($key, $mode);
-
-                foreach ($this->encodedVariants($value) as $variant) {
-                    $secrets[$variant] = $replacement;
-                }
-            }
-        }
-
-        uksort($secrets, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
-
-        return $secrets;
-    }
-
-    /**
-     * A credential value plus every encoded form it can reach a recorded field
-     * in: percent-encoded (`rawurlencode` and `urlencode` differ for spaces —
-     * `%20` vs `+`) and JSON-escaped, both with PHP's default escaping and with
-     * slashes and unicode left alone, since the server chooses its own flags.
-     * Duplicates and empty results are dropped.
-     *
-     * @return list<string>
-     */
-    private function encodedVariants(string $value): array
-    {
-        $variants = [$value, rawurlencode($value), urlencode($value)];
-
-        foreach ([0, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE] as $flags) {
-            $encoded = json_encode($value, $flags);
-
-            // Strip the surrounding quotes json_encode adds; substr, not trim(),
-            // so a value whose escaped form ends in \" keeps its backslash.
-            if (is_string($encoded) && strlen($encoded) > 2) {
-                $variants[] = substr($encoded, 1, -1);
-            }
-        }
-
-        return array_values(array_unique(array_filter($variants, fn (string $v): bool => $v !== '')));
+        return Redactor::secrets($sources, fn (string $key): string => $this->replacementFor($key, $mode));
     }
 
     /**
@@ -254,11 +204,7 @@ final class Exchange implements Stringable
      */
     private function scrub(?string $value, array $secrets): ?string
     {
-        if ($value === null || $secrets === []) {
-            return $value;
-        }
-
-        return str_replace(array_keys($secrets), array_values($secrets), $value);
+        return Redactor::scrub($value, $secrets);
     }
 
     /**
@@ -290,45 +236,6 @@ final class Exchange implements Stringable
         return $mode === CredentialMode::Env
             ? Redactor::applyPlaceholders($values)
             : Redactor::apply($values);
-    }
-
-    private function substituteUrl(string $url, CredentialMode $mode): string
-    {
-        return $this->substituteQuery($this->substituteUserInfo($url, $mode), $mode);
-    }
-
-    /**
-     * Substitute a userinfo password (`https://user:pass@host/...`, which Guzzle
-     * honours as Basic auth) in place, leaving the rest of the URL untouched.
-     */
-    private function substituteUserInfo(string $url, CredentialMode $mode): string
-    {
-        $password = parse_url($url, PHP_URL_PASS);
-
-        if (! is_string($password) || $password === '') {
-            return $url;
-        }
-
-        $schemeEnd = strpos($url, '://');
-        $authorityStart = $schemeEnd === false ? 0 : $schemeEnd + 3;
-        $authorityLength = strcspn($url, '/?#', $authorityStart);
-        $authority = substr($url, $authorityStart, $authorityLength);
-
-        $at = strrpos($authority, '@');
-
-        if ($at === false) {
-            return $url;
-        }
-
-        $colon = strpos(substr($authority, 0, $at), ':');
-
-        if ($colon === false) {
-            return $url;
-        }
-
-        $start = $authorityStart + $colon + 1;
-
-        return substr_replace($url, $this->replacementFor('Password', $mode), $start, $at - $colon - 1);
     }
 
     /**
