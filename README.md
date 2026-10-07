@@ -1749,7 +1749,8 @@ These integers are the `ProductTypeId` / `ClientTypeId` / `ServiceTypeId` enum
 values. Servers may define additional `tipas` values that have no enum case — for
 example products often expose `tipas = 100` ("Apmokestinamieji gaminiai"). Pass
 those as a raw int. A tag group the server has not configured simply yields an
-empty collection; that is normal and not an error.
+empty collection; that is normal and not an error. A failed request, on the other hand, throws
+`FinvaldaException` and is not cached.
 
 **Returned columns** (mapped onto the `TypeTag` DTO):
 

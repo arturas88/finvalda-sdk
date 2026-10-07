@@ -14,7 +14,10 @@ PHP SDK/Composer package for the Finvalda (FVS) Lithuanian accounting/ERP softwa
 ## Key Patterns
 - All read methods return `Finvalda\Responses\Response` with `->data`, `->successful()`, `->error`, `->raw`, `->throw()`
 - All write methods return `Finvalda\Responses\OperationResult` with `->success`, `->journal`, `->number`, `->error`, `->throw()`
-- Resources extend `Finvalda\Resources\Resource` base class
+- Resources extend `Finvalda\Resources\Resource` base class, which owns `insertItem()`/`editItem()`/`deleteItem()` (InsertNewItem/EditItem/DeleteItem) and `requireSuccess()`
+- Derived reads (`find()`, `collect()`, `typesAndTags()`) throw `FinvaldaException` on a failed request — never an empty result, never a cached failure
+- DTOs hydrate through `Entity::stringValue()/intValue()/floatValue()/boolValue()`
+- `tests/ResourceWireTest.php` pins verb + endpoint + params for every resource method; a new public method needs a case there
 - Builders extend `Finvalda\Builders\OperationBuilder` base class
 - HttpClient is injectable (constructor accepts `?ClientInterface`)
 - Date parameters accept `DateTimeInterface|string|null` (format: Y-m-d)
@@ -87,7 +90,7 @@ docs/                       # API documentation (.doc, .txt, Postman collection)
 ## Available Resources
 | Accessor | Class | Purpose |
 |---|---|---|
-| `->stock()` | Stock | Inventory balances (current, extended, with prices, by group); `purchaseOpFor()` derives the current purchase op + sold flag from `GetPrekesIstorija` (returns a plain array, never throws) |
+| `->stock()` | Stock | Inventory balances (current, extended, with prices, by group); `purchaseOpFor()` derives the current purchase op + sold flag from `GetPrekesIstorija` (returns a plain array; Lithuanian-only — throws under `Language::English`) |
 | `->clients()` | Clients | CRUD, accounts, settlements, debt, email |
 | `->products()` | Products | CRUD, warehouse queries, history, images, types |
 | `->services()` | Services | CRUD, types and tags |
@@ -100,7 +103,7 @@ docs/                       # API documentation (.doc, .txt, Postman collection)
 | `->reports()` | Reports | Invoice/report PDF generation |
 | `->descriptions()` | Descriptions | Universal query (GetDescriptions) with 27+ types |
 | `->references()` | References | Measurement units, warehouses, taxes, payment terms |
-| `->permissions()` | Permissions | User permission queries |
+| `->permissions()` | Permissions | GetUserPermissions for a finUser; `warehouses()`/`clients()`/`operationTypes()`/`operationJournals()` return that class's `{id1, id2}` pairs |
 
 ## API Field Name Convention
 The Finvalda API uses Lithuanian-prefixed field names. Common prefixes:
