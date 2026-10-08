@@ -110,15 +110,24 @@ abstract class PurchaseOperationBuilder extends OperationBuilder
             'purchase service lines carry amounts, not a unit price; use sPastaba for text',
         );
 
+        $this->assertDueDateNotBeforeDocumentDate();
+
         return $this->withDefaultWarehouseOnProductLines(parent::build());
     }
 
     /**
      * Set the document series (sSerija). Short (Trumpas*) purchases only — the
-     * full purchase header has no series field, and build() says so.
+     * full purchase header has no series field, and build() says so. An empty
+     * series is no series: it is dropped rather than refused.
      */
     public function series(string $series): static
     {
+        if ($series === '') {
+            unset($this->header['sSerija']);
+
+            return $this;
+        }
+
         $this->header['sSerija'] = $series;
 
         return $this;

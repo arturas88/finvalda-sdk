@@ -455,4 +455,13 @@ class PurchaseUpdateBuilderTest extends TestCase
 
         $this->assertCount(0, $history);
     }
+
+    public function test_due_date_writes_the_header_payment_date(): void
+    {
+        // Verified on a live server (2026-10-07): a header-only KoregPirkDok with
+        // tMokejimoData sets the payment date and leaves the lines alone.
+        $data = (new PurchaseUpdateBuilder())->journal('PIRK')->number(7)->dueDate('2026-11-30')->build();
+
+        $this->assertSame(['tMokejimoData' => '2026-11-30'], $data['KoregPirkDok']['PirkDokHeadEil']);
+    }
 }

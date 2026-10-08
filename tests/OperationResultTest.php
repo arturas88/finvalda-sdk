@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Exceptions\MissingCountryException;
 use Finvalda\Exceptions\OperationFailedException;
 use Finvalda\Responses\OperationResult;
 use PHPUnit\Framework\TestCase;
@@ -83,5 +84,30 @@ class OperationResultTest extends TestCase
         $this->expectExceptionMessage('Finvalda operation failed (code 5)');
 
         $result->throw();
+    }
+
+    public function test_it_recognises_a_missing_country(): void
+    {
+        // Measured on a live server (2026-10-07): nResult 2010, the spec's generic
+        // "program error" code, so the message is the only signal.
+        $result = new OperationResult(success: false, error: "Service exception: Country 'IQ' not found!", errorCode: 2010);
+
+        $this->assertSame('IQ', $result->missingCountryCode());
+        $this->assertNull((new OperationResult(success: false, error: 'Other failure', errorCode: 2010))->missingCountryCode());
+        $this->assertNull((new OperationResult(success: true))->missingCountryCode());
+    }
+
+    public function test_throw_raises_a_typed_exception_for_a_missing_country(): void
+    {
+        $result = new OperationResult(success: false, error: "Service exception: Country 'GR' not found!", errorCode: 2010);
+
+        try {
+            $result->throw();
+            $this->fail('Expected MissingCountryException');
+        } catch (MissingCountryException $e) {
+            $this->assertSame('GR', $e->countryCode);
+            $this->assertSame(2010, $e->errorCode);
+            $this->assertInstanceOf(OperationFailedException::class, $e);
+        }
     }
 }

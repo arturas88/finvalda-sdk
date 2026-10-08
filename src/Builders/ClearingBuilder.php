@@ -16,6 +16,8 @@ use Finvalda\Exceptions\ValidationException;
  * Clearing operations match debit and credit entries between two clients.
  * Debit types: 1=Disbursement, 3=Sales, 4=Purchase returns, 6=Account.
  * Credit types: 0=Inflow, 2=Purchases, 5=Sales returns, 6=Account.
+ * 0 and 1 are inferred (the spec drops their numbers) and accepted on either
+ * side until a server confirms them; see ClearingDocumentType.
  *
  * Usage:
  * ```php
@@ -198,7 +200,7 @@ final class ClearingBuilder extends OperationBuilder
 
             throw new ValidationException(
                 "Clearing type {$given} is not valid on the {$side} side; "
-                . ($debit ? 'use 1, 3, 4 or 6' : 'use 0, 2, 5 or 6')
+                . ($debit ? 'use 0, 1, 3, 4 or 6' : 'use 0, 1, 2, 5 or 6')
             );
         }
 

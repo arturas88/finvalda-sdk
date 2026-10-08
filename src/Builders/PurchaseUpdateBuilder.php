@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use DateTimeInterface;
 use Finvalda\Builders\Concerns\HasAdditionalCostCodes;
+use Finvalda\Concerns\FormatsDate;
 use Finvalda\Enums\UpdateOperationClass;
 use Finvalda\Exceptions\ConflictException;
 use Finvalda\Exceptions\FinvaldaException;
@@ -60,6 +62,7 @@ use Finvalda\Responses\OperationResult;
  */
 final class PurchaseUpdateBuilder
 {
+    use FormatsDate;
     use HasAdditionalCostCodes;
 
     /**
@@ -187,6 +190,17 @@ final class PurchaseUpdateBuilder
 
             $this->header[$key] = $value;
         }
+
+        return $this;
+    }
+
+    /**
+     * Set the payment (due) date, tMokejimoData. A header-only correction
+     * changes it without touching the lines (verified on a live server).
+     */
+    public function dueDate(DateTimeInterface|string $date): self
+    {
+        $this->header['tMokejimoData'] = $this->formatDate($date);
 
         return $this;
     }

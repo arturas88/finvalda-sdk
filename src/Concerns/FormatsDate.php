@@ -33,7 +33,7 @@ trait FormatsDate
         if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/', $date, $m)
             || ! checkdate((int) $m[2], (int) $m[3], (int) $m[1])
         ) {
-            throw new InvalidArgumentException("Expected a Y-m-d date, got '{$date}'");
+            throw new InvalidArgumentException("Expected a date as Y-m-d or Y-m-d H:i:s (or a DateTimeInterface), got '{$date}'");
         }
 
         return $date;

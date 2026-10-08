@@ -101,6 +101,8 @@ abstract class SalesOperationBuilder extends OperationBuilder
         $this->requireAmountWithUnitPrice($this->productLines, $this->getProductLinesKey());
         $this->requireAmountWithUnitPrice($this->serviceLines, $this->getServiceLinesKey());
 
+        $this->assertDueDateNotBeforeDocumentDate();
+
         return $this->withDefaultWarehouseOnProductLines(parent::build());
     }
 

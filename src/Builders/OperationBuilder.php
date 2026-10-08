@@ -388,6 +388,25 @@ abstract class OperationBuilder
     }
 
     /**
+     * Refuse a due date (tMokejimoData) before the document date (tData):
+     * dates often come from OCR/LLM reads, and a swapped pair books an invoice
+     * that is overdue the day it is issued.
+     *
+     * @throws ValidationException
+     */
+    protected function assertDueDateNotBeforeDocumentDate(): void
+    {
+        $date = $this->header['tData'] ?? null;
+        $due = $this->header['tMokejimoData'] ?? null;
+
+        if (is_string($date) && is_string($due) && substr($due, 0, 10) < substr($date, 0, 10)) {
+            throw new ValidationException(
+                "{$this->getHeaderKey()}: the due date (tMokejimoData {$due}) is before the document date (tData {$date})"
+            );
+        }
+    }
+
+    /**
      * Refuse line fields the operation's detail element does not define — a
      * field the server does not know is silently dropped.
      *

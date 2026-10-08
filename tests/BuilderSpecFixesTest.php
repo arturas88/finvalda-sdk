@@ -244,6 +244,37 @@ class BuilderSpecFixesTest extends TestCase
         (new PurchaseBuilder())->series('PF')->build();
     }
 
+    public function test_an_empty_series_on_a_full_purchase_is_a_no_op(): void
+    {
+        // Consumers pass series('') unconditionally; an empty value carries no
+        // series, so there is nothing to refuse.
+        $data = (new PurchaseBuilder())->client('C')->series('')->build();
+
+        $this->assertArrayNotHasKey('sSerija', $data['PirkDok']);
+    }
+
+    // --- Due date ---
+
+    public function test_a_due_date_before_the_document_date_is_refused(): void
+    {
+        foreach ([new SaleBuilder(), new PurchaseBuilder()] as $builder) {
+            try {
+                $builder->date('2026-10-07')->dueDate('2026-10-06')->build();
+                $this->fail('Expected ValidationException for ' . $builder::class);
+            } catch (ValidationException $e) {
+                $this->assertStringContainsString('2026-10-06', $e->getMessage());
+                $this->assertStringContainsString('2026-10-07', $e->getMessage());
+            }
+        }
+    }
+
+    public function test_a_due_date_on_or_after_the_document_date_is_kept(): void
+    {
+        $data = (new SaleBuilder())->date('2026-10-07')->dueDate('2026-10-07')->build();
+
+        $this->assertSame('2026-10-07', $data['PardDok']['tMokejimoData']);
+    }
+
     public function test_a_short_sale_refuses_header_fields_outside_its_envelope(): void
     {
         $this->expectException(ValidationException::class);
@@ -328,6 +359,20 @@ class BuilderSpecFixesTest extends TestCase
         $this->expectExceptionMessage('not valid on the debit side');
 
         (new ClearingBuilder())->addDebitLine(10, 'PF', '2', 2);
+    }
+
+    public function test_clearing_accepts_inflow_and_disbursement_on_either_side(): void
+    {
+        // The spec rows name "Išmoka" (debit) and "Įplauka" (credit) but drop
+        // their numbers, so 0/1 are inferred; until a server confirms which is
+        // which, neither side refuses them.
+        $data = (new ClearingBuilder())
+            ->addDebitLine(10, 'A', '1', 0)
+            ->addCreditLine(10, 'B', '2', 1)
+            ->build();
+
+        $this->assertSame(0, $data['UzskaitaDok']['UzskaitaDebitDetEil'][0]['nTipas']);
+        $this->assertSame(1, $data['UzskaitaDok']['UzskaitaKreditDetEil'][0]['nTipas']);
     }
 
     public function test_clearing_refuses_an_unknown_type(): void

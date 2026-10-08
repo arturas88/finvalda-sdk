@@ -67,4 +67,15 @@ class FormatsDateTest extends TestCase
 
         $this->formatDate($date);
     }
+
+    public function test_the_error_names_the_accepted_formats_and_the_value(): void
+    {
+        try {
+            $this->formatDate('31.01.2024');
+            $this->fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString("'31.01.2024'", $e->getMessage());
+            $this->assertStringContainsString('Y-m-d H:i:s', $e->getMessage());
+        }
+    }
 }
