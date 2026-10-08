@@ -437,7 +437,7 @@ class PurchaseUpdateBuilderTest extends TestCase
             ->removeProduct('WSM000001TB061527', 'WH01');
 
         $this->expectException(ConflictException::class);
-        $this->expectExceptionMessage("no purchase operation could be resolved for 'WSM000001TB061527'");
+        $this->expectExceptionMessage("the purchase history of 'WSM000001TB061527' could not be read (GetPrekesIstorija failed: boom)");
 
         $builder->assertNotSold();
     }

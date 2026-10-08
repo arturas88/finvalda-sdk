@@ -68,6 +68,13 @@ final class Clients extends Resource
     {
         $response = $this->get($clientCode);
 
+        // GetKlientas answers an unknown code with Fail and an empty error
+        // (measured on a live server), where GetPreke/GetPaslauga answer
+        // Success with a null entity. A Fail that names a reason is a failure.
+        if ($response->failed() && ($response->error ?? '') === '') {
+            throw new NotFoundException("Client '{$clientCode}' not found");
+        }
+
         $data = $this->extractEntity($response, ItemClass::Client, 'GetKlientas');
 
         if ($data === null) {

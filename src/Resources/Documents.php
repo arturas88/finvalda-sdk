@@ -148,13 +148,14 @@ final class Documents extends Resource
 
     /**
      * Fold the document endpoints' `{AccessResult, error, result: {errorCode,
-     * errorText}}` envelope into an OperationResult. A request can pass the
+     * errorText}}` envelope into an OperationResult. The spec names the output
+     * `results`; the live server answers `result`; both are read. A request can pass the
      * access check and still fail inside `result` (unknown finUser, file
      * already attached).
      */
     private function toOperationResult(Response $response): OperationResult
     {
-        $result = $response->raw['result'] ?? $response->raw['AttachDocumentOut'] ?? [];
+        $result = $response->raw['results'] ?? $response->raw['result'] ?? $response->raw['AttachDocumentOut'] ?? [];
         $result = is_array($result) ? $result : [];
 
         $errorCode = (int) ($result['errorCode'] ?? 0);

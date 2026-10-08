@@ -8,6 +8,7 @@ use DateTimeInterface;
 use Finvalda\Enums\Language;
 use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
+use InvalidArgumentException;
 
 /**
  * Stock and inventory balance operations.
@@ -107,6 +108,15 @@ final class Stock extends Resource
         ?string $productCode = null,
         ?string $warehouseGroupCode = null,
     ): Response {
+        // v3 also took (modifiedSince, createdSince), which the spec does not
+        // define; a v3 call would still run and look date-filtered.
+        if (func_num_args() > 2) {
+            throw new InvalidArgumentException(
+                'balancesByGroup() takes (productCode, warehouseGroupCode) since v4: GetEinamiejiLikuciaiGrp has no '
+                . 'date filter, so the v3 date arguments were never applied.'
+            );
+        }
+
         return $this->http->get('GetEinamiejiLikuciaiGrp', [
             'sPrekesKodas' => $productCode,
             'sSandelioGrupesKodas' => $warehouseGroupCode,
@@ -158,11 +168,9 @@ final class Stock extends Resource
 
         // No warehouse or date-from narrowing: the whole history is needed to find
         // the latest purchase.
-        $response = $this->http->get('GetPrekesIstorija', ['sPreKod' => $code]);
-
-        if (! $response->successful()) {
-            return null;
-        }
+        // A failed call throws: null means "no purchase history", and a guard
+        // reading null as "nothing bought, nothing sold" must not fail open.
+        $response = $this->requireSuccess($this->http->get('GetPrekesIstorija', ['sPreKod' => $code]), 'GetPrekesIstorija');
 
         $purchase = null;
         $purchaseDate = null;

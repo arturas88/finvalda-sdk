@@ -6,6 +6,7 @@ namespace Finvalda\Resources;
 
 use DateTimeInterface;
 use Finvalda\Responses\Response;
+use InvalidArgumentException;
 
 /**
  * Pricing, discounts, and additional prices for client/product/service combinations.
@@ -23,6 +24,16 @@ final class Pricing extends Resource
      */
     public function clientItemPrices(): Response
     {
+        // v3 took (clientCode, itemCode); the server never filtered by them. A
+        // v3 call would still run, return every client's prices, and look filtered.
+        if (func_num_args() > 0) {
+            throw new InvalidArgumentException(
+                'clientItemPrices() takes no arguments since v4: GetKliPrekPasNuolPapKain has no client or item '
+                . 'filter and returns the whole matrix. Filter the rows yourself, or use a per-client method '
+                . 'such as clientProductDiscounts().'
+            );
+        }
+
         return $this->http->get('GetKliPrekPasNuolPapKain');
     }
 

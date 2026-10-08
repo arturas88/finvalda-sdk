@@ -142,6 +142,23 @@ class DocumentsTest extends TestCase
         $this->assertSame('nežinomas Finvaldos darbuotojas', $result->error);
     }
 
+    public function test_an_error_code_under_the_spec_name_results_is_a_failure_too(): void
+    {
+        // The spec names InsertDocument's output `results`; the live server was
+        // seen answering `result`. Either must fail closed.
+        $history = [];
+        $response = $this->jsonResponse([
+            'AccessResult' => 'Success',
+            'error' => '',
+            'results' => ['errorText' => 'failas jau yra', 'errorCode' => 3],
+        ]);
+
+        $result = $this->documents($history, $response)->upload('a.txt', '00');
+
+        $this->assertFalse($result->success);
+        $this->assertSame(3, $result->errorCode);
+    }
+
     public function test_a_failed_access_result_is_a_failure(): void
     {
         $history = [];

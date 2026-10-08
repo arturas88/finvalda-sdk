@@ -236,6 +236,24 @@ class FinvaldaTest extends TestCase
         $finvalda->ping();
     }
 
+    public function test_ping_throws_when_the_server_answers_fail(): void
+    {
+        // The server answered, so it is not down; a Fail is a problem the
+        // caller must see. (An unknown company answers AccessDenied, which
+        // stays false like wrong credentials.)
+        $history = [];
+        $finvalda = $this->createFinvaldaWithHistory(
+            new FinvaldaConfig(baseUrl: 'https://example.com', username: 'demo', password: 'secret'),
+            [new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Fail', 'error' => 'Service exception: boom']))],
+            $history,
+        );
+
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('boom');
+
+        $finvalda->ping();
+    }
+
     public function test_a_company_scoped_client_reuses_the_injected_transport(): void
     {
         $history = [];

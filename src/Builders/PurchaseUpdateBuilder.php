@@ -7,6 +7,7 @@ namespace Finvalda\Builders;
 use Finvalda\Builders\Concerns\HasAdditionalCostCodes;
 use Finvalda\Enums\UpdateOperationClass;
 use Finvalda\Exceptions\ConflictException;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\ValidationException;
 use Finvalda\Finvalda;
 use Finvalda\Responses\OperationResult;
@@ -311,7 +312,14 @@ final class PurchaseUpdateBuilder
         $finvalda = $this->requireFinvalda();
 
         foreach ($codes as $code) {
-            $op = $finvalda->stock()->purchaseOpFor((string) $code);
+            try {
+                $op = $finvalda->stock()->purchaseOpFor((string) $code);
+            } catch (FinvaldaException $e) {
+                throw new ConflictException(
+                    "Refusing to correct: the purchase history of '{$code}' could not be read ({$e->getMessage()}).",
+                    previous: $e,
+                );
+            }
 
             if ($op === null) {
                 throw new ConflictException(

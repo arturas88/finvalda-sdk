@@ -171,13 +171,17 @@ class StockTest extends TestCase
         $this->assertNull($this->stockWithHistory([])->purchaseOpFor('X'));
     }
 
-    public function test_returns_null_when_the_call_fails(): void
+    public function test_a_failed_history_call_throws_instead_of_reading_as_no_history(): void
     {
+        // null means "no purchase history"; a failed call must not look like that.
         $stock = new Stock($this->createHttpClient([
             $this->jsonResponse(['AccessResult' => 'Fail', 'error' => 'boom']),
         ]));
 
-        $this->assertNull($stock->purchaseOpFor('X'));
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('boom');
+
+        $stock->purchaseOpFor('X');
     }
 
     public function test_returns_null_for_a_blank_code_without_a_round_trip(): void

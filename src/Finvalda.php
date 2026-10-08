@@ -184,10 +184,18 @@ final class Finvalda
     public function ping(): bool
     {
         try {
-            return $this->references()->user()->successful();
+            $response = $this->references()->user();
         } catch (NetworkException|ServerException|AccessDeniedException) {
             return false;
         }
+
+        // The server answered, so it is up: a Fail is a problem to surface,
+        // not "down".
+        if (! $response->successful()) {
+            throw new FinvaldaException('Finvalda answered ping with ' . $response->accessResult->value . ': ' . ($response->error ?? 'no error text'));
+        }
+
+        return true;
     }
 
     /**
