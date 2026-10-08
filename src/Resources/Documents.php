@@ -9,6 +9,7 @@ use Finvalda\Enums\DocumentEntityType;
 use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
+use LogicException;
 
 /**
  * Document upload, attachment, and management operations.
@@ -103,14 +104,14 @@ final class Documents extends Resource
      *
      * Entities are identified by up to two ids: a description by its code (an
      * address card by client code + address code), an operation by journal +
-     * operation number — e.g. attach(DocumentEntityType::Sale, 'PARD', 'a.pdf', 42).
+     * operation number — e.g. attachTo(DocumentEntityType::Sale, 'PARD', 'a.pdf', 42).
      *
      * @param  string  $id1  Entity code, or the journal for an operation
      * @param  string  $filename  The uploaded document's file name
      * @param  string|int|null  $id2  Second code, or the operation number
      * @param  string|null  $finUser  Finvalda user (not the WS user) the attachment is made as
      */
-    public function attach(
+    public function attachTo(
         DocumentEntityType $entityType,
         string $id1,
         string $filename,
@@ -137,13 +138,39 @@ final class Documents extends Resource
      * @param  string  $id1  Entity code, or the journal for an operation
      * @param  string|int|null  $id2  Second code, or the operation number
      */
-    public function attached(DocumentEntityType $entityType, string $id1, string|int|null $id2 = null): Response
+    public function attachedTo(DocumentEntityType $entityType, string $id1, string|int|null $id2 = null): Response
     {
         return $this->http->get('GetAttachedDocument', [
             'entityType' => $entityType->value,
             'id1' => $id1,
             'id2' => $id2 === null ? null : (string) $id2,
         ]);
+    }
+
+    /**
+     * Retired: v3's attach(type, entityCode, filename, journal, number) put an
+     * operation's journal and number in fields the spec does not have. Reusing
+     * the name would let an old call send the number as the Finvalda user.
+     */
+    public function attach(mixed ...$arguments): never
+    {
+        throw new LogicException(
+            'Documents::attach() was removed in v4: its v3 arguments (type, entityCode, filename, journal, number) '
+            . 'do not match the WS. Use attachTo(type, id1, filename, id2, finUser); for an operation id1 is '
+            . 'the journal and id2 the number.'
+        );
+    }
+
+    /**
+     * Retired: see attach().
+     */
+    public function attached(mixed ...$arguments): never
+    {
+        throw new LogicException(
+            'Documents::attached() was removed in v4: its v3 arguments (type, entityCode, journal, number) '
+            . 'do not match the WS. Use attachedTo(type, id1, id2); for an operation id1 is the journal and '
+            . 'id2 the number.'
+        );
     }
 
     /**

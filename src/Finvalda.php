@@ -172,6 +172,28 @@ final class Finvalda
     }
 
     /**
+     * @deprecated Kept as a shim over recording; use record() and lastRecording().
+     *
+     * @return $this
+     */
+    public function setDebug(bool $debug): self
+    {
+        $this->http->setDebug($debug);
+
+        return $this;
+    }
+
+    /**
+     * @deprecated Use lastRecording()?->toArray().
+     *
+     * @return array<string, mixed>
+     */
+    public function getLastDebugInfo(): array
+    {
+        return $this->http->getLastDebugInfo();
+    }
+
+    /**
      * Test the connection and credentials by calling a lightweight endpoint.
      *
      * False when the server is unreachable, answers 5xx, or rejects the

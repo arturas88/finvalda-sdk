@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use BadMethodCallException;
 use DateTimeInterface;
 use Finvalda\Concerns\FormatsDate;
 use Finvalda\Enums\OperationClass;
 use Finvalda\Exceptions\ValidationException;
 use Finvalda\Finvalda;
 use Finvalda\Responses\OperationResult;
+use LogicException;
 
 /**
  * Abstract base class for fluent operation builders.
@@ -23,6 +25,41 @@ use Finvalda\Responses\OperationResult;
 abstract class OperationBuilder
 {
     use FormatsDate;
+
+    /**
+     * Setters removed in v4: the field each wrote, what to use instead (if
+     * anything), and the v3 builders that had it (null: every builder, via
+     * this base class). Kept for one major release so an old call explains
+     * itself instead of failing with a bare "undefined method".
+     */
+    private const RETIRED_SETTERS = [
+        'paymentDays' => ['nAtsiskDien', 'set the due date with dueDate()', ['PurchaseBuilder', 'PurchaseOrderBuilder', 'PurchaseReturnBuilder', 'SaleBuilder', 'SalesReservationBuilder', 'SalesReturnBuilder', 'UvmPurchaseOrderBuilder', 'UvmSalesReservationBuilder']],
+        'isAdvance' => ['bAvansas', null, ['DisbursementBuilder', 'InflowBuilder', 'PurchaseBuilder', 'SaleBuilder', 'SalesReservationBuilder']],
+        'vatIncluded' => ['bPVMSkaiciuotiIKaina', 'send net line amounts and the VAT with vat(percent:, amount:)', ['PurchaseBuilder', 'PurchaseOrderBuilder', 'SaleBuilder', 'SalesReservationBuilder', 'UvmPurchaseOrderBuilder', 'UvmSalesReservationBuilder']],
+        'priceType' => ['nKainosTipas', null, ['SaleBuilder', 'SalesReservationBuilder']],
+        'responsiblePerson' => ['sAtsakingasAsmuo', null, ['DisbursementBuilder', 'InflowBuilder', 'InternalTransferBuilder', 'PurchaseBuilder', 'PurchaseOrderBuilder', 'PurchaseReturnBuilder', 'SaleBuilder', 'SalesReservationBuilder', 'SalesReturnBuilder', 'UvmPurchaseOrderBuilder', 'UvmSalesReservationBuilder']],
+        'supplierInvoice' => ['sTiekejoSF', 'put the supplier invoice number in documentNumber()', ['PurchaseBuilder']],
+        'supplierInvoiceDate' => ['tTiekejoSFData', null, ['PurchaseBuilder']],
+        'originalDocument' => ['sGrazDokumentas', null, ['PurchaseReturnBuilder', 'SalesReturnBuilder']],
+        'originalDocumentNumber' => ['sGrazZurnalas/nGrazNumeris', null, ['PurchaseReturnBuilder', 'SalesReturnBuilder']],
+        'reason' => ['sGrazPriezastis', null, ['PurchaseReturnBuilder', 'SalesReturnBuilder']],
+        'operationType' => ['sOpTipas', 'the operation type comes from the sParametras profile', ['UvmPurchaseOrderBuilder', 'UvmSalesReservationBuilder']],
+        'bankAccount' => ['sBankoSask', 'the account comes from the sParametras profile', ['DisbursementBuilder', 'InflowBuilder']],
+        'cashRegister' => ['sKasa', 'the cash register comes from the sParametras profile', ['DisbursementBuilder', 'InflowBuilder']],
+        'amount' => ['dSuma', 'put amounts on the lines with addLine()/payDocument()', ['DisbursementBuilder', 'InflowBuilder']],
+        'description' => ['sAprasymas', null, null],
+        'client' => ['sKlientas', null, null],
+        'currency' => ['sValiuta', null, null],
+        'documentNumber' => ['sDokumentas', null, null],
+        'warehouse' => ['sSandelis', 'internal transfers use fromWarehouse()/toWarehouse(); otherwise set the warehouse on each line', null],
+        'object1' => ['sObjektas1', 'set objects on the lines', null],
+        'object2' => ['sObjektas2', 'set objects on the lines', null],
+        'object3' => ['sObjektas3', 'set objects on the lines', null],
+        'object4' => ['sObjektas4', 'set objects on the lines', null],
+        'object5' => ['sObjektas5', 'set objects on the lines', null],
+        'object6' => ['sObjektas6', 'set objects on the lines', null],
+        'objects' => ['sObjektas1..6', 'set objects on the lines', null],
+    ];
 
     /** @var array<string, mixed> */
     protected array $header = [];
@@ -40,6 +77,32 @@ abstract class OperationBuilder
     /**
      * Get the operation class for this builder.
      */
+    /**
+     * Explain a setter removed in v4 (RETIRED_SETTERS); anything else is the
+     * ordinary undefined-method error. method_exists() stays false for both.
+     *
+     * @param  array<int, mixed>  $arguments
+     */
+    public function __call(string $method, array $arguments): never
+    {
+        $shortName = (new \ReflectionClass($this))->getShortName();
+        [$field, $instead, $hadIt] = self::RETIRED_SETTERS[$method] ?? [null, null, []];
+
+        if ($field === null || ($hadIt !== null && ! in_array($shortName, $hadIt, true))) {
+            throw new BadMethodCallException(sprintf('Call to undefined method %s::%s()', static::class, $method));
+        }
+
+        throw new LogicException(sprintf(
+            '%s() was removed in v4 from %s: it wrote %s, which the WS spec does not define for %s, and the '
+            . 'server ignored it. Delete the call%s.',
+            $method,
+            $shortName,
+            $field,
+            $this->getHeaderKey(),
+            $instead !== null ? "; {$instead}" : '',
+        ));
+    }
+
     abstract public function getOperationClass(): OperationClass;
 
     /**
@@ -233,7 +296,7 @@ abstract class OperationBuilder
      *
      * @param  array<string, mixed>  $line
      *
-     * @throws \BadMethodCallException  When the operation has no generic product lines.
+     * @throws BadMethodCallException  When the operation has no generic product lines.
      */
     public function addProductLine(array $line): static
     {
@@ -301,7 +364,7 @@ abstract class OperationBuilder
      *
      * @param  array<string, mixed>  $line
      *
-     * @throws \BadMethodCallException  When the operation has no generic service lines.
+     * @throws BadMethodCallException  When the operation has no generic service lines.
      */
     public function addServiceLine(array $line): static
     {
@@ -313,12 +376,12 @@ abstract class OperationBuilder
     }
 
     /**
-     * @throws \BadMethodCallException
+     * @throws BadMethodCallException
      */
     private function assertAcceptsLines(?string $key, string $kind): void
     {
         if ($key === null) {
-            throw new \BadMethodCallException(
+            throw new BadMethodCallException(
                 static::class . " does not support generic {$kind} lines; use {$this->lineMethodHint()} instead."
             );
         }

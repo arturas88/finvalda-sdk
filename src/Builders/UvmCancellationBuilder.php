@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Builders;
 
 use Finvalda\Builders\Concerns\SetsDocumentNumber;
-use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsEmployeeByName;
 use Finvalda\Builders\Concerns\SetsMarked;
 use Finvalda\Builders\Concerns\SetsName;
 use Finvalda\Builders\Concerns\SetsNote;
@@ -31,7 +31,7 @@ use Finvalda\Enums\OperationClass;
 final class UvmCancellationBuilder extends OperationBuilder
 {
     use SetsDocumentNumber;
-    use SetsEmployee;
+    use SetsEmployeeByName;
     use SetsMarked;
     use SetsName;
     use SetsNote;

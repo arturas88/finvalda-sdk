@@ -39,7 +39,7 @@ class BuilderSpecFixesTest extends TestCase
             ->date('2024-01-15')
             ->currency('EUR')
             ->type(PaymentType::Documents)
-            ->forDocument('SF', '000123', 500.00)
+            ->payDocument('SF', '000123', 500.00)
             ->build();
 
         $this->assertSame(['IplDok'], array_keys($data));
@@ -48,6 +48,41 @@ class BuilderSpecFixesTest extends TestCase
             [['dSumaV' => 500.00, 'sSerija' => 'SF', 'sDokumentas' => '000123']],
             $data['IplDok']['IplDokDetEil'],
         );
+    }
+
+    public function test_paying_a_document_defaults_the_type_to_documents(): void
+    {
+        $data = (new InflowBuilder())->client('C')->date('2024-01-15')->payDocument('SF', '1', 10.0)->build();
+
+        $this->assertSame(PaymentType::Documents->value, $data['IplDok']['nTipas']);
+    }
+
+    public function test_an_explicit_payment_type_is_kept(): void
+    {
+        $data = (new InflowBuilder())->type(PaymentType::Fifo)->payDocument('SF', '1', 10.0)->build();
+
+        $this->assertSame(PaymentType::Fifo->value, $data['IplDok']['nTipas']);
+    }
+
+    public function test_a_payment_without_a_type_is_refused(): void
+    {
+        // nTipas is required by the spec; without it the server picks a default
+        // and may not settle the documents named on the lines.
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('nTipas');
+
+        (new DisbursementBuilder())->client('C')->addLine(5.0)->build();
+    }
+
+    public function test_the_old_for_document_signature_is_refused_with_a_migration_hint(): void
+    {
+        // v3 took (document, journal, number, amount); v4 takes (series, document,
+        // amount). An old call would still type-check and book the number as the
+        // amount, so the old name is retired instead of reused.
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('payDocument(');
+
+        (new InflowBuilder())->forDocument('SF-123', 'PARD', 42, 500.0);
     }
 
     public function test_disbursement_uses_the_ism_dok_envelope(): void

@@ -190,7 +190,7 @@ class DocumentsTest extends TestCase
         // write must be a POST so it is never retried.
         $history = [];
 
-        $result = $this->documents($history)->attach(DocumentEntityType::Product, '010', 'a.txt', finUser: 'S2');
+        $result = $this->documents($history)->attachTo(DocumentEntityType::Product, '010', 'a.txt', finUser: 'S2');
 
         $this->assertTrue($result->success);
         $this->assertSame('POST', $history[0]['request']->getMethod());
@@ -205,7 +205,7 @@ class DocumentsTest extends TestCase
     {
         $history = [];
 
-        $this->documents($history)->attach(DocumentEntityType::Sale, 'PARD', 'a.txt', 42);
+        $this->documents($history)->attachTo(DocumentEntityType::Sale, 'PARD', 'a.txt', 42);
 
         $this->assertSame(
             ['entityType' => 3, 'id1' => 'PARD', 'id2' => '42', 'documentId' => 'a.txt'],
@@ -221,7 +221,7 @@ class DocumentsTest extends TestCase
         return [
             'upload' => [fn (Documents $d) => $d->upload('a.txt', '00')],
             'delete' => [fn (Documents $d) => $d->delete('a.txt')],
-            'attach' => [fn (Documents $d) => $d->attach(DocumentEntityType::Client, 'K1', 'a.txt')],
+            'attach' => [fn (Documents $d) => $d->attachTo(DocumentEntityType::Client, 'K1', 'a.txt')],
         ];
     }
 
@@ -272,7 +272,7 @@ class DocumentsTest extends TestCase
         ]);
 
         $response = $this->documents($history, $response)
-            ->attached(DocumentEntityType::SalesReservation, '4ESAS', 21);
+            ->attachedTo(DocumentEntityType::SalesReservation, '4ESAS', 21);
 
         $this->assertTrue($response->successful());
         $this->assertSame('GET', $history[0]['request']->getMethod());

@@ -32,6 +32,9 @@ use Psr\Log\LoggerInterface;
 
 final class HttpClient
 {
+    /** Whether setDebug() started the current recording (so only it stops it). */
+    private bool $debugShimRecording = false;
+
     /**
      * Maximum number of bytes of a request/response body kept in a recorded
      * Exchange. Recording is bounded by exchange count as well, but a `Reports`
@@ -160,11 +163,51 @@ final class HttpClient
     }
 
     /**
+     * @deprecated v3's debug mode, kept as a shim over recording: setDebug(true)
+     * starts a one-exchange recording unless one is already running.
+     * Use record() and lastRecording() instead.
+     */
+    public function setDebug(bool $debug): void
+    {
+        if ($debug && $this->diagnostics->recorder() === null) {
+            $this->record(1);
+            $this->debugShimRecording = true;
+        } elseif (! $debug && $this->debugShimRecording) {
+            $this->stopRecording();
+            $this->debugShimRecording = false;
+        }
+    }
+
+    /**
+     * @deprecated The last recorded exchange as v3's debug array, {request,
+     * response}, plus the recording's extra keys (attempt, request_id). Use
+     * lastRecording()->toArray() instead.
+     *
+     * @return array<string, mixed>
+     */
+    public function getLastDebugInfo(): array
+    {
+        return $this->lastRecording()?->toArray() ?? ['request' => [], 'response' => []];
+    }
+
+    /**
      * A read. Retried under the configured RetryPolicy.
      */
     public function get(string $endpoint, array $params = []): Response
     {
         return $this->send('GET', $endpoint, ['query' => $this->cleanParams($params)], true, $this->parseResponse(...));
+    }
+
+    /**
+     * A read whose body is returned as it came, undecoded: for an endpoint the
+     * SDK has no resource method for yet, or a body that is not JSON. Retried
+     * under the configured RetryPolicy, like get().
+     *
+     * @param  array<string, mixed>  $params
+     */
+    public function getRaw(string $endpoint, array $params = []): string
+    {
+        return $this->transmit('GET', $endpoint, ['query' => $this->cleanParams($params)], true)[1];
     }
 
     /**
@@ -276,6 +319,23 @@ final class HttpClient
      */
     private function send(string $method, string $endpoint, array $options, bool $retryable, callable $parse): mixed
     {
+        [$status, $body, $secrets] = $this->transmit($method, $endpoint, $options, $retryable);
+
+        return $parse($this->decodeBody($body, $status, $secrets));
+    }
+
+    /**
+     * The request itself: headers, logging, recording, retries and exception
+     * mapping. Returns the status, the undecoded body, and the credential
+     * values to scrub from any later error message.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array{int, string, array<string, string>}
+     *
+     * @throws FinvaldaException
+     */
+    private function transmit(string $method, string $endpoint, array $options, bool $retryable): array
+    {
         if (isset($options['json'])) {
             $options['json'] = $this->normalizer->normalize($options['json']);
         }
@@ -340,7 +400,7 @@ final class HttpClient
             fn (): array => $retryHandler !== null ? $retryHandler->execute($doRequest) : $doRequest(),
         );
 
-        return $parse($this->decodeBody($body, $status, $secrets));
+        return [$status, $body, $secrets];
     }
 
     /**

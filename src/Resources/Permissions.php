@@ -6,6 +6,7 @@ namespace Finvalda\Resources;
 
 use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
+use LogicException;
 
 /**
  * User permission queries.
@@ -29,11 +30,24 @@ final class Permissions extends Resource
      *
      * @param  string|null  $finUser  Finvalda user name (not the WS user)
      */
-    public function get(?string $finUser = null): Response
+    public function forUser(?string $finUser = null): Response
     {
         return $this->http->get('GetUserPermissions', [
             'finUser' => $finUser,
         ]);
+    }
+
+    /**
+     * Retired: v3's get(int $permissionClass) took a class; the WS takes only
+     * the user. Reusing the name would send the class number as the user name.
+     */
+    public function get(mixed ...$arguments): never
+    {
+        throw new LogicException(
+            'Permissions::get() was removed in v4: GetUserPermissions takes only the Finvalda user, so '
+            . 'get($permissionClass) cannot work. Use forUser($finUser) for every class, or '
+            . 'entities($permissionClass, $finUser) / warehouses() / clients() for one class.'
+        );
     }
 
     /**
@@ -46,7 +60,7 @@ final class Permissions extends Resource
      */
     public function entities(int $permissionClass, ?string $finUser = null): array
     {
-        $raw = $this->requireSuccess($this->get($finUser), 'GetUserPermissions')->raw;
+        $raw = $this->requireSuccess($this->forUser($finUser), 'GetUserPermissions')->raw;
         $result = $raw['results'] ?? $raw['result'] ?? [];
         $result = is_array($result) ? $result : [];
 

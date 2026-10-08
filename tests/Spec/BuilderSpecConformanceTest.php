@@ -13,6 +13,7 @@ use Finvalda\Builders\InternalTransferBuilder;
 use Finvalda\Builders\InventoryCountBuilder;
 use Finvalda\Builders\NonAnalyticalBuilder;
 use Finvalda\Builders\OperationBuilder;
+use Finvalda\Builders\PaymentBuilder;
 use Finvalda\Builders\ProductionBuilder;
 use Finvalda\Builders\ProductLine;
 use Finvalda\Builders\PurchaseBuilder;
@@ -27,6 +28,7 @@ use Finvalda\Builders\UvmCancellationBuilder;
 use Finvalda\Builders\UvmPurchaseOrderBuilder;
 use Finvalda\Builders\UvmSalesReservationBuilder;
 use Finvalda\Builders\WriteOffBuilder;
+use Finvalda\Enums\PaymentType;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -51,6 +53,7 @@ class BuilderSpecConformanceTest extends TestCase
     private const SKIP = [
         'using', 'parameter', 'build', 'save', 'getOperationClass', 'short',
         'setHeader', 'addProductLine', 'addServiceLine', 'addPaymentLine', 'assertNotSold',
+        'forDocument',
     ];
 
     /**
@@ -91,6 +94,12 @@ class BuilderSpecConformanceTest extends TestCase
 
             if ($short) {
                 $builder->short();
+            }
+
+            // A payment refuses to build without its required type; give it one
+            // so its setters are still exercised.
+            if ($builder instanceof PaymentBuilder) {
+                $builder->type(PaymentType::Fifo);
             }
 
             try {

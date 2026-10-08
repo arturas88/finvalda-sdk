@@ -89,9 +89,9 @@ final class InventoryCountBuilder extends OperationBuilder
     /**
      * Set the warehouse code (shared across all items).
      */
-    public function warehouse(string $warehouse): self
+    public function warehouse(string $warehouseCode): self
     {
-        $this->header['sSandelis'] = $warehouse;
+        $this->header['sSandelis'] = $warehouseCode;
 
         return $this;
     }

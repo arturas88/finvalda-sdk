@@ -17,7 +17,7 @@ use Finvalda\Enums\OperationClass;
  *     ->currency('EUR')
  *     ->documentNumber('KPO-0001')
  *     ->type(PaymentType::Documents)
- *     ->forDocument('SF', '000123', 500.00)
+ *     ->payDocument('SF', '000123', 500.00)
  *     ->save('INFLOW');
  * ```
  */

@@ -7,7 +7,7 @@ namespace Finvalda\Builders;
 use Finvalda\Builders\Concerns\HasDefaultWarehouse;
 use Finvalda\Builders\Concerns\SetsClient;
 use Finvalda\Builders\Concerns\SetsDocumentNumber;
-use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsEmployeeByName;
 use Finvalda\Builders\Concerns\SetsMarked;
 use Finvalda\Builders\Concerns\SetsName;
 use Finvalda\Builders\Concerns\SetsNote;
@@ -22,7 +22,7 @@ abstract class StockAdjustmentBuilder extends OperationBuilder
     use HasDefaultWarehouse;
     use SetsClient;
     use SetsDocumentNumber;
-    use SetsEmployee;
+    use SetsEmployeeByName;
     use SetsMarked;
     use SetsName;
     use SetsNote;

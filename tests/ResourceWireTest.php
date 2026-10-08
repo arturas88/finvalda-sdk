@@ -61,6 +61,8 @@ class ResourceWireTest extends TestCase
         'Pricing::recommendedPrice',
         'Permissions::entities', 'Permissions::warehouses', 'Permissions::clients',
         'Permissions::operationTypes', 'Permissions::operationJournals',
+        // Retired in v4: throws a migration message (RetiredMethodsTest).
+        'Permissions::get',
     ];
 
     /**
@@ -223,7 +225,7 @@ class ResourceWireTest extends TestCase
                 ...$get('GetUzsakytasPrekes', ['sPrekesKodas' => 'P1', 'sSandelioKodas' => 'W1'])],
 
             // --- Permissions (GetUserPermissions takes only finUser; §3.84 PURE example) ---
-            'Permissions::get' => [fn ($h) => (new Permissions($h))->get('S5'), ...$get('GetUserPermissions', ['finUser' => 'S5'])],
+            'Permissions::forUser' => [fn ($h) => (new Permissions($h))->forUser('S5'), ...$get('GetUserPermissions', ['finUser' => 'S5'])],
 
             // --- References ---
             'References::measurementUnits' => [fn ($h) => (new References($h))->measurementUnits(), ...$get('GetMatavimoVienetus')],

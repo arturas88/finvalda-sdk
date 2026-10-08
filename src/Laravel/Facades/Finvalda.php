@@ -85,6 +85,8 @@ use Psr\Log\LoggerInterface;
  * @method static list<Exchange> recordings()
  * @method static Exchange|null lastRecording()
  * @method static bool ping()
+ * @method static \Finvalda\Finvalda setDebug(bool $debug) Deprecated: use record() and lastRecording()
+ * @method static array<string, mixed> getLastDebugInfo() Deprecated: use lastRecording()?->toArray()
  * @method static HttpClient getHttpClient()
  *
  * @see \Finvalda\Finvalda

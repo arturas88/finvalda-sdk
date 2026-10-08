@@ -6,7 +6,7 @@ namespace Finvalda\Builders;
 
 use Finvalda\Builders\Concerns\SetsClient;
 use Finvalda\Builders\Concerns\SetsDocumentNumber;
-use Finvalda\Builders\Concerns\SetsEmployee;
+use Finvalda\Builders\Concerns\SetsEmployeeByName;
 use Finvalda\Builders\Concerns\SetsMarked;
 use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\OperationClass;
@@ -37,7 +37,7 @@ final class ProductionBuilder extends OperationBuilder
 {
     use SetsClient;
     use SetsDocumentNumber;
-    use SetsEmployee;
+    use SetsEmployeeByName;
     use SetsMarked;
     use SetsNote;
 

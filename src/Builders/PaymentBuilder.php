@@ -13,6 +13,8 @@ use Finvalda\Builders\Concerns\SetsMarked;
 use Finvalda\Builders\Concerns\SetsName;
 use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\PaymentType;
+use Finvalda\Exceptions\ValidationException;
+use LogicException;
 
 /**
  * Shared shape of inflows (IplDok) and disbursements (IsmDok): one header
@@ -40,7 +42,7 @@ abstract class PaymentBuilder extends OperationBuilder
 
     protected function lineMethodHint(): string
     {
-        return 'forDocument()/addLine()';
+        return 'payDocument()/addLine()';
     }
 
     /**
@@ -48,6 +50,13 @@ abstract class PaymentBuilder extends OperationBuilder
      */
     public function build(): array
     {
+        if (! isset($this->header['nTipas'])) {
+            throw new ValidationException(
+                'A payment needs its type (nTipas, required by the spec): call type(PaymentType::...), '
+                . 'or payDocument(), which defaults it to PaymentType::Documents'
+            );
+        }
+
         $data = parent::build();
 
         if ($this->paymentLines !== []) {
@@ -78,15 +87,31 @@ abstract class PaymentBuilder extends OperationBuilder
     }
 
     /**
-     * Pay a specific document (with type(PaymentType::Documents)).
+     * Pay a specific document. Sets the type to PaymentType::Documents unless
+     * type() already chose one.
      */
-    public function forDocument(string $series, string $document, float $amount): static
+    public function payDocument(string $series, string $document, float $amount): static
     {
+        $this->header['nTipas'] ??= PaymentType::Documents->value;
+
         return $this->addPaymentLine([
             'dSumaV' => $amount,
             'sSerija' => $series,
             'sDokumentas' => $document,
         ]);
+    }
+
+    /**
+     * Retired: v3's forDocument(document, journal, number, amount) wrote fields
+     * the spec does not have. Reusing the name for the new arguments would let
+     * an old call type-check and book the operation number as the amount.
+     */
+    public function forDocument(mixed ...$arguments): never
+    {
+        throw new LogicException(
+            'forDocument() was removed in v4: its v3 arguments (document, journal, number, amount) '
+            . 'wrote fields the WS spec does not have. Use payDocument(series, document, amount).'
+        );
     }
 
     /**
