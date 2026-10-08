@@ -94,6 +94,11 @@ $builder->addProduct('P1', 2, amount: 20.00, price: 10.00);
 A zero-amount line is still allowed, e.g. `ServiceLine::make('S1', 1)->amount(0)` as a
 placeholder that is priced later.
 
+**Discount next to an amount is not applied twice** (verified on a live server for both
+a purchase line and a sales line): `amount(100)` with `discount(percent: 10)` is booked at
+100, with the discount stored as 0. Keep sending the net amount after discount. The
+percentage is informational only and is not saved.
+
 ### 2. Behaviour that is now correct, so check that you want it
 
 - **`dueDate()`** now sets `tMokejimoData`. v3 wrote a field that does not exist, so no
@@ -184,6 +189,12 @@ or `'2024/01/31'`, throws `InvalidArgumentException`. Raw arrays passed to
 `Operations::query()` or `Descriptions::get(readParams:)` are not checked.
 
 ### 7. Transport, exceptions and config
+
+- **Constructors you call directly are unchanged:** `OperationResult`, `Response`,
+  `FinvaldaConfig` and `Exchange` keep every parameter name, meaning and position, so
+  named and positional calls still work. The only additions, `Exchange::$requestId` and
+  `FinvaldaConfig::$httpOptions`, are last and optional. The one constructor that changed
+  is `ServerException` (see below).
 
 - **Writes are never retried.** v3 could retry `InsertNewOperation` after a timeout and
   post a document twice. If your code retries SDK writes itself, look the document up
