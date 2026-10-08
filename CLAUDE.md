@@ -34,13 +34,14 @@ The Pure endpoint (FvsServicePure.svc) supports both query params and JSON body.
 - **`postWrite()`** — Non-retried write returning Response, for writes whose answer is not the `{nResult, sError}` envelope. Used for: InsertDocument (`{inParams:{...}}`), DeleteDocument (`{fileName}`), AttachDocument (flat `{entityType, id1, id2, documentId, finUser}`) — Documents folds the `result.errorCode` envelope into an OperationResult itself
 - **`post()`** — POST with query params returning Response. Used for: GetInvoicesRelatedToCustomer
 - **`get()`** — GET with query params. Used for all read-only endpoints (130+), including GetAttachedDocument
+- **`getRaw()`** — GET returning the undecoded body string; the escape hatch for endpoints without a resource method
 
 ## Builders
 All 26 `OperationClass` enum cases have corresponding builders accessible via `Finvalda`:
 - **Sales**: `sale()`, `salesReservation()`, `salesReturn()`, `uvmSalesReservation()` — extend `SalesOperationBuilder`; each supports `->short()` for Trumpas* variants
 - **Purchases**: `purchase()`, `purchaseOrder()`, `purchaseReturn()`, `uvmPurchaseOrder()` — extend `PurchaseOperationBuilder`; each supports `->short()`; `series()` is short-only (PirkDok has no sSerija); `purchase()`/`purchaseOrder()` also carry `->additionalCostCodes()` (sPapIslaiduKodas1..4, full variants only)
 - **Transfers & Adjustments**: `internalTransfer()`, `writeOff()`, `capitalization()` (both extend `StockAdjustmentBuilder`), `inventoryCount()`
-- **Payments**: `inflow()` (IplDok), `disbursement()` (IsmDok) — extend `PaymentBuilder`; `type(PaymentType)` sets the required nTipas, `forDocument(series, document, amount)`/`addLine()` add lines nested inside the wrapper; `clearing()` (types via `ClearingDocumentType`, validated per side)
+- **Payments**: `inflow()` (IplDok), `disbursement()` (IsmDok) — extend `PaymentBuilder`; `type(PaymentType)` sets the required nTipas, `payDocument(series, document, amount)` (defaults nTipas to Documents; the v3 name `forDocument()` throws a migration LogicException)/`addLine()` add lines nested inside the wrapper; `clearing()` (types via `ClearingDocumentType`, validated per side; 0/1 are inferred and accepted on both sides)
 - **Production**: `production()` — three line types: finished goods, raw materials, services
 - **Other**: `nonAnalytical()` — general ledger debit/credit entries
 - **UVM**: `uvmCancellation()` (reservations/orders are in the sales/purchase families above)
@@ -56,6 +57,11 @@ Spec conformance rules:
 - Stock lines (write-off, capitalization, transfer, production) default `nPirmasMat` to 1.
 - `tests/Spec/BuilderSpecConformanceTest.php` calls every public setter (by reflection) and checks each emitted key against the tables in `docs/FVS_Webservice.md` §3.70/§3.72 (`tests/Spec/OperationSpec.php`). A field kept without spec backing must be listed in `OperationSpec::SUPPLEMENTS` with its source.
 - `OperationClass::deleteClass()` maps to `DeleteOperationClass` (null where the spec has no delete).
+
+### Retired API (v4, kept one major)
+- Builder setters removed for writing non-spec fields are listed in `OperationBuilder::RETIRED_SETTERS`; `__call` turns a call into a LogicException naming the field and the replacement (`method_exists()` stays false).
+- Methods whose arguments changed meaning are retired, not reused: `forDocument()`, `Documents::attach()/attached()`, `Permissions::get()` throw and name the new method.
+- `setDebug()`/`getLastDebugInfo()` are deprecated shims over recording.
 
 ### Line DTOs
 - `ProductLine::make(code, qty)` — fluent DTO for product detail lines with `->price()` (sales only), `->warehouse()`, `->amount()`, `->vat()`, `->discount()`, `->object()`, `->objects()` (levels 1-6, else `ValidationException`), `->intrastat()`, `->weight()`, `->firstMeasurement()`, `->info()` (sales only), `->marked()`, `->additionalCost()`, `->additionalCosts()`, `->set()`
@@ -99,11 +105,11 @@ docs/                       # API documentation (.doc, .txt, Postman collection)
 | `->operations()` | Operations | Create/delete/update/query/lock accounting operations |
 | `->pricing()` | Pricing | Discounts and prices by client/product/service/type combos |
 | `->orderManagement()` | OrderManagement | UVM reservation status, ordered products |
-| `->documents()` | Documents | Upload, attach, list, delete documents |
+| `->documents()` | Documents | Upload, `attachTo()`, `attachedTo()`, delete documents (v3 `attach()`/`attached()` throw a migration LogicException) |
 | `->reports()` | Reports | Invoice/report PDF generation |
 | `->descriptions()` | Descriptions | Universal query (GetDescriptions) with 27+ types |
 | `->references()` | References | Measurement units, warehouses, taxes, payment terms |
-| `->permissions()` | Permissions | GetUserPermissions for a finUser; `warehouses()`/`clients()`/`operationTypes()`/`operationJournals()` return that class's `{id1, id2}` pairs |
+| `->permissions()` | Permissions | `forUser()` = GetUserPermissions for a finUser (v3 `get(int)` throws); `warehouses()`/`clients()`/`operationTypes()`/`operationJournals()` return that class's `{id1, id2}` pairs |
 
 ## API Field Name Convention
 The Finvalda API uses Lithuanian-prefixed field names. Common prefixes:

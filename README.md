@@ -497,6 +497,23 @@ $config = new FinvaldaConfig(
 );
 ```
 
+`setDebug()` / `getLastDebugInfo()` (v3 debug mode) remain as deprecated shims over
+recording: `getLastDebugInfo()` returns `lastRecording()->toArray()` — `request` (`method`,
+`url`, `headers`, `body`), `response` (`status_code`, `headers`, `body`, `duration_ms`,
+`error`), `attempt`, `request_id` — or `['request' => [], 'response' => []]` before any call.
+
+### Calling an endpoint without a resource method
+
+```php
+$http = $finvalda->getHttpClient();
+
+$response = $http->get('GetPrekesIstorija', ['sPreKod' => 'P1']);   // Response: ->data, ->raw
+$body = $http->getRaw('GetPrekesIstorija', ['sPreKod' => 'P1']);    // the body as it came, undecoded
+```
+
+Both are reads and retry under a `RetryPolicy`. Never send a write this way: use the
+resources or builders, whose writes are sent exactly once.
+
 ### Custom HTTP Client (Testing)
 
 For TLS, proxy or connection settings you do not need your own client — pass Guzzle
@@ -767,7 +784,7 @@ The `product()` / `service()` methods accept line DTOs. The existing `addProduct
 
 **Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (sales only), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
 
-**Amounts are not calculated by the server.** Checked against a live server: the line amount comes from `dSumaV` (`amount()`) only. A sales line with just `price()` (`dSumaVntV`) is accepted and booked at 0, so `build()` refuses a sales line that has a price but no amount. VAT is not filled in either: a line sent without VAT fields was booked with VAT 0, although the product's 21% showed on it. Pass `vat(percent:, amount:)` when the document needs VAT.
+**Amounts are not calculated by the server.** Checked against a live server: the line amount comes from `dSumaV` (`amount()`) only. A sales line with just `price()` (`dSumaVntV`) is accepted and booked at 0, so `build()` refuses a sales line that has a price but no amount. VAT is not filled in either: a line sent without VAT fields was booked with VAT 0, although the product's 21% showed on it. Pass `vat(percent:, amount:)` when the document needs VAT. A `discount(percent:)` next to `amount()` is not applied on top: a purchase line with `dSumaV` 100 and `dNlProc` 10 was booked at 100 with discount 0, so send the net amount and treat the percentage as informational (it is not stored).
 
 `object()`/`objects()` accept levels 1-6 and throw `ValidationException` otherwise.
 A line DTO cannot see which operation it will join, so a sales-only or purchase-only
@@ -1124,7 +1141,7 @@ $result = $finvalda->inflow()
     ->documentNumber('KPO-001')
     ->type(PaymentType::Documents)           // nTipas 3
     ->name('Payment for invoice SF-001')
-    ->forDocument('SF', '001', 500.00)       // series, document, amount
+    ->payDocument('SF', '001', 500.00)       // series, document, amount
     ->save('INFLOW');
 
 // Payment out (disbursement, IsmDok) as an advance
@@ -1617,7 +1634,7 @@ $result = $finvalda->clients()->delete('CLIENT001');
 $response = $finvalda->clients()->invoicesRelatedToCustomer('CLIENT001', debtType: 0);
 ```
 
-Countries are maintained in Finvalda by hand — the web service cannot create or list them — so a client card whose `sValstybeKodas` names a country missing there fails with `Country 'XX' not found!`.
+Countries are maintained in Finvalda by hand — the web service cannot create or list them — so a client card whose `sValstybeKodas` names a country missing there fails with `Country 'XX' not found!` (`$result->missingCountryCode()`, or `MissingCountryException` from `->throw()`). Finvalda uses ISO codes: Greece is `GR`, not the VAT prefix `EL`.
 
 ### Products
 
@@ -2071,12 +2088,12 @@ $result = $finvalda->documents()->uploadFile('invoice.pdf', '/path/to/invoice.pd
 $result = $finvalda->documents()->upload('doc.pdf', $hexContent, description: 'Signed copy', finUser: 'ADMIN');
 
 // Attach to an entity: a description by its code, an operation by journal + number
-$result = $finvalda->documents()->attach(DocumentEntityType::Client, 'CLI001', 'invoice.pdf');
-$result = $finvalda->documents()->attach(DocumentEntityType::Sale, 'PARD', 'invoice.pdf', 123);
+$result = $finvalda->documents()->attachTo(DocumentEntityType::Client, 'CLI001', 'invoice.pdf');
+$result = $finvalda->documents()->attachTo(DocumentEntityType::Sale, 'PARD', 'invoice.pdf', 123);
 
 // Documents attached to one entity; files arrive hex-encoded under
 // $response->raw['result']['enitityDocs'][n]['docs'][m] as {name, data}
-$response = $finvalda->documents()->attached(DocumentEntityType::Sale, 'PARD', 123);
+$response = $finvalda->documents()->attachedTo(DocumentEntityType::Sale, 'PARD', 123);
 
 // Delete
 $result = $finvalda->documents()->delete('invoice.pdf');
@@ -2230,7 +2247,7 @@ try {
 ```php
 // GetUserPermissions answers every class for one Finvalda user (finUser);
 // the helpers return that class's permitted entities as [{id1, id2}, ...]
-$response = $finvalda->permissions()->get('S5');              // raw Response
+$response = $finvalda->permissions()->forUser('S5');              // raw Response
 $warehouses = $finvalda->permissions()->warehouses('S5');     // id1 = warehouse code
 $clients = $finvalda->permissions()->clients('S5');           // id1 = client code
 $types = $finvalda->permissions()->operationTypes('S5');      // id1 = op class, id2 = type code
@@ -2248,6 +2265,7 @@ use Finvalda\Exceptions\NetworkException;
 use Finvalda\Exceptions\ServerException;
 use Finvalda\Exceptions\HttpException;
 use Finvalda\Exceptions\OperationFailedException;
+use Finvalda\Exceptions\MissingCountryException;
 
 try {
     $client = $finvalda->clients()->find('CLI001');
@@ -2289,10 +2307,20 @@ $data = $finvalda->clients()->list()->throw()->data;
 
 try {
     $result = $finvalda->clients()->create($data)->throw();
+} catch (MissingCountryException $e) {
+    // "Country 'IQ' not found!": countries are maintained in Finvalda by hand
+    echo "Ask the accountant to add country {$e->countryCode}";
 } catch (OperationFailedException $e) {
     echo "Error #{$e->errorCode}: {$e->getMessage()}";
 }
+
+// Without throw(): $result->missingCountryCode() is 'IQ' for that refusal, else null.
 ```
+
+`find()` throws `NotFoundException` for a code that does not exist and `FinvaldaException`
+when the request itself failed, so a guard can fail closed. (`GetKlientas` answers an
+unknown client with `Fail` and no error text, unlike products and services; the SDK maps
+that to `NotFoundException`.)
 
 An exception's message never carries a credential: Guzzle embeds the request URI in its
 own messages (and `GetFvsUser` sends `sPassword` in the query), so the SDK scrubs those

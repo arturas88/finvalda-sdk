@@ -7,83 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-A major release: the builders and several resources now send only what the
-Finvalda WS spec defines. Before this, many setters wrote field names the spec
-does not have, and the server drops unknown fields silently, so those calls
-"succeeded" without doing what was asked. Everything here was checked against
-`docs/` (spec, Postman collection) and unit tests, **not against a live server**;
-run `bin/verify-live` against the test company before tagging.
+A major release: the builders and several resources now send only what the Finvalda WS
+spec defines. Before this, many setters wrote field names the spec does not have, and
+the server **silently ignores unknown fields and unknown query parameters**, so those
+calls "succeeded" without doing what was asked. Checked against `docs/` (spec, Postman
+collection), the test suite, and a live TEST company where noted ("verified live").
+**See [UPGRADE.md](UPGRADE.md)** for before → after code for every item you must edit.
 
-### Breaking — transport
+Where a method kept its name but its arguments changed meaning, the name is **retired**,
+not reused: the old name throws a `LogicException` naming its replacement, because an
+old positional call would otherwise still type-check and send its values to the wrong
+fields. Removed builder setters likewise explain themselves when called.
+
+### Breaking — transport and exceptions
 
 - **Writes are never retried.** `postOperation()`, `postOperationJson()` and the new
-  `postWrite()` send exactly once; a timeout after the request went out could
-  otherwise post a document twice. Only reads (`get()`, `post()`, `postJson()`) retry.
-- `RetryExhaustedException` is removed: once the attempts are used up the mapped SDK
+  `postWrite()` send exactly once; a timeout after the request went out could otherwise
+  post a document twice. Only reads (`get()`, `getRaw()`, `post()`, `postJson()`) retry.
+- `RetryExhaustedException` is removed: once the attempts are used up, the mapped SDK
   exception (`NetworkException`, `ServerException`, `HttpException`) is rethrown, so
   existing `catch` blocks fire. `RetryPolicy(maxAttempts: 0)` throws;
   `RetryPolicy::aggressive()` is removed.
 - 4xx errors raise the new `HttpException` (code = HTTP status, `->response`);
-  `ServerException` extends it. Guzzle's exception is no longer chained as
-  `previous`, because its message carries the unscrubbed request URI.
-- Debug mode is removed (`setDebug()`, `getLastDebugInfo()`, `LastExchange`): it
-  paired a failed request with the previous response and showed no query params.
-  Use `record(1)` and `lastRecording()`.
-- `HttpClient::getRaw()` is removed (unused).
+  `ServerException` extends it, and its constructor is now
+  `(string $message, ?ResponseInterface $response)` (was `(message, int $code, ?Throwable)`).
+  Guzzle's exception is no longer chained as `previous`: its message carries the
+  unscrubbed request URI.
+- Debug mode is replaced by recording. `setDebug()` / `getLastDebugInfo()` remain as
+  **deprecated shims** (same `request`/`response` keys, plus `attempt`, `request_id`);
+  `Diagnostics::setDebug()/debugEnabled()/lastExchange()` and `LastExchange` are removed.
 - The config `baseUrl`, `timeout` and new `httpOptions` apply per request, so an
-  injected Guzzle client no longer needs (or can override) `base_uri`.
-- `ping()` throws on anything but a network, 5xx or access-denied failure, so a
-  wrong base URL is no longer reported as "down".
-- Laravel: the client is bound `scoped()` instead of as a singleton, so queue jobs
-  and Octane requests no longer share `record()` buffers, loggers or cached
-  dictionaries.
+  injected Guzzle client's `base_uri`/`timeout` no longer apply.
+- `ping()` is `false` only for a network failure, a 5xx or rejected credentials (an
+  unknown company answers `AccessDenied` too); a wrong base URL (404), an `AccessResult:
+  Fail` or a non-Finvalda answer throws `FinvaldaException`.
+- Laravel: the client is bound `scoped()` instead of as a singleton, so queue jobs and
+  Octane requests no longer share `record()` buffers, loggers, company-scoped copies or
+  cached dictionaries (the queue worker also clears the Facade's cached instance).
 - `FinvaldaConfig::fromArray()` throws `InvalidArgumentException` for an unknown
   language; empty `company_id` / `conn_string` values mean "not set".
+- Log records: the request record's `params` holds query parameters only, `has_body`
+  is gone, and both records of a call (and each `Exchange`) carry a `request_id`.
 
 ### Breaking — builders
 
-- **Removed setters that wrote fields absent from the spec:** `paymentDays()`,
+- **Removed setters that wrote fields absent from the spec** (calling one throws a
+  `LogicException` naming the field and the replacement): `paymentDays()`,
   `isAdvance()`, `vatIncluded()`, `priceType()`, `responsiblePerson()`,
   `supplierInvoice()`, `supplierInvoiceDate()`, `originalDocument()`,
   `originalDocumentNumber()`, `reason()`, `operationType()`, `bankAccount()`,
-  `cashRegister()`, and payment `amount()`. Header setters (`client()`,
-  `currency()`, `description()`, `object1-6()`, ...) exist only on builders whose
-  envelope has the field.
-- `dueDate()` writes `tMokejimoData` (was the non-existent `tAtsiskData`).
-- `price` writes the unit price `dSumaVntV`/`dSumaVntL` (was the non-existent
-  `dKaina`) and is refused on purchase lines. A sales line with a price but no
-  `amount()` now throws: a live check showed the server books such a line at 0, taking
-  the amount from `dSumaV` only.
-- `warehouse()` on sales, purchases, write-offs and capitalizations no longer writes
-  a header `sSandelis`; it fills `sSandelis` on every product line that has none.
-- **Payments rewritten** on a shared `PaymentBuilder`: `IplDok` / `IsmDok` (was the
-  non-existent `IsmokasDok`), `type(PaymentType)` for `nTipas`, lines with `dSumaV`
-  **inside** the header wrapper (they were written next to it, so the server never
-  saw them). `forDocument(series, document, amount)` has a new signature.
+  `cashRegister()`, payment `amount()`, and header `client()` / `currency()` /
+  `description()` / `documentNumber()` / `warehouse()` / `object1-6()` / `objects()` on
+  builders whose envelope has no such field.
+- **Payments**: `IplDok` / `IsmDok` (was the non-existent `IsmokasDok`; `IsmDok` is
+  per spec, not yet verified live), lines with `dSumaV` **inside** the header wrapper
+  (they were written next to it, so the server never saw them; verified live). The
+  required `nTipas` is set with `type(PaymentType)` and `build()` refuses a payment
+  without it. `forDocument()` is **retired** → `payDocument(series, document, amount)`,
+  which defaults the type to `PaymentType::Documents`.
+- `dueDate()` writes `tMokejimoData` (was the non-existent `tAtsiskData`, so no due
+  date was ever set; verified live). A due date before the document date throws.
+- `price` writes the unit price `dSumaVntV`/`dSumaVntL` (was the non-existent `dKaina`).
+  The server takes the line amount from `dSumaV` only and books a price-only sales line
+  at **0** (verified live), so a sales line with a price but no `amount()` throws.
+  `price` on a purchase line throws (purchase lines have no unit-price field).
+- `warehouse()` on sales, purchases, write-offs and capitalizations fills `sSandelis`
+  on every product line that has none instead of writing a header field (verified live).
 - Write-off, capitalization, internal-transfer and production product lines send
-  `nPirmasMat=1`, like `ProductLine` already did, so KG/M quantities are not divided
-  by the unit ratio.
-- `short()` variants throw on a field the Trumpas* table does not define;
-  `series()` on a full purchase throws; `addService()` throws on builders whose
-  envelope has no service lines; object levels outside 1-6 throw.
-- Date strings that are not `Y-m-d` throw `InvalidArgumentException`.
-- `Finvalda\Validation\*` is removed (unused anywhere in `src/`).
+  `nPirmasMat=1`, like `ProductLine`, so KG/M quantities are not divided by the unit ratio.
+- `short()` variants throw on a field the Trumpas* table does not define; a non-empty
+  `series()` on a full purchase throws (`series('')` is a no-op); `addService()` throws
+  on builders whose envelope has no service lines; object levels outside 1-6 throw;
+  `ClearingBuilder` line types are checked per side (0/1 accepted on both until
+  verified); `InventoryCountBuilder::mode()` accepts only 0/1.
+- `Finvalda\Validation\*` is removed (unused anywhere in `src/`); `ValidationException`
+  lost `getErrors()`, `getAllErrors()`, `withResult()`, `getValidationResult()`.
 
 ### Breaking — resources
 
-- **Documents** rebuilt on the PURE `inParams` format; `attach()` and `attached()`
-  have new signatures. The old calls could not have worked.
+- **Date strings** passed to any SDK date parameter must be `Y-m-d` or
+  `Y-m-d H:i[:s]` (a time is sent as given); anything else throws
+  `InvalidArgumentException`. `DateTimeInterface` is always fine. Raw arrays given to
+  `Operations::query()` / `Descriptions::get(readParams:)` are passed through unchecked.
+- **Documents** rebuilt on the PURE `inParams` format. `attach()` / `attached()` are
+  **retired** → `attachTo(type, id1, filename, id2, finUser)` /
+  `attachedTo(type, id1, id2)` (for an operation id1 = journal, id2 = number). The v3
+  calls could not have worked.
+- **Permissions**: `get(int $permissionClass)` is **retired** → `forUser(?string $finUser)`
+  (GetUserPermissions takes only the user); `warehouses()`, `clients()`,
+  `operationTypes()`, `operationJournals()` take `?string $finUser` and return arrays;
+  new `entities(int $class, ?string $finUser)`.
 - **Pricing**: the four combined endpoints no longer send the invented
-  `sKliKod/sPreKod/sKliRusKod/sPreRusKod` filters (the spec defines none; the server
-  returned every client's prices). `clientItemPrices()` takes no arguments, the
-  other three take `(modifiedSince, createdSince)`.
-- `collect()`, `find()` and the type/tag readers **throw** on a failed request
-  instead of returning an empty result, and a failure is never cached.
-- `Permissions::get(?string $finUser)`: GetUserPermissions takes only `finUser`.
-- `OrderManagement` sends `tNuo`/`tIki` (was `tDataNuo`/`tDataIki`, ignored) and
-  accepts `DateTimeInterface`.
-- `Stock::balancesByGroup()` lost its two date arguments (not in the spec);
-  `purchaseOpFor()` throws under `Language::English` instead of returning `null`.
+  `sKliKod/sPreKod/sKliRusKod/sPreRusKod` filters (the server ignored them and returned
+  every client's prices). `clientItemPrices()` takes no arguments and throws if given
+  any; the other three take `(modifiedSince, createdSince)`.
+- `Stock::balancesByGroup()` takes `(productCode, warehouseGroupCode)` and throws when
+  given the v3 date arguments (never applied by the server).
+- `collect()`, `find()` and the type/tag readers **throw** `FinvaldaException` on a
+  failed request instead of returning an empty result, and a failure is never cached.
+  `find()` still throws `NotFoundException` for an unknown code (for clients, GetKlientas
+  answers `Fail` with no error text, which maps to `NotFoundException`; verified live).
+- `Stock::purchaseOpFor()` throws on a failed history call (was `null`, the same as "no
+  history") and under `Language::English`; `assertNotSold()` turns that into a
+  `ConflictException`, as before.
+- `OrderManagement` sends `tNuo`/`tIki` (was `tDataNuo`/`tDataIki`, ignored).
+- `Operations::query()` throws when given both an `OperationQuery` and `$filters`.
 - `update()` without `sKodas` throws; a 404 on any delete raises
   `OperationNotSupportedException`.
 - Removed: `Cursor`, `LazyCollection` (the API has no pagination; Cursor fetched
@@ -93,33 +121,40 @@ run `bin/verify-live` against the test company before tagging.
 ### Added
 
 - `Response::throw()` and `OperationResult::throw()`, raising `FinvaldaException` /
-  `OperationFailedException` (code, journal, number).
-- `http_options` config (`httpOptions`), merged into every request: `verify`,
-  `proxy`, `connect_timeout`.
-- A `request_id` on both log lines of a call and on each recorded `Exchange`.
-- `OperationQuery`: the remaining spec filters, a public `set()`, and
+  `OperationFailedException` (code, journal, number) — or `MissingCountryException`
+  (`->countryCode`) for "Country 'XX' not found!" (also `$result->missingCountryCode()`).
+  Countries are maintained in Finvalda by hand; Greece is `GR`, not `EL` (verified live).
+- `PurchaseUpdateBuilder::dueDate()`: a header-only correction sets the payment date
+  without touching the lines (verified live).
+- `http_options` config (`httpOptions`), merged into every request: `verify`, `proxy`,
+  `connect_timeout`.
+- `HttpClient::getRaw()` (kept, now documented) and `getHttpClient()->get()` for
+  endpoints without a resource method.
+- `OperationQuery`: the remaining spec filters and a public `set()`;
   `Operations::query()` accepts an `OperationQuery`.
 - `Descriptions::get(readParams:)` raw escape hatch; `addresses()` sends both filter
-  objects.
-- `Products::image()` `tSukurimoData`, `Products::soldPerPeriod()`
-  `bItrauktiVisasPrekes`; `TrumpasUVMPardRezDok`/`TrumpasUVMPirkUzsDok` operation
-  classes; `OperationClass::deleteClass()`.
-- `bin/verify-live`: read-only checks against a server, plus a guarded `--write` mode
-  that creates, reads back and deletes test operations.
+  objects; `stockOnDate()`/`currencyRates()` and `OrderManagement` accept
+  `DateTimeInterface`.
+- Setters spread to every builder whose envelope has the field: `note()`, `name()`,
+  `marked()`, `locked()`, `series()`, `roundingAmount()`, `exportToIvaz()`,
+  `fulfillmentDate()`, `discount()`, `documentType()`; `ClearingDocumentType`,
+  `PaymentType` enums; `TrumpasUVMPardRezDok`/`TrumpasUVMPirkUzsDok`;
+  `OperationClass::deleteClass()`.
+- `Products::image()` `tSukurimoData`, `Products::soldPerPeriod()` `bItrauktiVisasPrekes`.
+- `bin/verify-live`: bounded read-only checks against a server, plus a guarded
+  `--write` mode for a test company.
 
 ### Fixed
 
-- Credential values (`sPassword` and friends) are scrubbed from exception messages
-  and the retry warning log; before, a failed `GetFvsUser` put the password in both.
-- Uploads are no longer logged twice: the request log's `params` holds query
-  parameters only, so file elision and truncation apply to the whole payload.
-- An empty XML `<sError/>` no longer crashes `parseOperationResult()` with a
-  `TypeError`.
+- Credential values (`sPassword` and friends) are scrubbed from exception messages and
+  the retry warning log; before, a failed `GetFvsUser` put the password in both.
+- Uploads are no longer logged twice: the request log's `params` holds query parameters
+  only, so file elision and truncation apply to the whole payload.
+- An empty XML `<sError/>` no longer crashes `parseOperationResult()` with a `TypeError`.
 - An invalid-JSON error names the HTTP status and the start of the body.
 - `log_body_bytes` above 200 KB no longer double-truncates in the file logger.
-- DTOs coerce scalar values, so a numeric company code no longer throws a
-  `TypeError` and `"N"` flags read false.
-
+- DTOs coerce scalar values, so a numeric company code no longer throws a `TypeError`
+  and `"N"` flags read false.
 - **`JsonLinesLogger` no longer drops records whose body was cut mid-character.**
   `BodyTruncator` cut on a raw byte offset, so a budget landing inside a Lithuanian
   letter (2 bytes in UTF-8) left invalid UTF-8; `json_encode` refused the record and
