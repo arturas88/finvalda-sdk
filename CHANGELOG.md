@@ -71,6 +71,9 @@ fields. Removed builder setters likewise explain themselves when called.
   The server takes the line amount from `dSumaV` only and books a price-only sales line
   at **0** (verified live), so a sales line with a price but no `amount()` throws.
   `price` on a purchase line throws (purchase lines have no unit-price field).
+- Purchase lines keep the line name `sPavadinimas` (missing from the spec tables, but
+  stored as the line title; verified live) and refuse `sPapInf` (a sales-line field the WS
+  cannot read back for purchases).
 - `warehouse()` on sales, purchases, write-offs and capitalizations fills `sSandelis`
   on every product line that has none instead of writing a header field (verified live).
 - Write-off, capitalization, internal-transfer and production product lines send

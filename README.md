@@ -782,7 +782,9 @@ The `product()` / `service()` methods accept line DTOs. The existing `addProduct
 
 **Available ProductLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `additionalCost()`/`additionalCosts()` (purchases only), `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()` (sales only), `marked()`, `set()`
 
-**Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (sales only), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
+**Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (the line name, sPavadinimas; sales and purchases), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
+
+On purchase lines the line name (`sPavadinimas`, via `ServiceLine::description()` or `->set('sPavadinimas', ...)` on a product line) is kept: the spec tables leave it out, but a live booking stored it as the line title. Extra info (`info()`, `sPapInf`) is refused on purchase lines: it is a sales-line field and the WS cannot read it back to confirm it is kept.
 
 **Amounts are not calculated by the server.** Checked against a live server: the line amount comes from `dSumaV` (`amount()`) only. A sales line with just `price()` (`dSumaVntV`) is accepted and booked at 0, so `build()` refuses a sales line that has a price but no amount. VAT is not filled in either: a line sent without VAT fields was booked with VAT 0, although the product's 21% showed on it. Pass `vat(percent:, amount:)` when the document needs VAT. A `discount(percent:)` next to `amount()` is not applied on top: a purchase line and a sales line, each with `dSumaV` 100 and `dNlProc` 10, were both booked at 100 with discount 0. Send the net amount (after discount); the percentage is not stored.
 
@@ -1195,6 +1197,15 @@ print_r($data);
 // Save
 $result = $sale->save();
 ```
+
+`setHeader()`, `set()` and the raw `add*Line()` arrays are escape hatches, and the SDK checks
+them only partly:
+- A **full** operation's header is not checked at all; only `short()` variants check theirs.
+- Lines are checked only against the fields known to be wrong (e.g. a unit price on a
+  purchase line).
+- The spec-conformance test covers the named setters only.
+
+A raw field the spec does not define reaches the server, which silently ignores it.
 
 ### Write-Offs & Capitalization
 

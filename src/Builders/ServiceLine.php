@@ -143,7 +143,8 @@ final class ServiceLine
      *
      * Not in the spec's service-line table; kept because a production
      * UVMPardRezDok booking showed the server reads the line description from
-     * sPavadinimas (v2.5.2). Sales lines only — a purchase build() rejects it.
+     * sPavadinimas (v2.5.2), and a 2026-10-09 TEST booking (PIRK/33655) showed
+     * a purchase line keeps it too, as the line title.
      */
     public function description(string $text): self
     {

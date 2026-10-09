@@ -186,6 +186,31 @@ class BuilderSpecFixesTest extends TestCase
         (new PurchaseBuilder())->product(ProductLine::make('A', 1)->amount(10)->price(10))->build();
     }
 
+    public function test_a_purchase_line_keeps_its_name(): void
+    {
+        // Verified on a live server (2026-10-09, PIRK/33655): sPavadinimas on a
+        // purchase product line and service line replaced the line title,
+        // although the spec tables leave the field out.
+        $data = (new PurchaseBuilder())
+            ->product(ProductLine::make('A', 1)->amount(10)->set('sPavadinimas', 'Rental part'))
+            ->service(ServiceLine::make('S', 1)->amount(5)->description('Towing'))
+            ->build();
+
+        $this->assertSame('Rental part', $data['PirkDok']['PirkDokPrekeDetEil'][0]['sPavadinimas']);
+        $this->assertSame('Towing', $data['PirkDok']['PirkDokPaslaugaDetEil'][0]['sPavadinimas']);
+    }
+
+    public function test_extra_info_on_a_purchase_line_is_refused_with_its_own_reason(): void
+    {
+        try {
+            (new PurchaseBuilder())->product(ProductLine::make('A', 1)->amount(10)->set('sPapInf', 'x'))->build();
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('sPapInf', $e->getMessage());
+            $this->assertStringNotContainsString('unit price', $e->getMessage());
+        }
+    }
+
     public function test_a_sale_refuses_purchase_only_additional_costs_on_a_line(): void
     {
         $this->expectException(ValidationException::class);

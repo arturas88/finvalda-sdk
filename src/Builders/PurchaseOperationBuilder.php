@@ -46,7 +46,8 @@ abstract class PurchaseOperationBuilder extends OperationBuilder
     ];
 
     /** Sales-only line fields: purchase detail lines have no unit price or sPapInf. */
-    private const SALES_ONLY_LINE_FIELDS = ['dSumaVntV', 'dSumaVntL', 'dSumaVntPV', 'dSumaVntPL', 'sPapInf'];
+    /** Sales-line unit prices: a purchase line carries only amounts (dSumaV). */
+    private const UNIT_PRICE_FIELDS = ['dSumaVntV', 'dSumaVntL', 'dSumaVntPV', 'dSumaVntPL'];
 
     protected bool $short = false;
 
@@ -96,19 +97,24 @@ abstract class PurchaseOperationBuilder extends OperationBuilder
             );
         }
 
-        $this->rejectLineFields(
-            $this->productLines,
-            'PirkDokPrekeDetEil',
-            self::SALES_ONLY_LINE_FIELDS,
-            'purchase lines carry amounts, not a unit price, and no sPapInf',
-        );
+        // sPavadinimas (the line name) is allowed: the spec tables omit it, but a
+        // live booking (2026-10-09, PIRK/33655) stored it as the line title.
+        foreach (['PirkDokPrekeDetEil' => $this->productLines, 'PirkDokPaslaugaDetEil' => $this->serviceLines] as $element => $lines) {
+            $this->rejectLineFields(
+                $lines,
+                $element,
+                self::UNIT_PRICE_FIELDS,
+                'purchase lines carry amounts, not a unit price; use amount()',
+            );
 
-        $this->rejectLineFields(
-            $this->serviceLines,
-            'PirkDokPaslaugaDetEil',
-            [...self::SALES_ONLY_LINE_FIELDS, 'sPavadinimas'],
-            'purchase service lines carry amounts, not a unit price; use sPastaba for text',
-        );
+            $this->rejectLineFields(
+                $lines,
+                $element,
+                ['sPapInf'],
+                'extra info is a sales-line field; the purchase line tables have none, and the WS cannot read '
+                . 'it back to confirm it is kept. Use sPavadinimas (line name), or sPastaba on service lines',
+            );
+        }
 
         $this->assertDueDateNotBeforeDocumentDate();
 

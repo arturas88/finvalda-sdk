@@ -35,7 +35,11 @@ final class OperationSpec
             // c776ca7 (v2.5.2) moved the service-line description from sPapInf to
             // sPavadinimas after a production UVMPardRezDok booking.
             'PardDokPaslaugaDetEil' => ['nPirmasMat', 'sPavadinimas'],
-            'PirkDokPaslaugaDetEil' => ['nPirmasMat'],
+            // sPavadinimas on purchase lines: not in the spec tables. Kept on live
+            // evidence — a 2026-10-09 TEST booking (PIRK/33655) stored it as the
+            // line title on both a product and a service line.
+            'PirkDokPrekeDetEil' => ['sPavadinimas'],
+            'PirkDokPaslaugaDetEil' => ['nPirmasMat', 'sPavadinimas'],
             'TrumpasPirkUzsDok' => ['tData'],
             'TrumpasPirkGrazDok' => ['tData'],
             'TrumpasUVMPirkUzsDok' => ['tData'],

@@ -99,6 +99,19 @@ a purchase line and a sales line): `amount(100)` with `discount(percent: 10)` is
 100, with the discount stored as 0. Keep sending the net amount after discount. The
 percentage is informational only and is not saved.
 
+**Line text on purchase lines** (checked on a live server, PIRK/33655):
+- The line **name** (`sPavadinimas`) is kept as the line title on both product and service
+  lines, so keep sending it (`ServiceLine::description()`, or `->set('sPavadinimas', ...)` on
+  a `ProductLine`).
+- **Extra info** (`sPapInf`, `ProductLine::info()`) is refused on purchase lines. It is a
+  sales-line field, and the WS cannot read it back to show whether the server keeps it.
+  Move the text to the line name, or to `sPastaba` on a service line.
+
+**Raw fields are not fully checked.** `setHeader()`, `set()` and raw `add*Line()` arrays are
+escape hatches. A full operation's header is not checked at all, and lines are checked only
+for fields known to be wrong. A raw field the spec does not define still reaches the server,
+which silently ignores it, so review your `setHeader()` calls when you upgrade.
+
 ### 2. Behaviour that is now correct, so check that you want it
 
 - **`dueDate()`** now sets `tMokejimoData`. v3 wrote a field that does not exist, so no
