@@ -6,6 +6,7 @@ namespace Finvalda\Tests;
 
 use Finvalda\FinvaldaConfig;
 use Finvalda\HttpClient;
+use Finvalda\Resources\Documents;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -89,20 +90,21 @@ class HttpClientBodyLoggingTest extends TestCase
             logger: $logger,
         );
 
-        $ok = new Response(200, [], json_encode(['AccessResult' => 'Success', 'nResult' => 1]));
+        $ok = new Response(200, [], json_encode(['AccessResult' => 'Success', 'error' => '']));
         $httpClient = $this->httpClient([$ok], $config);
 
         // Documents::upload() hex-encodes the file, so the request body is twice
         // the file size — the same noise as a report response, going the other way.
-        $httpClient->postOperation('InsertDocument', [
-            'sFileName' => 'invoice.pdf',
-            'sFileContent' => str_repeat('ab', 40_000),
-        ]);
+        (new Documents($httpClient))->upload('invoice.pdf', str_repeat('ab', 40_000));
 
         $body = $this->bodyOf($logger, 'Finvalda API request');
 
-        $this->assertStringContainsString('"sFileContent":"[elided 80000 bytes]"', (string) $body);
-        $this->assertStringContainsString('"sFileName":"invoice.pdf"', (string) $body);
+        $this->assertStringContainsString('"content":"[elided 80000 bytes]"', (string) $body);
+        $this->assertStringContainsString('"fileName":"invoice.pdf"', (string) $body);
+
+        // The payload is logged once, as `body` — never again under `params`.
+        $params = $logger->records[0][1]['params'];
+        $this->assertStringNotContainsString('abab', (string) json_encode($params));
     }
 
     public function test_log_file_contents_keeps_the_payload_verbatim(): void

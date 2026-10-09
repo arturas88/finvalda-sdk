@@ -11,6 +11,7 @@ use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Client;
 use Finvalda\Enums\ClientTypeId;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -60,13 +61,21 @@ final class Clients extends Resource
      * @param  string  $clientCode  The client code
      * @return Client
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $clientCode): Client
     {
         $response = $this->get($clientCode);
 
-        $data = $this->extractEntity($response, ItemClass::Client);
+        // GetKlientas answers an unknown code with Fail and an empty error
+        // (measured on a live server), where GetPreke/GetPaslauga answer
+        // Success with a null entity. A Fail that names a reason is a failure.
+        if ($response->failed() && ($response->error ?? '') === '') {
+            throw new NotFoundException("Client '{$clientCode}' not found");
+        }
+
+        $data = $this->extractEntity($response, ItemClass::Client, 'GetKlientas');
 
         if ($data === null) {
             throw new NotFoundException("Client '{$clientCode}' not found");
@@ -81,16 +90,14 @@ final class Clients extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ClientCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ClientCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ClientCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetKlientus');
 
         return ClientCollection::fromArray($response->data);
     }
@@ -353,10 +360,7 @@ final class Clients extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Client->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Client, $data);
     }
 
     /**
@@ -368,13 +372,7 @@ final class Clients extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Client->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Client->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Client, $data);
     }
 
     /**
@@ -384,12 +382,7 @@ final class Clients extends Resource
      */
     public function delete(string $clientCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Client->value,
-                'Code' => $clientCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Client, $clientCode);
     }
 
     /**

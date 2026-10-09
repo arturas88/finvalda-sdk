@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Resources;
 
+use DateTimeInterface;
 use Finvalda\Responses\Response;
 
 /**
@@ -30,103 +31,98 @@ final class OrderManagement extends Resource
      * Get completed (fulfilled) sales reservations. Calls GetUVMPardRIvykdyti.
      *
      * @param  string|null  $journalGroup  Filter by journal group code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, period start
-     * @param  string|null  $dateTo  Date in Y-m-d format, period end
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $dateFrom  Period start
+     * @param  DateTimeInterface|string|null  $dateTo  Period end
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function completedReservations(
         ?string $journalGroup = null,
-        ?string $dateFrom = null,
-        ?string $dateTo = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $dateFrom = null,
+        DateTimeInterface|string|null $dateTo = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetUVMPardRIvykdyti', [
-            'sZurnaluGrupe' => $journalGroup,
-            'tDataNuo' => $dateFrom,
-            'tDataIki' => $dateTo,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
-        ]);
+        return $this->reservations('GetUVMPardRIvykdyti', $journalGroup, $dateFrom, $dateTo, $modifiedSince, $createdSince);
     }
 
     /**
      * Get pending (unfulfilled) sales reservations. Calls GetUVMPardRNeivykdyti.
      *
      * @param  string|null  $journalGroup  Filter by journal group code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, period start
-     * @param  string|null  $dateTo  Date in Y-m-d format, period end
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $dateFrom  Period start
+     * @param  DateTimeInterface|string|null  $dateTo  Period end
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function pendingReservations(
         ?string $journalGroup = null,
-        ?string $dateFrom = null,
-        ?string $dateTo = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $dateFrom = null,
+        DateTimeInterface|string|null $dateTo = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetUVMPardRNeivykdyti', [
-            'sZurnaluGrupe' => $journalGroup,
-            'tDataNuo' => $dateFrom,
-            'tDataIki' => $dateTo,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
-        ]);
+        return $this->reservations('GetUVMPardRNeivykdyti', $journalGroup, $dateFrom, $dateTo, $modifiedSince, $createdSince);
     }
 
     /**
      * Get cancelled sales reservations. Calls GetUVMPardRAnuliuoti.
      *
      * @param  string|null  $journalGroup  Filter by journal group code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, period start
-     * @param  string|null  $dateTo  Date in Y-m-d format, period end
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $dateFrom  Period start
+     * @param  DateTimeInterface|string|null  $dateTo  Period end
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function cancelledReservations(
         ?string $journalGroup = null,
-        ?string $dateFrom = null,
-        ?string $dateTo = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $dateFrom = null,
+        DateTimeInterface|string|null $dateTo = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetUVMPardRAnuliuoti', [
-            'sZurnaluGrupe' => $journalGroup,
-            'tDataNuo' => $dateFrom,
-            'tDataIki' => $dateTo,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
-        ]);
+        return $this->reservations('GetUVMPardRAnuliuoti', $journalGroup, $dateFrom, $dateTo, $modifiedSince, $createdSince);
     }
 
     /**
      * Get products from sales reservations (ordered products). Calls GetUVMPardRUzsakytosPrekes.
      *
+     * Not in the API document; parameters assumed to match its three siblings.
+     *
      * @param  string|null  $journalGroup  Filter by journal group code
-     * @param  string|null  $dateFrom  Date in Y-m-d format, period start
-     * @param  string|null  $dateTo  Date in Y-m-d format, period end
-     * @param  string|null  $modifiedSince  Date in Y-m-d format, return records modified since
-     * @param  string|null  $createdSince  Date in Y-m-d format, return records created since
-     * @return Response
+     * @param  DateTimeInterface|string|null  $dateFrom  Period start
+     * @param  DateTimeInterface|string|null  $dateTo  Period end
+     * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      */
     public function orderedProducts(
         ?string $journalGroup = null,
-        ?string $dateFrom = null,
-        ?string $dateTo = null,
-        ?string $modifiedSince = null,
-        ?string $createdSince = null,
+        DateTimeInterface|string|null $dateFrom = null,
+        DateTimeInterface|string|null $dateTo = null,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
     ): Response {
-        return $this->http->get('GetUVMPardRUzsakytosPrekes', [
+        return $this->reservations('GetUVMPardRUzsakytosPrekes', $journalGroup, $dateFrom, $dateTo, $modifiedSince, $createdSince);
+    }
+
+    /**
+     * The UVM reservation reads share one signature:
+     * (string sZurnaluGrupe, DateTime tNuo, DateTime tIki, DateTime tKoregavimoData, DateTime tSukurimoData).
+     */
+    private function reservations(
+        string $endpoint,
+        ?string $journalGroup,
+        DateTimeInterface|string|null $dateFrom,
+        DateTimeInterface|string|null $dateTo,
+        DateTimeInterface|string|null $modifiedSince,
+        DateTimeInterface|string|null $createdSince,
+    ): Response {
+        return $this->http->get($endpoint, [
             'sZurnaluGrupe' => $journalGroup,
-            'tDataNuo' => $dateFrom,
-            'tDataIki' => $dateTo,
-            'tKoregavimoData' => $modifiedSince,
-            'tSukurimoData' => $createdSince,
+            'tNuo' => $this->formatDate($dateFrom),
+            'tIki' => $this->formatDate($dateTo),
+            'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 }

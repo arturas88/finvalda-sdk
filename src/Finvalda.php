@@ -24,6 +24,10 @@ use Finvalda\Builders\UvmPurchaseOrderBuilder;
 use Finvalda\Builders\UvmSalesReservationBuilder;
 use Finvalda\Builders\WriteOffBuilder;
 use Finvalda\Enums\CredentialMode;
+use Finvalda\Exceptions\AccessDeniedException;
+use Finvalda\Exceptions\FinvaldaException;
+use Finvalda\Exceptions\NetworkException;
+use Finvalda\Exceptions\ServerException;
 use Finvalda\Recording\Exchange;
 use Finvalda\Resources\Clients;
 use Finvalda\Resources\Descriptions;
@@ -85,10 +89,10 @@ final class Finvalda
      * Useful for report templates, which are registered per company: a template
      * living only on the default company renders documents created elsewhere.
      *
-     * The returned client shares this one's transport, logger, debug capture and
-     * recorder, so its calls stay visible in getLastDebugInfo() and recordings().
-     * Switching any of logging, debug capture or recording on or off later reaches
-     * both clients, in either direction, whichever one you call it on.
+     * The returned client shares this one's transport, logger and recorder, so
+     * its calls stay visible in recordings(). Switching logging or recording on
+     * or off later reaches both clients, in either direction, whichever one you
+     * call it on.
      * Repeated calls for the same company return the same client.
      */
     public function withCompany(?string $companyId): self
@@ -123,28 +127,6 @@ final class Finvalda
         $this->http->setLogger($logger);
 
         return $this;
-    }
-
-    /**
-     * Enable or disable debug mode for request/response capture.
-     *
-     * @return $this
-     */
-    public function setDebug(bool $debug): self
-    {
-        $this->http->setDebug($debug);
-
-        return $this;
-    }
-
-    /**
-     * Get debug information from the last request/response cycle.
-     *
-     * @return array{request: array, response: array}
-     */
-    public function getLastDebugInfo(): array
-    {
-        return $this->http->getLastDebugInfo();
     }
 
     /**
@@ -190,15 +172,52 @@ final class Finvalda
     }
 
     /**
+     * @deprecated Kept as a shim over recording; use record() and lastRecording().
+     *
+     * @return $this
+     */
+    public function setDebug(bool $debug): self
+    {
+        $this->http->setDebug($debug);
+
+        return $this;
+    }
+
+    /**
+     * @deprecated Use lastRecording()?->toArray().
+     *
+     * @return array<string, mixed>
+     */
+    public function getLastDebugInfo(): array
+    {
+        return $this->http->getLastDebugInfo();
+    }
+
+    /**
      * Test the connection and credentials by calling a lightweight endpoint.
+     *
+     * False when the server is unreachable, answers 5xx, or rejects the
+     * credentials. Anything else — a wrong base URL answering 404, a response
+     * that is not Finvalda's — is a misconfiguration and is thrown, so it is
+     * not mistaken for "down".
+     *
+     * @throws FinvaldaException
      */
     public function ping(): bool
     {
         try {
-            return $this->references()->user()->successful();
-        } catch (\Throwable) {
+            $response = $this->references()->user();
+        } catch (NetworkException|ServerException|AccessDeniedException) {
             return false;
         }
+
+        // The server answered, so it is up: a Fail is a problem to surface,
+        // not "down".
+        if (! $response->successful()) {
+            throw new FinvaldaException('Finvalda answered ping with ' . $response->accessResult->value . ': ' . ($response->error ?? 'no error text'));
+        }
+
+        return true;
     }
 
     /**
@@ -211,8 +230,6 @@ final class Finvalda
 
     /**
      * Get the Stock resource for inventory balance operations.
-     *
-     * @return Stock
      */
     public function stock(): Stock
     {
@@ -221,8 +238,6 @@ final class Finvalda
 
     /**
      * Get the Clients resource for customer/supplier operations.
-     *
-     * @return Clients
      */
     public function clients(): Clients
     {
@@ -231,8 +246,6 @@ final class Finvalda
 
     /**
      * Get the Products resource for product catalog operations.
-     *
-     * @return Products
      */
     public function products(): Products
     {
@@ -241,8 +254,6 @@ final class Finvalda
 
     /**
      * Get the Services resource for service catalog operations.
-     *
-     * @return Services
      */
     public function services(): Services
     {
@@ -251,8 +262,6 @@ final class Finvalda
 
     /**
      * Get the Objects resource for analytical object operations.
-     *
-     * @return Objects
      */
     public function objects(): Objects
     {
@@ -261,8 +270,6 @@ final class Finvalda
 
     /**
      * Get the References resource for reference data operations.
-     *
-     * @return References
      */
     public function references(): References
     {
@@ -271,8 +278,6 @@ final class Finvalda
 
     /**
      * Get the Pricing resource for discount and price operations.
-     *
-     * @return Pricing
      */
     public function pricing(): Pricing
     {
@@ -281,8 +286,6 @@ final class Finvalda
 
     /**
      * Get the Operations resource for document operation CRUD.
-     *
-     * @return Operations
      */
     public function operations(): Operations
     {
@@ -291,8 +294,6 @@ final class Finvalda
 
     /**
      * Get the OrderManagement resource for UVM order tracking.
-     *
-     * @return OrderManagement
      */
     public function orderManagement(): OrderManagement
     {
@@ -301,8 +302,6 @@ final class Finvalda
 
     /**
      * Get the Documents resource for file upload and attachment operations.
-     *
-     * @return Documents
      */
     public function documents(): Documents
     {
@@ -311,8 +310,6 @@ final class Finvalda
 
     /**
      * Get the Reports resource for PDF generation operations.
-     *
-     * @return Reports
      */
     public function reports(): Reports
     {
@@ -321,8 +318,6 @@ final class Finvalda
 
     /**
      * Get the Descriptions resource for universal data queries.
-     *
-     * @return Descriptions
      */
     public function descriptions(): Descriptions
     {
@@ -331,8 +326,6 @@ final class Finvalda
 
     /**
      * Get the Permissions resource for user access control queries.
-     *
-     * @return Permissions
      */
     public function permissions(): Permissions
     {
@@ -341,8 +334,6 @@ final class Finvalda
 
     /**
      * Get the Transactions resource for accounting transaction operations.
-     *
-     * @return Transactions
      */
     public function transactions(): Transactions
     {

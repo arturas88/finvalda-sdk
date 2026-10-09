@@ -6,8 +6,12 @@ namespace Finvalda\Resources;
 
 use Finvalda\Concerns\FormatsDate;
 use Finvalda\Enums\ItemClass;
+use Finvalda\Exceptions\FinvaldaException;
+use Finvalda\Exceptions\OperationNotSupportedException;
 use Finvalda\HttpClient;
+use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
+use InvalidArgumentException;
 
 abstract class Resource
 {
@@ -26,15 +30,13 @@ abstract class Resource
      * single-element list shapes.
      *
      * @return array|null The entity fields, or null when the response
-     *                    failed or carries no entity (not found).
+     *                    carries no entity (not found).
+     *
+     * @throws FinvaldaException when the request failed — a failure is not "not found"
      */
-    protected function extractEntity(Response $response, ItemClass $itemClass): ?array
+    protected function extractEntity(Response $response, ItemClass $itemClass, string $endpoint): ?array
     {
-        if (! $response->successful()) {
-            return null;
-        }
-
-        $data = $response->data;
+        $data = $this->requireSuccess($response, $endpoint)->data;
 
         if (array_key_exists($itemClass->value, $data)) {
             $data = $data[$itemClass->value];
@@ -45,6 +47,94 @@ abstract class Resource
         }
 
         return is_array($data) && $data !== [] ? $data : null;
+    }
+
+    /**
+     * Return the response, or throw when the read failed.
+     *
+     * Derived reads (find, collect, cached dictionaries) must not turn a
+     * failure into "no rows": a caller would act on the empty answer.
+     *
+     * @throws FinvaldaException
+     */
+    protected function requireSuccess(Response $response, string $endpoint): Response
+    {
+        if ($response->failed()) {
+            throw new FinvaldaException("{$endpoint} failed: " . ($response->error ?? 'Unknown error'));
+        }
+
+        return $response;
+    }
+
+    /**
+     * Create a description record. Calls InsertNewItem.
+     *
+     * @param  array<string, mixed>  $data  Fields; include sFvsImportoParametras if the server requires it
+     */
+    protected function insertItem(ItemClass $itemClass, array $data): OperationResult
+    {
+        return $this->http->postOperation('InsertNewItem', [
+            'ItemClassName' => $itemClass->value,
+            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
+        ]);
+    }
+
+    /**
+     * Update a description record, identified by its sKodas. Calls EditItem.
+     *
+     * @param  array<string, mixed>  $data  Fields, including the sKodas of the record to update
+     *
+     * @throws InvalidArgumentException when sKodas is missing or empty
+     */
+    protected function editItem(ItemClass $itemClass, array $data): OperationResult
+    {
+        // An all-digit code read back from JSON arrives as an int.
+        $code = is_scalar($data['sKodas'] ?? null) ? (string) $data['sKodas'] : '';
+
+        if ($code === '') {
+            throw new InvalidArgumentException(
+                "Updating {$itemClass->value} needs the record's code in sKodas; EditItem identifies the record by it."
+            );
+        }
+
+        return $this->http->postOperation('EditItem', [
+            'ItemClassName' => $itemClass->value,
+            'sItemCode' => $code,
+            'xmlstring' => $this->jsonEncode([$itemClass->value => $data]),
+        ]);
+    }
+
+    /**
+     * Delete a description record by code. Calls DeleteItem.
+     *
+     * `DeleteItem` is only available on FvsServicePure builds that expose it;
+     * older builds answer 404. When that happens we surface a clear
+     * OperationNotSupportedException rather than an opaque transport error.
+     *
+     * @throws OperationNotSupportedException when the server build lacks DeleteItem
+     */
+    protected function deleteItem(ItemClass $itemClass, string $code): OperationResult
+    {
+        try {
+            return $this->http->postOperationJson('DeleteItem', [
+                'input' => [
+                    'ItemClassName' => $itemClass->value,
+                    'Code' => $code,
+                ],
+            ]);
+        } catch (FinvaldaException $e) {
+            if ($e->getCode() === 404) {
+                throw new OperationNotSupportedException(
+                    'DeleteItem is not supported by this Finvalda server build (the '
+                    . 'FvsServicePure endpoint returned 404). Create (InsertNewItem) and '
+                    . 'update (EditItem) are available; deleting requires a newer Pure '
+                    . 'build that exposes DeleteItem.',
+                    'DeleteItem',
+                );
+            }
+
+            throw $e;
+        }
     }
 
     /**

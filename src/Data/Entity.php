@@ -36,6 +36,75 @@ abstract class Entity implements ArrayAccess
     abstract public function toArray(): array;
 
     /**
+     * The first of $keys whose value is not null, as a string.
+     *
+     * A number in a Char column (an all-digit company code) becomes its
+     * string; an empty XML element, which decodes to [], becomes null.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected static function stringValue(array $data, string ...$keys): ?string
+    {
+        $value = self::first($data, $keys);
+
+        return is_scalar($value) ? (string) $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected static function intValue(array $data, string ...$keys): ?int
+    {
+        $value = self::first($data, $keys);
+
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected static function floatValue(array $data, string ...$keys): ?float
+    {
+        $value = self::first($data, $keys);
+
+        return is_numeric($value) ? (float) $value : null;
+    }
+
+    /**
+     * A flag as Finvalda spells it: a bool, 0/1 (as int or string), or a
+     * letter — N/F/false read false. Any other non-empty string reads true
+     * (a code in a "belongs to" column), and an empty one false.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected static function boolValue(array $data, string ...$keys): ?bool
+    {
+        $value = self::first($data, $keys);
+
+        return match (true) {
+            $value === null, is_array($value) => null,
+            is_bool($value) => $value,
+            is_numeric($value) => (float) $value !== 0.0,
+            default => ! in_array(strtolower(trim((string) $value)), ['', 'n', 'f', 'false'], true),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<array-key, string>  $keys
+     */
+    private static function first(array $data, array $keys): mixed
+    {
+        foreach ($keys as $key) {
+            if (isset($data[$key])) {
+                return $data[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Get the raw API response data.
      *
      * @return array<string, mixed>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Finvalda\Tests;
 
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
 use Finvalda\HttpClient;
@@ -28,6 +29,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
 use Psr\Log\AbstractLogger;
 
 class FinvaldaTest extends TestCase
@@ -178,7 +180,7 @@ class FinvaldaTest extends TestCase
 
     /**
      * @param  array<int, GuzzleResponse>  $responses
-     * @param  array<int, array{request: \Psr\Http\Message\RequestInterface}>  $history
+     * @param  array<int, array{request: RequestInterface}>  $history
      */
     private function createFinvaldaWithHistory(
         FinvaldaConfig $config,
@@ -189,6 +191,67 @@ class FinvaldaTest extends TestCase
         $handlerStack->push(Middleware::history($history));
 
         return new Finvalda($config, new HttpClient($config, new Client(['handler' => $handlerStack])));
+    }
+
+    public function test_ping_is_true_when_the_server_answers_success(): void
+    {
+        $history = [];
+        $finvalda = $this->createFinvaldaWithHistory(
+            new FinvaldaConfig(baseUrl: 'https://example.com', username: 'demo', password: 'secret'),
+            [new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success']))],
+            $history,
+        );
+
+        $this->assertTrue($finvalda->ping());
+    }
+
+    public function test_ping_is_false_when_the_server_is_down_or_rejects_the_credentials(): void
+    {
+        $history = [];
+        $finvalda = $this->createFinvaldaWithHistory(
+            new FinvaldaConfig(baseUrl: 'https://example.com', username: 'demo', password: 'secret'),
+            [
+                new GuzzleResponse(503),
+                new GuzzleResponse(200, [], json_encode(['AccessResult' => 'AccessDenied'])),
+            ],
+            $history,
+        );
+
+        $this->assertFalse($finvalda->ping());
+        $this->assertFalse($finvalda->ping());
+    }
+
+    public function test_ping_throws_on_a_misconfigured_base_url_instead_of_reporting_down(): void
+    {
+        $history = [];
+        $finvalda = $this->createFinvaldaWithHistory(
+            new FinvaldaConfig(baseUrl: 'https://example.com/wrong', username: 'demo', password: 'secret'),
+            [new GuzzleResponse(404)],
+            $history,
+        );
+
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionCode(404);
+
+        $finvalda->ping();
+    }
+
+    public function test_ping_throws_when_the_server_answers_fail(): void
+    {
+        // The server answered, so it is not down; a Fail is a problem the
+        // caller must see. (An unknown company answers AccessDenied, which
+        // stays false like wrong credentials.)
+        $history = [];
+        $finvalda = $this->createFinvaldaWithHistory(
+            new FinvaldaConfig(baseUrl: 'https://example.com', username: 'demo', password: 'secret'),
+            [new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Fail', 'error' => 'Service exception: boom']))],
+            $history,
+        );
+
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('boom');
+
+        $finvalda->ping();
     }
 
     public function test_a_company_scoped_client_reuses_the_injected_transport(): void
@@ -249,28 +312,8 @@ class FinvaldaTest extends TestCase
         $finvalda->withoutCompany()->products()->all();
 
         $this->assertCount(1, $finvalda->recordings());
-    }
-
-    public function test_a_company_scoped_call_lands_in_the_parents_debug_info(): void
-    {
-        $history = [];
-        $finvalda = $this->createFinvaldaWithHistory(
-            new FinvaldaConfig(
-                baseUrl: 'https://example.com',
-                username: 'demo',
-                password: 'secret',
-                companyId: 'htrailer',
-            ),
-            [new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success']))],
-            $history,
-        );
-
-        $finvalda->setDebug(true);
-        $finvalda->withoutCompany()->products()->all();
-
-        $debug = $finvalda->getLastDebugInfo();
-        $this->assertSame(200, $debug['response']['status_code']);
-        $this->assertArrayNotHasKey('CompanyID', $debug['request']['headers']);
+        $this->assertSame(200, $finvalda->lastRecording()?->statusCode);
+        $this->assertArrayNotHasKey('CompanyID', $finvalda->lastRecording()->headers);
     }
 
     public function test_the_same_company_returns_the_same_client(): void
@@ -308,53 +351,6 @@ class FinvaldaTest extends TestCase
         $this->assertCount(1, $finvalda->recordings());
     }
 
-    public function test_debug_switched_on_after_a_company_client_exists_still_captures_its_calls(): void
-    {
-        $history = [];
-        $finvalda = $this->createFinvaldaWithHistory(
-            new FinvaldaConfig(
-                baseUrl: 'https://example.com',
-                username: 'demo',
-                password: 'secret',
-                companyId: 'htrailer',
-            ),
-            [new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success']))],
-            $history,
-        );
-
-        $child = $finvalda->withoutCompany();
-        $finvalda->setDebug(true);
-        $child->products()->all();
-
-        $debug = $finvalda->getLastDebugInfo();
-        $this->assertSame(200, $debug['response']['status_code']);
-    }
-
-    public function test_disabling_debug_on_the_parent_stops_the_company_client_capturing(): void
-    {
-        $history = [];
-        $finvalda = $this->createFinvaldaWithHistory(
-            new FinvaldaConfig(
-                baseUrl: 'https://example.com',
-                username: 'demo',
-                password: 'secret',
-                companyId: 'htrailer',
-            ),
-            [
-                new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success'])),
-                new GuzzleResponse(200, [], json_encode(['AccessResult' => 'Success'])),
-            ],
-            $history,
-        );
-
-        $finvalda->setDebug(true);
-        $finvalda->withoutCompany()->products()->all();
-        $finvalda->setDebug(false);
-        $finvalda->withoutCompany()->products()->all();
-
-        $this->assertSame(['request' => [], 'response' => []], $finvalda->getLastDebugInfo());
-    }
-
     public function test_a_logger_set_after_a_company_client_exists_receives_the_company_calls(): void
     {
         $history = [];
@@ -371,7 +367,8 @@ class FinvaldaTest extends TestCase
 
         $child = $finvalda->withoutCompany();
 
-        $spy = new class extends AbstractLogger {
+        $spy = new class extends AbstractLogger
+        {
             /** @var array<int, array{0: mixed, 1: string}> */
             public array $records = [];
 
@@ -409,7 +406,8 @@ class FinvaldaTest extends TestCase
 
         $child = $finvalda->withoutCompany();
 
-        $spy = new class extends AbstractLogger {
+        $spy = new class extends AbstractLogger
+        {
             /** @var array<int, array{0: mixed, 1: string}> */
             public array $records = [];
 

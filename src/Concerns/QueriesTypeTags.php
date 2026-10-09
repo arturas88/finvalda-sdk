@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Concerns;
 
 use Finvalda\Collections\TypeTagCollection;
+use Finvalda\Exceptions\FinvaldaException;
 
 /**
  * Shared logic for the type/tag dictionary endpoints
@@ -25,17 +26,17 @@ trait QueriesTypeTags
      *
      * No `nID` is sent: the server returns every type and tag group regardless,
      * and the value would be ignored anyway.
+     *
+     * A failure throws and is NOT cached: an empty dictionary cached on a
+     * long-lived resource (a Laravel singleton, a queue worker) would outlive
+     * the outage that caused it.
+     *
+     * @throws FinvaldaException when the request failed
      */
     private function fetchTypeTags(string $endpoint): TypeTagCollection
     {
-        if ($this->typeTagsCache === null) {
-            $response = $this->http->get($endpoint);
-
-            $this->typeTagsCache = $response->successful()
-                ? TypeTagCollection::fromArray($response->data)
-                : new TypeTagCollection();
-        }
-
-        return $this->typeTagsCache;
+        return $this->typeTagsCache ??= TypeTagCollection::fromArray(
+            $this->requireSuccess($this->http->get($endpoint), $endpoint)->data,
+        );
     }
 }

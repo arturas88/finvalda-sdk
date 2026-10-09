@@ -11,6 +11,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 
 class HttpClientRedactionTest extends TestCase
 {
@@ -29,11 +30,11 @@ class HttpClientRedactionTest extends TestCase
     }
 
     /**
-     * @return \Psr\Log\AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
      */
     private function createSpyLogger(): object
     {
-        return new class extends \Psr\Log\AbstractLogger
+        return new class extends AbstractLogger
         {
             public array $records = [];
 
@@ -46,31 +47,6 @@ class HttpClientRedactionTest extends TestCase
                 ];
             }
         };
-    }
-
-    public function test_debug_info_redacts_password_and_conn_string_headers(): void
-    {
-        $config = new FinvaldaConfig(
-            baseUrl: 'https://example.com',
-            username: 'user',
-            password: 'secret-password',
-            connString: 'Server=db;User=sa;Password=db-secret',
-        );
-
-        $httpClient = $this->createHttpClient([
-            new Response(200, [], json_encode(['AccessResult' => 'Success', 'nResult' => 0])),
-        ], $config);
-
-        $httpClient->setDebug(true);
-        $httpClient->postOperation('InsertNewItem', ['ItemClassName' => 'Fvs.Preke']);
-
-        $headers = $httpClient->getLastDebugInfo()['request']['headers'];
-
-        $this->assertSame('***', $headers['Password']);
-        $this->assertSame('***', $headers['ConnString']);
-        $this->assertStringNotContainsString('secret-password', json_encode($headers));
-        // Non-sensitive headers stay intact
-        $this->assertSame('user', $headers['UserName']);
     }
 
     public function test_log_request_redacts_password_query_params(): void

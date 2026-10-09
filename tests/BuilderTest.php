@@ -22,6 +22,7 @@ use Finvalda\Builders\UvmCancellationBuilder;
 use Finvalda\Builders\UvmPurchaseOrderBuilder;
 use Finvalda\Builders\UvmSalesReservationBuilder;
 use Finvalda\Builders\WriteOffBuilder;
+use Finvalda\Enums\DocumentType;
 use Finvalda\Enums\OperationClass;
 use Finvalda\Finvalda;
 use Finvalda\FinvaldaConfig;
@@ -203,12 +204,11 @@ class BuilderTest extends TestCase
             ->date('2024-01-15')
             ->warehouse('MAIN')
             ->currency('EUR')
-            ->paymentDays(30)
+            ->dueDate('2024-02-14')
             ->discount(5.0)
-            ->vatIncluded()
             ->series('SF')
             ->fulfillmentDate('2024-01-20')
-            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->addProduct('PRD001', quantity: 10, amount: 199.9, price: 19.99)
             ->addService('SVC001', quantity: 1, amount: 50.00)
             ->build();
 
@@ -217,17 +217,20 @@ class BuilderTest extends TestCase
         $this->assertArrayHasKey('PardDok', $data);
         $this->assertSame('CLI001', $data['PardDok']['sKlientas']);
         $this->assertSame('2024-01-15', $data['PardDok']['tData']);
-        $this->assertSame('MAIN', $data['PardDok']['sSandelis']);
         $this->assertSame('EUR', $data['PardDok']['sValiuta']);
-        $this->assertSame(30, $data['PardDok']['nAtsiskDien']);
+        $this->assertSame('2024-02-14', $data['PardDok']['tMokejimoData']);
         $this->assertSame(5.0, $data['PardDok']['dNuolaida']);
-        $this->assertTrue($data['PardDok']['bPVMSkaiciuotiIKaina']);
         $this->assertSame('SF', $data['PardDok']['sSerija']);
         $this->assertSame('2024-01-20', $data['PardDok']['tIvykdymoData']);
 
         $this->assertArrayHasKey('PardDokPrekeDetEil', $data['PardDok']);
         $this->assertCount(1, $data['PardDok']['PardDokPrekeDetEil']);
         $this->assertSame('PRD001', $data['PardDok']['PardDokPrekeDetEil'][0]['sKodas']);
+        $this->assertSame(19.99, $data['PardDok']['PardDokPrekeDetEil'][0]['dSumaVntV']);
+
+        // The sales header has no warehouse; warehouse() is the line default.
+        $this->assertArrayNotHasKey('sSandelis', $data['PardDok']);
+        $this->assertSame('MAIN', $data['PardDok']['PardDokPrekeDetEil'][0]['sSandelis']);
 
         $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data['PardDok']);
         $this->assertCount(1, $data['PardDok']['PardDokPaslaugaDetEil']);
@@ -242,7 +245,7 @@ class BuilderTest extends TestCase
             ->date('2024-01-15')
             ->series('SF')
             ->documentType('S')
-            ->addProduct('PRD001', quantity: 10, price: 19.99)
+            ->addProduct('PRD001', quantity: 10, amount: 199.9, price: 19.99)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPardDok', $data);
@@ -258,7 +261,7 @@ class BuilderTest extends TestCase
             ->short()
             ->client('CLI001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 2, price: 19.99)
+            ->addProduct('PRD001', quantity: 2, amount: 39.98, price: 19.99)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPardGrazDok', $data);
@@ -271,8 +274,8 @@ class BuilderTest extends TestCase
         $data = (new SalesReturnBuilder())
             ->client('CLI001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 2, price: 19.99)
-            ->addService('SRV001', quantity: 1, price: 5.00)
+            ->addProduct('PRD001', quantity: 2, amount: 39.98, price: 19.99)
+            ->addService('SRV001', quantity: 1, amount: 5.00, price: 5.00)
             ->build();
 
         $this->assertArrayHasKey('PardGrazDok', $data);
@@ -290,7 +293,7 @@ class BuilderTest extends TestCase
             ->short()
             ->client('SUP001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 10, price: 9.99)
+            ->addProduct('PRD001', quantity: 10, amount: 99.90)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPirkGrazDok', $data);
@@ -303,8 +306,8 @@ class BuilderTest extends TestCase
         $data = (new PurchaseReturnBuilder())
             ->client('SUP001')
             ->date('2024-01-20')
-            ->addProduct('PRD001', quantity: 10, price: 9.99)
-            ->addService('SRV001', quantity: 1, price: 5.00)
+            ->addProduct('PRD001', quantity: 10, amount: 99.90)
+            ->addService('SRV001', quantity: 1, amount: 5.00)
             ->build();
 
         $this->assertArrayHasKey('PirkGrazDok', $data);
@@ -510,19 +513,15 @@ class BuilderTest extends TestCase
         $data = (new UvmSalesReservationBuilder())
             ->client('HTNT')
             ->date('2024-01-15')
-            ->operationType('PARDSERV')
             ->fulfillmentDate('2024-01-20')
             ->currency('EUR')
-            ->vatIncluded()
-            ->addService('5054', quantity: 1, price: 0, additionalData: [
+            ->addService('5054', quantity: 1, amount: 0, price: 0, additionalData: [
                 'sPavadinimas' => 'Test description',
             ])
             ->build();
 
         $this->assertArrayHasKey('UVMPardRezDok', $data);
-        $this->assertSame('PARDSERV', $data['UVMPardRezDok']['sOpTipas']);
         $this->assertSame('2024-01-20', $data['UVMPardRezDok']['tIvykdymoData']);
-        $this->assertTrue($data['UVMPardRezDok']['bPVMSkaiciuotiIKaina']);
 
         $this->assertArrayHasKey('PardDokPaslaugaDetEil', $data['UVMPardRezDok']);
         $this->assertArrayNotHasKey('UVMPardRezDokPaslaugaDetEil', $data['UVMPardRezDok']);
@@ -536,7 +535,7 @@ class BuilderTest extends TestCase
             ->date('2024-01-15')
             ->currency('EUR')
             ->name('Order for supplies')
-            ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+            ->addProduct('PRD001', quantity: 24, amount: 84.00, warehouse: 'CENTR.')
             ->build();
 
         $this->assertArrayHasKey('PirkUzsDok', $data);
@@ -552,7 +551,7 @@ class BuilderTest extends TestCase
             ->client('SUP001')
             ->currency('EUR')
             ->series('UZS')
-            ->addProduct('PRD001', quantity: 50, price: 5.00)
+            ->addProduct('PRD001', quantity: 50, amount: 250.00)
             ->build();
 
         $this->assertArrayHasKey('TrumpasPirkUzsDok', $data);
@@ -606,14 +605,15 @@ class BuilderTest extends TestCase
     public function test_document_type_accepts_raw_string(): void
     {
         $data = (new PurchaseBuilder())
+            ->short()
             ->client('SUP001')
             ->date('2024-01-15')
             ->series('SF')
             ->documentType('SF')
             ->build();
 
-        $this->assertSame('SF', $data['PirkDok']['sSerija']);
-        $this->assertSame('SF', $data['PirkDok']['sDokRusis']);
+        $this->assertSame('SF', $data['TrumpasPirkDok']['sSerija']);
+        $this->assertSame('SF', $data['TrumpasPirkDok']['sDokRusis']);
     }
 
     public function test_document_type_accepts_enum(): void
@@ -621,7 +621,7 @@ class BuilderTest extends TestCase
         $data = (new PurchaseBuilder())
             ->client('SUP001')
             ->date('2024-01-15')
-            ->documentType(\Finvalda\Enums\DocumentType::VatInvoice)
+            ->documentType(DocumentType::VatInvoice)
             ->build();
 
         $this->assertSame('SF', $data['PirkDok']['sDokRusis']);
@@ -632,7 +632,7 @@ class BuilderTest extends TestCase
         $data = (new SaleBuilder())
             ->client('CLI001')
             ->date('2024-01-15')
-            ->documentType(\Finvalda\Enums\DocumentType::CreditVatInvoice)
+            ->documentType(DocumentType::CreditVatInvoice)
             ->build();
 
         $this->assertSame('KS', $data['PardDok']['sDokRusis']);

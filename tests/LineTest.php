@@ -7,7 +7,6 @@ namespace Finvalda\Tests;
 use Finvalda\Builders\ProductLine;
 use Finvalda\Builders\SaleBuilder;
 use Finvalda\Builders\ServiceLine;
-use Finvalda\Enums\OperationClass;
 use PHPUnit\Framework\TestCase;
 
 class LineTest extends TestCase
@@ -77,7 +76,8 @@ class LineTest extends TestCase
         $this->assertSame('MILTAI', $line['sKodas']);
         $this->assertSame(12.25, $line['nKiekis']);
         $this->assertSame('CENTR.', $line['sSandelis']);
-        $this->assertSame(13.15, $line['dKaina']);
+        $this->assertSame(13.15, $line['dSumaVntV']);
+        $this->assertSame(13.15, $line['dSumaVntL']);
         $this->assertSame(161.16, $line['dSumaV']);
         $this->assertSame(161.16, $line['dSumaL']);
         $this->assertSame(21.0, $line['dPVM_Procentas']);
@@ -199,7 +199,7 @@ class LineTest extends TestCase
             ->toArray();
 
         $this->assertSame('TRANSPORT', $line['sKodas']);
-        $this->assertSame(50.00, $line['dKaina']);
+        $this->assertSame(50.00, $line['dSumaVntV']);
         $this->assertSame(50.00, $line['dSumaV']);
         $this->assertSame(21.0, $line['dPVM_Procentas']);
         $this->assertSame(10.50, $line['dSumaPVMV']);
@@ -272,7 +272,7 @@ class LineTest extends TestCase
         $builder = new SaleBuilder();
         $data = $builder
             ->client('CLI001')
-            ->addProduct('B', quantity: 250, price: 1.00, warehouse: 'W1')
+            ->addProduct('B', quantity: 250, amount: 250.00, price: 1.00, warehouse: 'W1')
             ->build();
 
         $line = $data['PardDok']['PardDokPrekeDetEil'][0];
@@ -312,11 +312,11 @@ class LineTest extends TestCase
             ->product(
                 ProductLine::make('A', 1)->warehouse('W1')->amount(10.00)->vat(percent: 21)
             )
-            ->addProduct('B', quantity: 2, price: 5.00, warehouse: 'W1')
+            ->addProduct('B', quantity: 2, amount: 10.00, price: 5.00, warehouse: 'W1')
             ->service(
                 ServiceLine::make('S1', 1)->amount(20.00)->vat(percent: 21)
             )
-            ->addService('S2', quantity: 1, price: 15.00)
+            ->addService('S2', quantity: 1, amount: 15.00, price: 15.00)
             ->build();
 
         $this->assertCount(2, $data['PardDok']['PardDokPrekeDetEil']);

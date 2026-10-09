@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Exceptions\NetworkException;
-use Finvalda\Exceptions\RetryExhaustedException;
 use Finvalda\Retry\RetryHandler;
 use Finvalda\Retry\RetryPolicy;
 use PHPUnit\Framework\TestCase;
@@ -57,7 +56,7 @@ class RetryHandlerTest extends TestCase
         }
     }
 
-    public function test_throws_retry_exhausted_after_all_attempts_fail(): void
+    public function test_rethrows_the_last_exception_after_all_attempts_fail(): void
     {
         $handler = new RetryHandler(new RetryPolicy(maxAttempts: 3, delayMs: 1));
         $calls = 0;
@@ -65,13 +64,28 @@ class RetryHandlerTest extends TestCase
         try {
             $handler->execute(function () use (&$calls) {
                 $calls++;
-                throw new NetworkException('still failing');
+                throw new NetworkException("still failing {$calls}");
             });
-            $this->fail('Expected RetryExhaustedException was not thrown');
-        } catch (RetryExhaustedException $exception) {
+            $this->fail('Expected NetworkException was not thrown');
+        } catch (NetworkException $exception) {
             $this->assertSame(3, $calls);
-            $this->assertInstanceOf(NetworkException::class, $exception->getPrevious());
-            $this->assertSame('still failing', $exception->getPrevious()->getMessage());
+            $this->assertSame('still failing 3', $exception->getMessage());
+        }
+    }
+
+    public function test_a_single_attempt_policy_runs_once_and_rethrows(): void
+    {
+        $handler = new RetryHandler(RetryPolicy::noRetry());
+        $calls = 0;
+
+        try {
+            $handler->execute(function () use (&$calls) {
+                $calls++;
+                throw new NetworkException('down');
+            });
+            $this->fail('Expected NetworkException was not thrown');
+        } catch (NetworkException) {
+            $this->assertSame(1, $calls);
         }
     }
 }

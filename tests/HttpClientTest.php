@@ -12,6 +12,8 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
+use Psr\Log\AbstractLogger;
 
 class HttpClientTest extends TestCase
 {
@@ -48,7 +50,7 @@ class HttpClientTest extends TestCase
 
     /**
      * @param  array<int, Response>  $responses
-     * @param  array<int, array{request: \Psr\Http\Message\RequestInterface}>  $history
+     * @param  array<int, array{request: RequestInterface}>  $history
      */
     private function createHttpClientWithConfig(
         FinvaldaConfig $config,
@@ -293,81 +295,12 @@ class HttpClientTest extends TestCase
         $this->assertEmpty((string) $request->getBody());
     }
 
-    public function test_debug_captures_request_and_response_when_enabled(): void
-    {
-        $httpClient = $this->createHttpClient([
-            new Response(200, ['X-Custom' => 'test'], json_encode([
-                'AccessResult' => 'Success',
-                'nResult' => 0,
-            ])),
-        ]);
-
-        $httpClient->setDebug(true);
-
-        $httpClient->postOperation('InsertNewOperation', [
-            'ItemClassName' => 'PardDok',
-        ], '{"PardDok":{}}');
-
-        $debug = $httpClient->getLastDebugInfo();
-
-        $this->assertSame('POST', $debug['request']['method']);
-        $this->assertStringContainsString('InsertNewOperation', $debug['request']['url']);
-        $this->assertIsArray($debug['request']['headers']);
-        $this->assertIsArray($debug['request']['body']);
-        $this->assertSame('PardDok', $debug['request']['body']['ItemClassName'] ?? null);
-        $this->assertSame('{"PardDok":{}}', $debug['request']['body']['xmlstring'] ?? null);
-
-        $this->assertSame(200, $debug['response']['status_code']);
-        $this->assertIsArray($debug['response']['headers']);
-        $this->assertIsString($debug['response']['body']);
-    }
-
-    public function test_debug_info_is_empty_when_disabled(): void
-    {
-        $httpClient = $this->createHttpClient([
-            new Response(200, [], json_encode([
-                'AccessResult' => 'Success',
-                'nResult' => 0,
-            ])),
-        ]);
-
-        $httpClient->postOperation('test-endpoint');
-
-        $debug = $httpClient->getLastDebugInfo();
-
-        $this->assertEmpty($debug['request']);
-        $this->assertEmpty($debug['response']);
-    }
-
-    public function test_set_debug_false_clears_previous_debug_info(): void
-    {
-        $httpClient = $this->createHttpClient([
-            new Response(200, [], json_encode([
-                'AccessResult' => 'Success',
-                'nResult' => 0,
-            ])),
-        ]);
-
-        $httpClient->setDebug(true);
-        $httpClient->postOperation('test-endpoint');
-
-        // Debug info should be populated
-        $this->assertNotEmpty($httpClient->getLastDebugInfo()['request']);
-
-        // Disabling debug should clear it
-        $httpClient->setDebug(false);
-        $debug = $httpClient->getLastDebugInfo();
-
-        $this->assertEmpty($debug['request']);
-        $this->assertEmpty($debug['response']);
-    }
-
     /**
-     * @return \Psr\Log\AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
+     * @return AbstractLogger&object{records: list<array{level: mixed, message: string, context: array}>}
      */
     private function createSpyLogger(): object
     {
-        return new class extends \Psr\Log\AbstractLogger
+        return new class extends AbstractLogger
         {
             public array $records = [];
 

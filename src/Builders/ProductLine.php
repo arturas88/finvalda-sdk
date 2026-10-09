@@ -57,11 +57,18 @@ final class ProductLine
     }
 
     /**
-     * Set the unit price (dKaina).
+     * Set the unit price without VAT and discount.
+     *
+     * Sales lines only — purchase detail lines have no unit-price field, and a
+     * purchase build() rejects it.
+     *
+     * @param  float  $price  Unit price in operation currency (dSumaVntV)
+     * @param  float|null  $local  Unit price in EUR (dSumaVntL). Defaults to $price.
      */
-    public function price(float $price): self
+    public function price(float $price, ?float $local = null): self
     {
-        $this->data['dKaina'] = $price;
+        $this->data['dSumaVntV'] = $price;
+        $this->data['dSumaVntL'] = $local ?? $price;
 
         return $this;
     }
@@ -132,10 +139,12 @@ final class ProductLine
 
     /**
      * Set a single analytical object by level (1-6).
+     *
+     * @throws ValidationException  On a level outside 1-6.
      */
     public function object(int $level, string $code): self
     {
-        $this->data["sObjektas{$level}"] = $code;
+        $this->data[ObjectLevel::key($level)] = $code;
 
         return $this;
     }
@@ -144,11 +153,13 @@ final class ProductLine
      * Set multiple analytical objects at once, keyed by level.
      *
      * @param  array<int, string>  $map  e.g. [1 => 'DEPT01', 4 => '1234567']
+     *
+     * @throws ValidationException  On a level outside 1-6.
      */
     public function objects(array $map): self
     {
         foreach ($map as $level => $code) {
-            $this->data["sObjektas{$level}"] = $code;
+            $this->data[ObjectLevel::key($level)] = $code;
         }
 
         return $this;
@@ -286,7 +297,8 @@ final class ProductLine
     }
 
     /**
-     * Set additional info text (sPapInf).
+     * Set additional info text (sPapInf). Sales lines only — purchase product
+     * lines have no sPapInf.
      */
     public function info(string $text): self
     {

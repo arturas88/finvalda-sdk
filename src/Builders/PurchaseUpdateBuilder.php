@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use DateTimeInterface;
 use Finvalda\Builders\Concerns\HasAdditionalCostCodes;
+use Finvalda\Concerns\FormatsDate;
 use Finvalda\Enums\UpdateOperationClass;
 use Finvalda\Exceptions\ConflictException;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\ValidationException;
 use Finvalda\Finvalda;
 use Finvalda\Responses\OperationResult;
@@ -59,6 +62,7 @@ use Finvalda\Responses\OperationResult;
  */
 final class PurchaseUpdateBuilder
 {
+    use FormatsDate;
     use HasAdditionalCostCodes;
 
     /**
@@ -85,6 +89,24 @@ final class PurchaseUpdateBuilder
         'sKrovVazt', 'sSurasVieta', 'sPakrovimoVieta', 'sIskrovimoVieta', 'sKrovSvoris',
         'sKrovIsdAsmuo', 'sKrovPrAsmuo', 'tSurasData', 'tPakrovimoData', 'tIskrovimoData',
         'sVairuotojas', 'sMasina', 'sPapInfo',
+    ];
+
+    /**
+     * The documented column sets of the §3.72 correction line tables. They are
+     * narrower than the InsertNewOperation ones — no VAT percent, objects,
+     * intrastat or weights — so a ProductLine/ServiceLine carrying those would
+     * have them silently dropped; product()/service() reject them instead.
+     */
+    private const PRODUCT_LINE_FIELDS = [
+        'sKodas', 'sSandelis', 'dSumaV', 'dSumaL', 'dSumaPVMV', 'dSumaPVML', 'dSumaNV', 'dSumaNL',
+        'dNlProc', 'nKiekis', 'nPirmasMat',
+        'dPapIsldSumaL1', 'dPapIsldSumaV1', 'dPapIsldSumaL2', 'dPapIsldSumaV2',
+        'dPapIsldSumaL3', 'dPapIsldSumaV3', 'dPapIsldSumaL4', 'dPapIsldSumaV4',
+    ];
+
+    private const SERVICE_LINE_FIELDS = [
+        'sKodas', 'dSumaV', 'dSumaL', 'dSumaPVMV', 'dSumaPVML', 'dSumaNV', 'dSumaNL',
+        'dNlProc', 'nKiekis', 'nPirmasMat',
     ];
 
     /** PirkDokHeadEil node. @var array<string, mixed> */
@@ -173,6 +195,17 @@ final class PurchaseUpdateBuilder
     }
 
     /**
+     * Set the payment (due) date, tMokejimoData. A header-only correction
+     * changes it without touching the lines (verified on a live server).
+     */
+    public function dueDate(DateTimeInterface|string $date): self
+    {
+        $this->header['tMokejimoData'] = $this->formatDate($date);
+
+        return $this;
+    }
+
+    /**
      * Remove a product line (DelPrekeDetEil).
      *
      * @param  string  $code  Product code (sKodas, max 20).
@@ -211,7 +244,8 @@ final class PurchaseUpdateBuilder
      * A re-added line is a replacement, not an edit — see the class docblock. Adding
      * without a matching removeProduct() is legal but rarely what a correction means.
      *
-     * @throws ValidationException  When the line lacks a field the spec requires.
+     * @throws ValidationException  When the line lacks a field the spec requires,
+     *                              or carries one the correction table does not define.
      */
     public function product(ProductLine $line): self
     {
@@ -219,6 +253,7 @@ final class PurchaseUpdateBuilder
             $line->toArray(),
             ['sKodas', 'sSandelis', 'dSumaV', 'dSumaL', 'nKiekis'],
             'PirkDokPrekeDetEil',
+            self::PRODUCT_LINE_FIELDS,
         );
 
         return $this;
@@ -227,7 +262,8 @@ final class PurchaseUpdateBuilder
     /**
      * Add/replace a service line (PirkDokPaslaugaDetEil).
      *
-     * @throws ValidationException  When the line lacks a field the spec requires.
+     * @throws ValidationException  When the line lacks a field the spec requires,
+     *                              or carries one the correction table does not define.
      */
     public function service(ServiceLine $line): self
     {
@@ -235,6 +271,7 @@ final class PurchaseUpdateBuilder
             $line->toArray(),
             ['sKodas', 'dSumaV', 'dSumaL', 'nKiekis'],
             'PirkDokPaslaugaDetEil',
+            self::SERVICE_LINE_FIELDS,
         );
 
         return $this;
@@ -289,7 +326,14 @@ final class PurchaseUpdateBuilder
         $finvalda = $this->requireFinvalda();
 
         foreach ($codes as $code) {
-            $op = $finvalda->stock()->purchaseOpFor((string) $code);
+            try {
+                $op = $finvalda->stock()->purchaseOpFor((string) $code);
+            } catch (FinvaldaException $e) {
+                throw new ConflictException(
+                    "Refusing to correct: the purchase history of '{$code}' could not be read ({$e->getMessage()}).",
+                    previous: $e,
+                );
+            }
 
             if ($op === null) {
                 throw new ConflictException(
@@ -422,11 +466,12 @@ final class PurchaseUpdateBuilder
     /**
      * @param  array<string, mixed>  $line
      * @param  array<int, string>  $required
+     * @param  array<int, string>  $known
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    private function assertRequiredLineFields(array $line, array $required, string $node): array
+    private function assertRequiredLineFields(array $line, array $required, string $node, array $known): array
     {
         foreach ($required as $field) {
             if (! isset($line[$field])) {
@@ -434,6 +479,16 @@ final class PurchaseUpdateBuilder
                     "{$node} requires {$field}; the spec marks it mandatory on a corrected line."
                 );
             }
+        }
+
+        $unknown = array_diff(array_keys($line), $known);
+
+        if ($unknown !== []) {
+            throw new ValidationException(sprintf(
+                '%s in a correction does not accept %s; the server would drop it.',
+                $node,
+                implode(', ', $unknown),
+            ));
         }
 
         return $line;

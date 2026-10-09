@@ -133,13 +133,14 @@ final class Products extends Resource
      * @param  string  $productCode  The product code
      * @return Product
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $productCode): Product
     {
         $response = $this->get($productCode);
 
-        $data = $this->extractEntity($response, ItemClass::Product);
+        $data = $this->extractEntity($response, ItemClass::Product, 'GetPreke');
 
         if ($data === null) {
             throw new NotFoundException("Product '{$productCode}' not found");
@@ -154,16 +155,14 @@ final class Products extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ProductCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ProductCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ProductCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetPrekes');
 
         return ProductCollection::fromArray($response->data);
     }
@@ -192,12 +191,17 @@ final class Products extends Resource
      *
      * @param  string  $productCode  The product code
      * @param  DateTimeInterface|string|null  $modifiedSince  Return only if modified since this date
+     * @param  DateTimeInterface|string|null  $createdSince  Return only if created since this date
      */
-    public function image(string $productCode, DateTimeInterface|string|null $modifiedSince = null): Response
-    {
+    public function image(
+        string $productCode,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): Response {
         return $this->http->get('GetPrekesImage', [
             'sPreKod' => $productCode,
             'tKoregavimoData' => $this->formatDate($modifiedSince),
+            'tSukurimoData' => $this->formatDate($createdSince),
         ]);
     }
 
@@ -206,10 +210,13 @@ final class Products extends Resource
      *
      * @throws FinvaldaException
      */
-    public function imageJpeg(string $productCode, DateTimeInterface|string|null $modifiedSince = null): string
-    {
+    public function imageJpeg(
+        string $productCode,
+        DateTimeInterface|string|null $modifiedSince = null,
+        DateTimeInterface|string|null $createdSince = null,
+    ): string {
         return $this->decodeBinaryResponse(
-            $this->image($productCode, $modifiedSince),
+            $this->image($productCode, $modifiedSince, $createdSince),
             'GetPrekesImage',
         );
     }
@@ -350,6 +357,7 @@ final class Products extends Resource
      * @param  DateTimeInterface|string|null  $dateFrom  Period start date
      * @param  DateTimeInterface|string|null  $dateTo  Period end date
      * @param  string|null  $salesJournalCode  Filter by sales journal code
+     * @param  bool|null  $includeAllProducts  bItrauktiVisasPrekes — include products with no sales
      */
     public function soldPerPeriod(
         ?string $productCode = null,
@@ -357,6 +365,7 @@ final class Products extends Resource
         DateTimeInterface|string|null $dateFrom = null,
         DateTimeInterface|string|null $dateTo = null,
         ?string $salesJournalCode = null,
+        ?bool $includeAllProducts = null,
     ): Response {
         return $this->http->get('GetPardPrekPerPerioda', [
             'sPrekesKodas' => $productCode,
@@ -364,6 +373,7 @@ final class Products extends Resource
             'tDataNuo' => $this->formatDate($dateFrom),
             'tDataIki' => $this->formatDate($dateTo),
             'sPardZurKodas' => $salesJournalCode,
+            'bItrauktiVisasPrekes' => $includeAllProducts === null ? null : ($includeAllProducts ? 'true' : 'false'),
         ]);
     }
 
@@ -376,10 +386,7 @@ final class Products extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Product->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Product, $data);
     }
 
     /**
@@ -391,13 +398,7 @@ final class Products extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Product->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Product->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Product, $data);
     }
 
     /**
@@ -422,11 +423,6 @@ final class Products extends Resource
      */
     public function delete(string $productCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Product->value,
-                'Code' => $productCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Product, $productCode);
     }
 }

@@ -14,8 +14,7 @@ final class OutboundNumericNormalizer
     public function __construct(
         private readonly bool $enabled = true,
         private readonly int $precision = 10,
-    ) {
-    }
+    ) {}
 
     public function normalize(mixed $value): mixed
     {

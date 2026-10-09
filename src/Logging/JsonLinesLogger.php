@@ -69,7 +69,9 @@ final class JsonLinesLogger extends AbstractLogger
                 $entry[in_array($key, self::RESERVED_KEYS, true) ? "context_{$key}" : $key] = $value;
             }
 
-            $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            // Substitute rather than fail on invalid UTF-8: a body the server
+            // sent in another encoding (e.g. Windows-1257) must still be logged.
+            $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
             if ($line === false) {
                 $this->reportFailure('could not encode a record as JSON: ' . json_last_error_msg());

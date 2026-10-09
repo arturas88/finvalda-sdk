@@ -11,6 +11,7 @@ use Finvalda\Concerns\QueriesTypeTags;
 use Finvalda\Data\Service;
 use Finvalda\Enums\ItemClass;
 use Finvalda\Enums\ServiceTypeId;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Responses\OperationResult;
 use Finvalda\Responses\Response;
@@ -60,13 +61,14 @@ final class Services extends Resource
      * @param  string  $serviceCode  The service code
      * @return Service
      *
-     * @throws NotFoundException
+     * @throws NotFoundException when no such record exists
+     * @throws FinvaldaException when the request failed
      */
     public function find(string $serviceCode): Service
     {
         $response = $this->get($serviceCode);
 
-        $data = $this->extractEntity($response, ItemClass::Service);
+        $data = $this->extractEntity($response, ItemClass::Service, 'GetPaslauga');
 
         if ($data === null) {
             throw new NotFoundException("Service '{$serviceCode}' not found");
@@ -81,16 +83,14 @@ final class Services extends Resource
      * @param  DateTimeInterface|string|null  $modifiedSince  Return records modified since this date
      * @param  DateTimeInterface|string|null  $createdSince  Return records created since this date
      * @return ServiceCollection
+     *
+     * @throws FinvaldaException when the request failed
      */
     public function collect(
         DateTimeInterface|string|null $modifiedSince = null,
         DateTimeInterface|string|null $createdSince = null,
     ): ServiceCollection {
-        $response = $this->all($modifiedSince, $createdSince);
-
-        if (! $response->successful()) {
-            return new ServiceCollection();
-        }
+        $response = $this->requireSuccess($this->all($modifiedSince, $createdSince), 'GetPaslaugos');
 
         return ServiceCollection::fromArray($response->data);
     }
@@ -164,10 +164,7 @@ final class Services extends Resource
      */
     public function create(array $data): OperationResult
     {
-        return $this->http->postOperation('InsertNewItem', [
-            'ItemClassName' => ItemClass::Service->value,
-            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
-        ]);
+        return $this->insertItem(ItemClass::Service, $data);
     }
 
     /**
@@ -179,13 +176,7 @@ final class Services extends Resource
      */
     public function update(array $data): OperationResult
     {
-        $code = $data['sKodas'] ?? '';
-
-        return $this->http->postOperation('EditItem', [
-            'ItemClassName' => ItemClass::Service->value,
-            'sItemCode' => $code,
-            'xmlstring' => $this->jsonEncode([ItemClass::Service->value => $data]),
-        ]);
+        return $this->editItem(ItemClass::Service, $data);
     }
 
     /**
@@ -195,11 +186,6 @@ final class Services extends Resource
      */
     public function delete(string $serviceCode): OperationResult
     {
-        return $this->http->postOperationJson('DeleteItem', [
-            'input' => [
-                'ItemClassName' => ItemClass::Service->value,
-                'Code' => $serviceCode,
-            ],
-        ]);
+        return $this->deleteItem(ItemClass::Service, $serviceCode);
     }
 }

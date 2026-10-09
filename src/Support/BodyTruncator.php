@@ -28,8 +28,12 @@ final class BodyTruncator
             return $body;
         }
 
-        $omitted = strlen($body) - $maxBytes;
+        // mb_strcut, not substr: still a byte budget, but it backs off to a
+        // character boundary. A cut through a Lithuanian letter (2 bytes in
+        // UTF-8) leaves invalid UTF-8, which json_encode refuses outright.
+        $kept = mb_strcut($body, 0, $maxBytes, 'UTF-8');
+        $omitted = strlen($body) - strlen($kept);
 
-        return substr($body, 0, $maxBytes) . "... [truncated {$omitted} bytes]";
+        return $kept . "... [truncated {$omitted} bytes]";
     }
 }

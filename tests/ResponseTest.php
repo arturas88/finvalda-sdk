@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Finvalda\Tests;
 
 use Finvalda\Enums\AccessResult;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Responses\Response;
 use PHPUnit\Framework\TestCase;
 
@@ -59,5 +60,32 @@ class ResponseTest extends TestCase
         );
 
         $this->assertSame($raw, $response->raw);
+    }
+
+    public function test_throw_returns_a_successful_response_unchanged(): void
+    {
+        $response = new Response(accessResult: AccessResult::Success, data: ['a' => 1]);
+
+        $this->assertSame($response, $response->throw());
+    }
+
+    public function test_throw_raises_the_server_error_for_a_failed_response(): void
+    {
+        $response = new Response(accessResult: AccessResult::Fail, data: [], error: 'Klientas nerastas');
+
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('Klientas nerastas');
+
+        $response->throw();
+    }
+
+    public function test_throw_names_the_access_result_when_the_server_gave_no_error(): void
+    {
+        $response = new Response(accessResult: AccessResult::Fail, data: []);
+
+        $this->expectException(FinvaldaException::class);
+        $this->expectExceptionMessage('AccessResult: Fail');
+
+        $response->throw();
     }
 }

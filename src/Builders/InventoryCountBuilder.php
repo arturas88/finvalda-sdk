@@ -6,12 +6,14 @@ namespace Finvalda\Builders;
 
 use DateTimeInterface;
 use Finvalda\Enums\OperationClass;
+use Finvalda\Exceptions\ValidationException;
 
 /**
  * Fluent builder for inventory count operations (Inventorizacija).
  *
- * Inventory counts have a flat structure with a mode flag and item list.
- * Mode 0 = create new inventory count, mode 1 = append to existing.
+ * Inventory counts have a flat structure with a mode flag and item list. When
+ * the product already has a count for that day and warehouse, mode 0 (the
+ * default) overwrites its quantity and mode 1 adds to it.
  *
  * Usage:
  * ```php
@@ -36,32 +38,21 @@ final class InventoryCountBuilder extends OperationBuilder
         return OperationClass::InventoryCount;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'Inventorizacija';
-    }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'Inventorizacija';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        return 'Inventorizacija';
+        return 'addItem()';
     }
 
     /**
      * Build the complete operation data array.
      *
-     * Each item gets the shared header fields (journal, warehouse, date) merged in.
+     * Each item gets the shared header fields (journal, warehouse, account,
+     * date) merged in; an item's own value wins.
      *
      * @return array<string, mixed>
      */
     public function build(): array
     {
-        $this->assertNoGenericLines('addItem()');
-
         $data = ['mode' => $this->mode];
 
         $items = [];
@@ -79,13 +70,28 @@ final class InventoryCountBuilder extends OperationBuilder
     // --- Inventory count-specific methods ---
 
     /**
-     * Set the inventory count mode.
+     * Set how a quantity is stored when the product already has a count for
+     * that day and warehouse: 0 overwrites it (default), 1 adds to it.
      *
-     * @param  int  $mode  0 = create new, 1 = append to existing
+     * @throws ValidationException  On a mode other than 0 or 1.
      */
     public function mode(int $mode): self
     {
+        if ($mode !== 0 && $mode !== 1) {
+            throw new ValidationException("Inventory count mode must be 0 (overwrite) or 1 (add), {$mode} given");
+        }
+
         $this->mode = $mode;
+
+        return $this;
+    }
+
+    /**
+     * Set the warehouse code (shared across all items).
+     */
+    public function warehouse(string $warehouseCode): self
+    {
+        $this->header['sSandelis'] = $warehouseCode;
 
         return $this;
     }

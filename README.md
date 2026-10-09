@@ -36,7 +36,6 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [UVM (Order Management)](#uvm-order-management)
   - [Short / Simplified Operations](#short--simplified-operations)
 - [Query Builders](#query-builders)
-  - [Transaction Query](#transaction-query)
   - [Operation Query](#operation-query)
 - [Validation](#validation)
 - [Field Reference](#field-reference)
@@ -55,7 +54,6 @@ Built from the official [Finvalda API documentation](https://documenter.getpostm
   - [Descriptions (Universal Query)](#descriptions-universal-query)
   - [Reference Data](#reference-data)
   - [User Permissions](#user-permissions)
-- [Pagination](#pagination)
 - [Error Handling](#error-handling)
 - [Server-Configured Parameters](#server-configured-parameters)
 - [API Versions](#api-versions)
@@ -104,7 +102,7 @@ $result = $finvalda->sale()
     ->client('CLI001')
     ->date('2024-01-15')
     ->warehouse('MAIN')
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->addProduct('PRD002', quantity: 5, amount: 49.95)
     ->save('STANDARD');
 
@@ -136,6 +134,7 @@ $config = new FinvaldaConfig(
     removeZeroNumberTags: false,
     removeNewLines: false,
     timeout: 30,
+    httpOptions: [],                     // Guzzle request options: verify, proxy, connect_timeout…
     logger: null,                        // PSR-3 logger instance
     retry: null,                         // RetryPolicy instance
     record: false,                              // Keep the last N exchanges in memory
@@ -192,6 +191,11 @@ use Finvalda\Laravel\Facades\Finvalda;
 $clients = Finvalda::clients()->collect();
 ```
 
+The container binding is **scoped**: Laravel builds a fresh client per Octane request and
+per queue job, so a `record()`, `setLogger()` or company-scoped copy made while handling
+one job does not carry into the next. (On a Laravel too old to have `scoped()` it falls
+back to a singleton.)
+
 ### Company-Scoped Clients
 
 `companyId` sets the `CompanyID` header on every request. Some things are registered
@@ -208,13 +212,12 @@ $clients = $finvalda->withCompany('HTNT')->clients()->collect();
 ```
 
 Both return a client that shares this one's transport and observability state —
-logger, debug capture and recorder — so company-scoped calls show up in
-`getLastDebugInfo()` and `recordings()` whether logging, debug or recording was
-switched on before or after the company client was created, and turning any of them
-off reaches both. A custom `HttpClient` you injected keeps being used. Repeated calls
-for the same company return the same client, so calling this in a loop over one company
-is fine — but each *distinct* company you pass is retained for the parent's lifetime,
-which matters when the parent is a long-lived singleton (e.g. the Laravel binding).
+logger and recorder — so company-scoped calls show up in `recordings()` whether logging
+or recording was switched on before or after the company client was created, and turning
+either off reaches both. A custom `HttpClient` you injected keeps being used. Repeated
+calls for the same company return the same client, so calling this in a loop over one
+company is fine — but each *distinct* company you pass is retained for the parent's
+lifetime, which matters when the parent is long-lived.
 
 `FinvaldaConfig::withCompanyId()` does the same at the config level.
 
@@ -263,7 +266,7 @@ only values above 512 bytes qualify. **Recording is unaffected** —
 `$finvalda->record()` still captures bodies verbatim, because you reach for it
 precisely when you need the bytes, and it is bounded and opt-in.
 
-Both records are logged at `debug` level. `Finvalda API request` includes method, endpoint, parameters, and the full request body (`body`, string or null for GET). `Finvalda API response` includes method, endpoint, status code, response time, and the full response body (`body`). Bodies larger than 100 KB are truncated with a `... [truncated N bytes]` marker — route the SDK's debug-level records to a suitable handler if log volume is a concern.
+Both records are logged at `debug` level and share a `request_id`. `Finvalda API request` includes method, endpoint, query parameters (`params`; a JSON payload is logged once, as `body`), and the full request body (`body`, string or null for GET). `Finvalda API response` includes method, endpoint, status code, response time, and the full response body (`body`). Bodies larger than 100 KB are truncated with a `... [truncated N bytes]` marker — route the SDK's debug-level records to a suitable handler if log volume is a concern.
 
 #### Logging to a file without a logging framework
 
@@ -300,30 +303,11 @@ In Laravel, set `FINVALDA_LOG_PATH=/var/log/finvalda/finvalda.log` instead of
 constructing the logger by hand — `FINVALDA_LOG_CHANNEL` takes precedence when both are
 set.
 
-### Debug Mode
-
-Capture full request/response details for troubleshooting:
-
-```php
-$finvalda->setDebug(true);
-
-// Make any API call
-$result = $finvalda->operations()->create(OperationClass::Sale, $data, 'PARAM');
-
-// Inspect what was sent and received
-$debug = $finvalda->getLastDebugInfo();
-print_r($debug['request']);   // method, url, headers, body
-print_r($debug['response']);  // status_code, headers, body
-
-// Disable debug mode (clears stored info)
-$finvalda->setDebug(false);
-```
-
 ### Recording Requests
 
-Debug mode holds only the last exchange, as arrays, and captures nothing when a request
-fails. Recording keeps a short history of exchanges as objects that render themselves —
-including failed attempts and each retry.
+Recording keeps a short history of exchanges as objects that render themselves —
+including failed attempts and each retry. `record(1)` plus `lastRecording()` is the
+"what did the last call send and get back" view.
 
 ```php
 use Finvalda\Enums\CredentialMode;
@@ -451,16 +435,18 @@ Worth knowing:
 - **PSR-3 logging always masks**, whatever the recording mode is set to.
 - **`Content-Type: application/json` in curl output is inferred.** Guzzle adds it for JSON
   bodies; the SDK does not set it itself.
-- **Recordings are the SDK's view of the request.** The recorded URL and body reproduce
-  Guzzle's own resolution and encoding (RFC 3986 query encoding, the same JSON encoding
-  Guzzle applies to the `json` option), but if you inject your own Guzzle client with extra
-  default headers or middleware, those additions are not reflected.
+- **Recordings are the SDK's view of the request.** The recorded URL is the absolute URL the
+  SDK hands Guzzle, and the body reproduces Guzzle's own encoding (RFC 3986 query encoding,
+  the same JSON encoding Guzzle applies to the `json` option), but if you inject your own
+  Guzzle client with extra default headers or middleware, those additions are not reflected.
+- **Each call carries a `requestId`**, shared by all its retry attempts and by its two log
+  records (`request_id`), so a recording can be matched to its log lines.
 - **Failures are recorded, then rethrown.** A 4xx/5xx exchange carries the status and error
   body; a connection failure carries `error` with no status.
 - **Retries record one exchange per attempt**, each with its own `attempt` number and duration.
 - **Bodies are capped at 100 KB each**, the same budget PSR-3 logging uses, with the excess
-  replaced by a `... [truncated N bytes]` marker. Without the cap a long-lived process (the
-  Laravel binding is a singleton, so a queue worker keeps one buffer for its lifetime) would
+  replaced by a `... [truncated N bytes]` marker. Without the cap a long-lived process (a
+  client you keep in a static or a long-running script keeps one buffer for its lifetime) would
   retain `limit` whole bodies — and `Reports` endpoints answer with PDFs. A truncated body
   makes `toCurl()` non-reproducible for that exchange: the `-d` payload is no longer the
   bytes that were sent. Keep `limit` modest in long-running processes.
@@ -469,7 +455,12 @@ Worth knowing:
 
 ### Retry Policy
 
-Configure automatic retries for transient failures:
+Configure automatic retries for transient failures. **Only reads are retried.** Writes
+(`InsertNewOperation`, `EditItem`, `DeleteOperation`, …) are sent once whatever the
+policy: a timeout after the request went out may mean the server already committed the
+operation, and a second attempt would post it twice. After the last attempt the
+original exception is thrown (`NetworkException`, `ServerException`, `HttpException`),
+exactly as without a policy.
 
 ```php
 use Finvalda\Retry\RetryPolicy;
@@ -506,9 +497,44 @@ $config = new FinvaldaConfig(
 );
 ```
 
+`setDebug()` / `getLastDebugInfo()` (v3 debug mode) remain as deprecated shims over
+recording: `getLastDebugInfo()` returns `lastRecording()->toArray()` — `request` (`method`,
+`url`, `headers`, `body`), `response` (`status_code`, `headers`, `body`, `duration_ms`,
+`error`), `attempt`, `request_id` — or `['request' => [], 'response' => []]` before any call.
+
+### Calling an endpoint without a resource method
+
+```php
+$http = $finvalda->getHttpClient();
+
+$response = $http->get('GetPrekesIstorija', ['sPreKod' => 'P1']);   // Response: ->data, ->raw
+$body = $http->getRaw('GetPrekesIstorija', ['sPreKod' => 'P1']);    // the body as it came, undecoded
+```
+
+Both are reads and retry under a `RetryPolicy`. Never send a write this way: use the
+resources or builders, whose writes are sent exactly once.
+
 ### Custom HTTP Client (Testing)
 
-Inject a custom Guzzle client for testing or custom configuration:
+For TLS, proxy or connection settings you do not need your own client — pass Guzzle
+request options through the config:
+
+```php
+$config = new FinvaldaConfig(
+    // ...
+    httpOptions: [
+        'verify' => '/etc/ssl/finvalda.pem',   // CA bundle for a self-signed server
+        'proxy' => 'http://proxy:3128',
+        'connect_timeout' => 5,
+    ],
+);
+```
+
+In Laravel, set `http_options` in the published `config/finvalda.php`.
+
+Inject a custom Guzzle client for testing or custom middleware. The SDK requests absolute
+URLs built from `baseUrl` and applies `timeout` and `httpOptions` per request, so the client
+needs no `base_uri` of its own:
 
 ```php
 use GuzzleHttp\Client;
@@ -536,6 +562,7 @@ Use `find()` to get a single entity as a typed DTO with full IDE autocomplete:
 use Finvalda\Data\Client;
 use Finvalda\Data\Product;
 use Finvalda\Data\Service;
+use Finvalda\Exceptions\FinvaldaException;
 use Finvalda\Exceptions\NotFoundException;
 
 // Find a client - returns typed Client DTO
@@ -557,15 +584,19 @@ $service = $finvalda->services()->find('SVC001');
 echo $service->name;
 echo $service->price;
 
-// Handle not found
+// Handle not found. A failed request is NOT "not found": find(), collect()
+// and typesAndTags() throw FinvaldaException for it, so an outage can never
+// look like an empty result set.
 try {
     $client = $finvalda->clients()->find('NONEXISTENT');
 } catch (NotFoundException $e) {
     echo "Client not found";
+} catch (FinvaldaException $e) {
+    echo "Request failed: {$e->getMessage()}";
 }
 
 // Access raw API data if needed
-$rawData = $client->raw;
+$rawData = $client->getRaw();
 $specificField = $client['sSpecialField']; // ArrayAccess supported
 ```
 
@@ -657,45 +688,56 @@ Create operations using an intuitive fluent interface instead of complex nested 
 $result = $finvalda->sale()
     ->client('CLI001')
     ->date('2024-01-15')
-    ->warehouse('MAIN')
+    ->warehouse('MAIN')                 // default sSandelis for every product line
     ->currency('EUR')
-    ->description('January order')
+    ->note('January order')
     ->documentNumber('ORD-2024-001')
-    ->paymentDays(30)
-    ->priceType(1)
+    ->dueDate('2024-02-14')             // tMokejimoData
     ->discount(5.0)
     ->object1('DEPT01')
     ->object2('PROJ01')
     ->employee('JONAS')
     ->exportToIvaz()
     ->roundingAmount(0.01)
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->addProduct('PRD002', quantity: 5, amount: 49.95)
-    ->addService('SVC001', quantity: 2, price: 50.00)
+    ->addService('SVC001', quantity: 200, amount: 100.00)
     ->save('STANDARD');
 
 // Equivalent array-based approach (old way - still supported)
 $result = $finvalda->operations()->create(OperationClass::Sale, [
-    'sKlientas' => 'CLI001',
-    'tData' => '2024-01-15',
-    'sSandelis' => 'MAIN',
-    'sValiuta' => 'EUR',
-    'sAprasymas' => 'January order',
-    'sDokumentas' => 'ORD-2024-001',
-    'nAtsiskDien' => 30,
-    'nKainosTipas' => 1,
-    'dNuolaida' => 5.0,
-    'sObjektas1' => 'DEPT01',
-    'sObjektas2' => 'PROJ01',
-    'PardDokPrekeDetEil' => [
-        ['sKodas' => 'PRD001', 'nKiekis' => 10, 'dKaina' => 19.99],
-        ['sKodas' => 'PRD002', 'nKiekis' => 5, 'dSumaV' => 49.95],
-    ],
-    'PardDokPaslaugaDetEil' => [
-        ['sKodas' => 'SVC001', 'nKiekis' => 2, 'dKaina' => 50.00],
+    'PardDok' => [
+        'sKlientas' => 'CLI001',
+        'tData' => '2024-01-15',
+        'sValiuta' => 'EUR',
+        'sPastaba' => 'January order',
+        'sDokumentas' => 'ORD-2024-001',
+        'tMokejimoData' => '2024-02-14',
+        'dNuolaida' => 5.0,
+        'sObjektas1' => 'DEPT01',
+        'sObjektas2' => 'PROJ01',
+        'PardDokPrekeDetEil' => [
+            ['sKodas' => 'PRD001', 'nKiekis' => 10, 'nPirmasMat' => 1, 'sSandelis' => 'MAIN', 'dSumaV' => 199.90, 'dSumaVntV' => 19.99],
+            ['sKodas' => 'PRD002', 'nKiekis' => 5, 'nPirmasMat' => 1, 'sSandelis' => 'MAIN', 'dSumaV' => 49.95],
+        ],
+        'PardDokPaslaugaDetEil' => [
+            ['sKodas' => 'SVC001', 'nKiekis' => 200, 'dSumaV' => 100.00],
+        ],
     ],
 ], 'STANDARD');
 ```
+
+Every setter writes a field the spec defines for that operation's envelope — a
+builder offers no setter for a field its envelope lacks, because the server silently
+drops unknown fields. Where a mistake can only be seen at `build()` (a header field
+on a `short()` variant, a unit price on a purchase line), `build()` throws
+`ValidationException` instead of sending a payload that would quietly lose data.
+`tests/Spec/BuilderSpecConformanceTest.php` checks every setter against the spec
+tables in `docs/FVS_Webservice.md`.
+
+> **Unit price (`price`) is sales-only.** It writes `dSumaVntV`/`dSumaVntL` (unit
+> price without VAT and discount); purchase detail lines have no unit-price field,
+> so purchases take `amount` (`dSumaV`) only.
 
 ### Using Line DTOs (Recommended for Accounting)
 
@@ -721,6 +763,7 @@ $result = $finvalda->sale()
         ProductLine::make('PIENAS', 5)
             ->warehouse('CENTR.')
             ->price(5.00)
+            ->amount(23.75)               // 5 x 5.00 less 5%: the server books dSumaV, not price x qty
             ->vat(percent: 21)
             ->discount(percent: 5.0)
             ->object(1, 'DEPT01')
@@ -737,9 +780,17 @@ $result = $finvalda->sale()
 
 The `product()` / `service()` methods accept line DTOs. The existing `addProduct()` / `addService()` / `addProductLine()` / `addServiceLine()` methods still work — you can mix both styles in the same builder.
 
-**Available ProductLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()`, `marked()`, `set()`
+**Available ProductLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `warehouse()`, `object()`, `objects()`, `additionalCost()`/`additionalCosts()` (purchases only), `vatCode()`, `intrastat()`, `weight()`, `firstMeasurement()`, `secondMeasurement()`, `info()` (sales only), `marked()`, `set()`
 
-**Available ServiceLine methods:** `price()`, `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()`, `firstMeasurement()`, `info()`, `marked()`, `set()`
+**Available ServiceLine methods:** `price()` (sales only), `amount()`, `vat()`, `discount()`, `object()`, `objects()`, `vatCode()`, `description()` (the line name, sPavadinimas; sales and purchases), `firstMeasurement()`, `info()` (sales only), `marked()`, `set()`
+
+On purchase lines the line name (`sPavadinimas`, via `ServiceLine::description()` or `->set('sPavadinimas', ...)` on a product line) is kept: the spec tables leave it out, but a live booking stored it as the line title. Extra info (`info()`, `sPapInf`) is refused on purchase lines: it is a sales-line field and the WS cannot read it back to confirm it is kept.
+
+**Amounts are not calculated by the server.** Checked against a live server: the line amount comes from `dSumaV` (`amount()`) only. A sales line with just `price()` (`dSumaVntV`) is accepted and booked at 0, so `build()` refuses a sales line that has a price but no amount. VAT is not filled in either: a line sent without VAT fields was booked with VAT 0, although the product's 21% showed on it. Pass `vat(percent:, amount:)` when the document needs VAT. A `discount(percent:)` next to `amount()` is not applied on top: a purchase line and a sales line, each with `dSumaV` 100 and `dNlProc` 10, were both booked at 100 with discount 0. Send the net amount (after discount); the percentage is not stored.
+
+`object()`/`objects()` accept levels 1-6 and throw `ValidationException` otherwise.
+A line DTO cannot see which operation it will join, so a sales-only or purchase-only
+field is rejected by the receiving builder's `build()`.
 
 #### Quantity convention (important)
 
@@ -824,16 +875,17 @@ $result = $finvalda->purchase()
     ->date('2024-01-15')
     ->warehouse('MAIN')
     ->currency('EUR')
-    ->series('SF')                          // sSerija — document series
+    ->documentNumber('INV-2024-001')         // sDokumentas — the supplier's invoice number
     ->documentType(DocumentType::VatInvoice) // sDokRusis — or pass 'SF'
-    ->supplierInvoice('INV-2024-001')
-    ->supplierInvoiceDate('2024-01-14')
-    ->paymentDays(60)
-    ->addProduct('PRD001', quantity: 100, price: 9.99)
-    ->addProduct('PRD002', quantity: 50, price: 14.99)
-    ->addService('FREIGHT', quantity: 1, amount: 150.00)
+    ->dueDate('2024-03-14')                  // tMokejimoData
+    ->addProduct('PRD001', quantity: 100, amount: 999.00)
+    ->addProduct('PRD002', quantity: 50, amount: 749.50)
+    ->addService('FREIGHT', quantity: 100, amount: 150.00)
     ->save('STANDARD');
 ```
+
+The full purchase header (`PirkDok`) has **no series field**: `series()` is accepted
+on `->short()` purchases only, and a full purchase with a series fails at `build()`.
 
 #### Document type, series & the operation parameter
 
@@ -862,7 +914,8 @@ inputs** to a create call — none of them is derived from the others:
 | `VK` | `LawyerVatInvoiceCredit` | Advokatų PVM sąskaita faktūra kreditinė |
 
 These methods are available on `sale()`, `salesReservation()`, `salesReturn()`,
-`purchase()`, `purchaseOrder()`, and `purchaseReturn()`.
+`uvmSalesReservation()`, `purchase()`, `purchaseOrder()`, `purchaseReturn()` and
+`uvmPurchaseOrder()` (`series()` on purchases: `short()` only).
 
 > **`sParametras` is required and cannot be bypassed.** The operation *type*
 > (purchase vs. sale, i.e. `ItemClassName`) is what you pick by choosing the
@@ -884,7 +937,7 @@ $finvalda->purchase()
     ->client('SUP001')
     ->date('2026-07-28')
     ->warehouse('WH01')
-    ->supplierInvoice('INV-2026-0042')
+    ->documentNumber('INV-2026-0042')
     ->additionalCostCodes(['KITOS', 'TRANSP', 'ILGALSAV', 'DRAUDIM'])  // slots 1-4
     ->product(
         ProductLine::make('WSM000001TB061527', 1)
@@ -997,8 +1050,8 @@ This emits the documented envelope — note that it is **not** the insert envelo
 | `additionalCostCodes([...])` | `PirkDokHeadEil` | Same method as on insert (*Tik KoregPirkDok ir KoregPirkUzsDok*). |
 | `removeProduct($code, $warehouse)` | `DelPrekeDetEil` | Warehouse optional. |
 | `removeService($code)` | `DelPaslaugaDetEil` | |
-| `product(ProductLine)` | `PirkDokPrekeDetEil` | Requires `sKodas`, `sSandelis`, `dSumaV`, `dSumaL`, `nKiekis`. |
-| `service(ServiceLine)` | `PirkDokPaslaugaDetEil` | Requires `sKodas`, `dSumaV`, `dSumaL`, `nKiekis`. |
+| `product(ProductLine)` | `PirkDokPrekeDetEil` | Requires `sKodas`, `sSandelis`, `dSumaV`, `dSumaL`, `nKiekis`. Rejects fields the correction table lacks (VAT percent, objects, intrastat, weights, `sPapInf`). |
+| `service(ServiceLine)` | `PirkDokPaslaugaDetEil` | Requires `sKodas`, `dSumaV`, `dSumaL`, `nKiekis`. Same rejection rule. |
 | `assertNotSold()` | — | One `purchaseOpFor()` round trip per distinct product code; throws `ConflictException` when a touched product is sold. |
 
 What `header()` deliberately **refuses**, because `PirkDokHeadEil` does not accept
@@ -1028,7 +1081,7 @@ $result = $finvalda->internalTransfer()
     ->date('2024-01-15')
     ->fromWarehouse('MAIN')      // header field sIsSandelio
     ->toWarehouse('BRANCH')      // header field sISandeli
-    ->description('Restock branch warehouse')
+    ->name('Restock branch warehouse')
     ->addTransfer('PRD001', quantity: 50)
     ->addTransfer('PRD002', quantity: 25)
     ->save('TRANSFER');
@@ -1037,28 +1090,33 @@ $result = $finvalda->internalTransfer()
 An internal transfer carries a **single** source/destination warehouse pair at the
 header level — the detail rows have no per-line warehouse fields. To move stock
 between different warehouse pairs, create separate transfer operations.
+`addTransfer()`'s `fromWarehouse`/`toWarehouse` arguments set that pair; one that
+contradicts a warehouse already set throws `ValidationException` rather than
+re-routing the earlier lines. Generic `product()`/`addProduct()` lines are rejected —
+`VidPerkDokDetEil` has no amounts, VAT or warehouse.
 
 ### Creating Returns
 
 ```php
 // Sales return
 $result = $finvalda->salesReturn()
+    ->short()
     ->client('CLI001')
     ->date('2024-01-20')
+    ->documentNumber('GRAZ-001')
+    ->currency('EUR')
     ->warehouse('MAIN')
-    ->originalDocument('SF-001', 'PARD', 123)
-    ->reason('Defective product')
-    ->addProduct('PRD001', quantity: 2, price: 19.99)
+    ->addProduct('PRD001', quantity: 2, amount: 39.98)
     ->save('RETURN');
 
 // Purchase return
 $result = $finvalda->purchaseReturn()
     ->client('SUP001')
     ->date('2024-01-20')
+    ->documentNumber('GRAZ-002')
+    ->currency('EUR')
     ->warehouse('MAIN')
-    ->originalDocument('PO-001', 'PIRK', 456)
-    ->reason('Wrong items delivered')
-    ->addProduct('PRD001', quantity: 10, price: 9.99)
+    ->addProduct('PRD001', quantity: 10, amount: 99.90)
     ->save('RETURN');
 ```
 
@@ -1067,36 +1125,46 @@ $result = $finvalda->purchaseReturn()
 > same fields via `->short()` (`TrumpasPardGrazDok`) succeeded. If a full-variant
 > return fails with 2012, use `->short()` — it is the shape proven to work.
 >
-> The `originalDocument()` / `reason()` fields (`sGrazDokumentas`, `sGrazZurnalas`,
-> `nGrazNumeris`, `sGrazPriezastis`) do not appear in the official FVS spec.
-> Finvalda silently ignores unknown fields, so verify against your server that the
-> linkage actually lands before relying on it.
+> The spec has no field linking a return to the original document. The former
+> `originalDocument()` / `reason()` setters wrote invented fields (`sGrazDokumentas`,
+> `sGrazZurnalas`, `nGrazNumeris`, `sGrazPriezastis`) that the server dropped, and
+> were removed.
 
 ### Creating Payments
 
 ```php
-// Payment received (inflow)
+use Finvalda\Enums\PaymentType;
+
+// Payment received (inflow, IplDok) settling a specific sale
 $result = $finvalda->inflow()
     ->client('CLI001')
     ->date('2024-01-15')
-    ->amount(500.00)
     ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for invoice SF-001')
-    ->forDocument('SF-001', 'PARD', 123, amount: 500.00)
+    ->documentNumber('KPO-001')
+    ->type(PaymentType::Documents)           // nTipas 3
+    ->name('Payment for invoice SF-001')
+    ->payDocument('SF', '001', 500.00)       // series, document, amount
     ->save('INFLOW');
 
-// Payment out (disbursement)
+// Payment out (disbursement, IsmDok) as an advance
 $result = $finvalda->disbursement()
     ->client('SUP001')
     ->date('2024-01-15')
-    ->amount(1000.00)
     ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for purchase PO-001')
-    ->forDocument('PO-001', 'PIRK', 456, amount: 1000.00)
+    ->documentNumber('KIO-001')
+    ->type(PaymentType::Advance)             // nTipas 0
+    ->addLine(1000.00, 'Advance for PO-001')
     ->save('DISBURSEMENT');
 ```
+
+`PaymentType`: `Advance` (0), `Fifo` (1, settles the client's open documents
+oldest-first) and `Documents` (3, settles the documents named on the lines). The
+payment total is the sum of the lines' `dSumaV`; the header has no amount field.
+Lines are nested inside the `IplDok`/`IsmDok` wrapper like every other operation.
+
+> **Disbursements are unverified live.** The spec documents the `IsmDok` envelope
+> (in the shared "IplDok, IsmDok" table) but leaves it out of the InsertNewOperation
+> class list. The `Mokejimas` payment-order node is not supported.
 
 ### Builder Advanced Usage
 
@@ -1107,19 +1175,19 @@ $sale = $finvalda->sale()->parameter('STANDARD');
 // Add custom header fields
 $sale->setHeader('sCustomField', 'value');
 
-// Add product lines with additional data
-$sale->addProduct('PRD001', quantity: 10, price: 19.99, warehouse: 'WH01', additionalData: [
-    'sLot' => 'LOT001',
-    'tExpiryDate' => '2025-12-31',
+// Add product lines with additional spec fields
+$sale->addProduct('PRD001', quantity: 10, amount: 199.90, warehouse: 'WH01', additionalData: [
+    'sPapInf' => 'LOT001',
+    'tIvykdymoData' => '2025-12-31',
 ]);
 
 // Add raw product line
 $sale->addProductLine([
     'sKodas' => 'PRD002',
     'nKiekis' => 5,
-    'dKaina' => 29.99,
+    'nPirmasMat' => 1,
+    'dSumaV' => 149.95,
     'sSandelis' => 'WH01',
-    'sSerialNumber' => 'SN12345',
 ]);
 
 // Build without saving (for inspection)
@@ -1130,6 +1198,15 @@ print_r($data);
 $result = $sale->save();
 ```
 
+`setHeader()`, `set()` and the raw `add*Line()` arrays are escape hatches, and the SDK checks
+them only partly:
+- A **full** operation's header is not checked at all; only `short()` variants check theirs.
+- Lines are checked only against the fields known to be wrong (e.g. a unit price on a
+  purchase line).
+- The spec-conformance test covers the named setters only.
+
+A raw field the spec does not define reaches the server, which silently ignores it.
+
 ### Write-Offs & Capitalization
 
 ```php
@@ -1139,8 +1216,9 @@ $result = $finvalda->writeOff()
     ->name('Monthly write-off')
     ->note('Damaged goods')
     ->employee('Jonas')
-    ->addItem('PRD001', quantity: 5, warehouse: 'MAIN', account: '6110')
-    ->addItem('PRD002', quantity: 3, warehouse: 'MAIN', account: '6110')
+    ->warehouse('MAIN')                  // default sSandelis for every line
+    ->addItem('PRD001', quantity: 5, account: '6110')
+    ->addItem('PRD002', quantity: 3, account: '6110')
     ->save('WRITEOFF');
 
 // Capitalization (receiving inventory)
@@ -1150,6 +1228,10 @@ $result = $finvalda->capitalization()
     ->addItem('PRD001', quantity: 10, amount: 199.90, warehouse: 'MAIN', account: '2010')
     ->save('CAPITALIZE');
 ```
+
+Write-off, capitalization, transfer and production lines default `nPirmasMat` to 1
+(quantity in the product's first unit), like `ProductLine`; pass
+`additionalData: ['nPirmasMat' => 0]` to opt out.
 
 ### Creating a Production Operation
 
@@ -1190,7 +1272,8 @@ $result = $finvalda->inventoryCount()
     ->addItem('B.DYZELINAS', quantity: 20.00, account: '1275')
     ->save('INVENTORY');
 
-// Append to an existing inventory count
+// mode 1 adds to a count the product already has that day in that warehouse;
+// mode 0 (the default) overwrites it. Anything else throws.
 $result = $finvalda->inventoryCount()
     ->mode(1)
     ->journal('INVENT')
@@ -1203,14 +1286,19 @@ $result = $finvalda->inventoryCount()
 ### Clearing / Set-Off
 
 ```php
+use Finvalda\Enums\ClearingDocumentType;
+
 $result = $finvalda->clearing()
     ->date('2024-01-15')
     ->name('Monthly clearing')
     ->debtor('CLI001')
     ->creditor('CLI002')
-    ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: 3)
-    ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: 2)
+    ->addDebitLine(amount: 270.00, series: 'SF', document: '001', type: ClearingDocumentType::Sale)
+    ->addCreditLine(amount: 270.00, series: 'PF', document: '002', type: ClearingDocumentType::Purchase)
     ->save('CLEARING');
+
+// The debit side accepts 1/3/4/6 and the credit side 0/2/5/6 (raw ints still
+// work); a type from the wrong side throws ValidationException.
 
 // Using account entries (type 6)
 $result = $finvalda->clearing()
@@ -1229,23 +1317,21 @@ $result = $finvalda->clearing()
 $result = $finvalda->uvmSalesReservation()
     ->client('HTNT')
     ->date('2024-01-15')
-    ->operationType('PARDSERV')
+    ->documentNumber('30608')
     ->fulfillmentDate('2024-01-20')
     ->currency('EUR')
     ->object1('SERVISAS')
-    ->description('Workshop order #30608')
-    ->addService('5054', quantity: 1, price: 0, additionalData: [
-        'sPavadinimas' => 'Service description',
-    ])
+    ->note('Workshop order #30608')
+    ->service(ServiceLine::make('5054', 1)->amount(0)->description('Service description'))
     ->save('WORKSHOP');
 
 // UVM purchase order
 $result = $finvalda->uvmPurchaseOrder()
     ->client('SUP001')
     ->date('2024-01-15')
+    ->documentNumber('UZS-001')
     ->currency('EUR')
-    ->operationType('PIRK')
-    ->addProduct('PRD001', quantity: 24, price: 3.50, warehouse: 'CENTR.')
+    ->addProduct('PRD001', quantity: 24, amount: 84.00, warehouse: 'CENTR.')
     ->save('ORDER');
 
 // UVM cancellation
@@ -1260,7 +1346,7 @@ $result = $finvalda->uvmCancellation()
 
 ### Short / Simplified Operations
 
-All sales, purchase, and return builders support a `short()` mode that uses simplified operation variants. Short operations send minimal headers and let the server fill in defaults.
+All sales, purchase, return and UVM reservation/order builders support a `short()` mode that uses the simplified `Trumpas*` variants. Short operations send minimal headers and let the server fill in defaults. A short sales header takes only client, date, series, document, currency, fulfillment date and document type; a short purchase header only client, date, series, document, currency and document type. Any other header field fails at `build()` with `ValidationException`.
 
 ```php
 // Short sale — server applies default settings
@@ -1270,53 +1356,29 @@ $result = $finvalda->sale()
     ->date('2024-01-15')
     ->series('SF')
     ->currency('EUR')
-    ->addProduct('PRD001', quantity: 10, price: 19.99)
+    ->addProduct('PRD001', quantity: 10, amount: 199.90, price: 19.99)
     ->save('STANDARD');
 
 // Short purchase return
 $result = $finvalda->purchaseReturn()
     ->short()
     ->client('SUP001')
+    ->date('2024-01-20')
     ->currency('EUR')
     ->series('GR')
-    ->addProduct('PRD001', quantity: 10, price: 9.99)
+    ->addProduct('PRD001', quantity: 10, amount: 99.90)
     ->save('RETURN');
 ```
 
-Builders supporting `short()`: `sale()`, `salesReservation()`, `salesReturn()`, `purchase()`, `purchaseOrder()`, `purchaseReturn()`.
+Builders supporting `short()`: `sale()`, `salesReservation()`, `salesReturn()`, `uvmSalesReservation()` (`TrumpasUVMPardRezDok`), `purchase()`, `purchaseOrder()`, `purchaseReturn()`, `uvmPurchaseOrder()` (`TrumpasUVMPirkUzsDok`).
+
+To delete an operation you created, `OperationClass::deleteClass()` gives the
+matching `DeleteOperationClass` (short variants map to their full class), or `null`
+where the spec offers no delete.
 
 ## Query Builders
 
 Build queries fluently for better readability and IDE support.
-
-### Transaction Query
-
-```php
-use Finvalda\Query\TransactionQuery;
-
-// Create a fluent query
-$query = TransactionQuery::create()
-    ->journal('PARD')
-    ->series('AA')
-    ->dateRange('2024-01-01', '2024-12-31')
-    ->modifiedSince('2024-06-01');
-
-// Use with transactions resource
-$response = $finvalda->transactions()->sales($query->toFilter());
-$response = $finvalda->transactions()->salesDetail($query->toFilter());
-
-// Query methods
-$query = TransactionQuery::create()
-    ->journal('PARD')              // Filter by journal code
-    ->operationNumber(123)         // Filter by operation number
-    ->series('AA')                 // Filter by document series
-    ->orderNumber('SF-001')        // Filter by order/document number
-    ->journalGroup('SALES_GRP')    // Filter by journal group
-    ->dateFrom('2024-01-01')       // Operation date from
-    ->dateTo('2024-12-31')         // Operation date to
-    ->dateRange('2024-01-01', '2024-12-31')  // Both dates at once
-    ->modifiedSince('2024-06-01'); // Only modified since
-```
 
 ### Operation Query
 
@@ -1330,7 +1392,7 @@ $query = OperationQuery::sales()
     ->client('CLI001');
 
 // Use with operations resource
-$response = $finvalda->operations()->query($query->opClass(), $query->build());
+$response = $finvalda->operations()->query($query);
 
 // All factory methods
 $query = OperationQuery::sales();
@@ -1358,77 +1420,41 @@ $query = OperationQuery::sales()
     ->modifiedSince('2024-06-01')
     ->journalGroup('SALES_GRP')
     ->object1('DEPT01')
-    ->object2('PROJ01');
+    ->object2('PROJ01')
+    ->createdSince('2024-01-01')         // DateCreatedFrom
+    ->description('Avans*')              // Description; '*' is a wildcard, line: 2-5 for Description2..5
+    ->notCreatedByUser('ROBOT')          // NotCreatedByUser
+    ->notEditedByUser('ROBOT')           // NotEditedByUser
+    ->set('SomeFilter', 'value');        // raw filter escape hatch (exact tag case)
+
+// Clearings and inflows have their own filters
+OperationQuery::forClass(OpClass::ClearingOff)->debtorClient('DEB1')->creditorClient('CRE1');
+OperationQuery::inflows()->advancePaymentSettled(false);   // only unsettled advances
 ```
+
+Without `columns()` the server returns every column.
 
 ## Validation
 
-Validate data before sending to the API to catch errors early:
+Builders and line DTOs check their input against the spec before anything is
+sent, and throw `Finvalda\Exceptions\ValidationException` on a field the target
+envelope does not define, an out-of-range value (object level, clearing type,
+inventory mode, additional-cost slot) or a missing required correction field.
+Date strings must be `Y-m-d` (optionally with a time of day); anything else throws
+`InvalidArgumentException`.
 
 ```php
-use Finvalda\Validation\Validator;
-use Finvalda\Validation\Rules\Required;
-use Finvalda\Validation\Rules\StringLength;
-use Finvalda\Validation\Rules\NumericRange;
-use Finvalda\Validation\Rules\DateFormat;
 use Finvalda\Exceptions\ValidationException;
 
-// Define validation rules
-$validator = new Validator([
-    'sKodas' => [new Required(), StringLength::max(50)],
-    'sPavadinimas' => [new Required(), StringLength::max(200)],
-    'dKaina' => [NumericRange::positive()],
-    'tData' => [DateFormat::ymd()],
-]);
-
-// Validate data
-$result = $validator->validate([
-    'sKodas' => 'PRD001',
-    'sPavadinimas' => 'Product Name',
-    'dKaina' => 19.99,
-    'tData' => '2024-01-15',
-]);
-
-if ($result->fails()) {
-    foreach ($result->errors as $field => $errors) {
-        echo "{$field}: " . implode(', ', $errors) . "\n";
-    }
-}
-
-// Or validate and throw exception
 try {
-    $validator->validateOrFail($data);
+    $finvalda->purchase()->series('PF')->build();   // PirkDok has no sSerija
 } catch (ValidationException $e) {
-    $errors = $e->getErrors();
-    $allMessages = $e->getAllErrors();
+    echo $e->getMessage();
 }
-
-// Quick validation
-$result = Validator::check($data, [
-    'sKodas' => [new Required()],
-    'sPavadinimas' => [new Required(), StringLength::between(3, 200)],
-]);
-
-// Available rules
-new Required();                          // Field is required
-new Required('Custom message');          // With custom message
-StringLength::max(50);                   // Max 50 characters
-StringLength::min(3);                    // Min 3 characters
-StringLength::between(3, 50);            // Between 3 and 50
-StringLength::exact(10);                 // Exactly 10 characters
-NumericRange::positive();                // >= 0
-NumericRange::positiveNonZero();         // > 0
-NumericRange::min(10);                   // >= 10
-NumericRange::max(100);                  // <= 100
-NumericRange::between(10, 100);          // Between 10 and 100
-DateFormat::ymd();                       // Y-m-d format
-DateFormat::datetime();                  // Y-m-d H:i:s format
-new DateFormat('d/m/Y');                 // Custom format
 ```
 
-> The lengths above are illustrative. For the **real** per-field maximum lengths,
-> see the [Field Reference](#field-reference) — e.g. a client `sKodas` is max 15
-> chars, `sPavadinimas` max 100.
+The standalone `Finvalda\Validation` rule set was removed: nothing in the SDK used
+it. For per-field lengths see the [Field Reference](#field-reference).
 
 ## Field Reference
 
@@ -1535,14 +1561,19 @@ if ($op === null) {
   the most recent one holds the current stock layer.
 - **A sale counts only when dated at or after that purchase.** An older sale belongs
   to a previous ownership cycle (bought → sold → bought back).
-- Unlike the rest of this resource it returns a **plain array, not a `Response`**,
-  and **never throws** — it exists to be used as a pre-flight check (see
+- Unlike the rest of this resource it returns a **plain array, not a `Response`** —
+  it exists to be used as a pre-flight check (see
   [Correcting a Purchase](#correcting-a-purchase)). `null` means no purchase history
   or a failed call. Use `products()->history()` for the raw rows.
 - Operation kinds are matched on the literal strings `Pirkimai`/`Pardavimai` in
   `op_rusis_pav`. The spec documents the column but never enumerates its values, so
   these are **observed against a live Finvalda, not specified**; an unrecognised kind
-  is ignored rather than guessed at.
+  is ignored rather than guessed at. Those labels are Lithuanian, so on a client
+  configured with `Language::English` the method **throws** rather than return a
+  `null` that would read as "no purchase history".
+- **Only a sale counts as consumption.** A write-off, purchase return or internal
+  transfer after the purchase leaves `sold` false, and `warehouse` is the purchase
+  row's warehouse even if the stock has been moved since.
 
 ### Clients
 
@@ -1613,6 +1644,8 @@ $result = $finvalda->clients()->delete('CLIENT001');
 // Invoices related to a customer
 $response = $finvalda->clients()->invoicesRelatedToCustomer('CLIENT001', debtType: 0);
 ```
+
+Countries are maintained in Finvalda by hand — the web service cannot create or list them — so a client card whose `sValstybeKodas` names a country missing there fails with `Country 'XX' not found!` (`$result->missingCountryCode()`, or `MissingCountryException` from `->throw()`). Finvalda uses ISO codes: Greece is `GR`, not the VAT prefix `EL`.
 
 ### Products
 
@@ -1747,7 +1780,8 @@ These integers are the `ProductTypeId` / `ClientTypeId` / `ServiceTypeId` enum
 values. Servers may define additional `tipas` values that have no enum case — for
 example products often expose `tipas = 100` ("Apmokestinamieji gaminiai"). Pass
 those as a raw int. A tag group the server has not configured simply yields an
-empty collection; that is normal and not an error.
+empty collection; that is normal and not an error. A failed request, on the other hand, throws
+`FinvaldaException` and is not cached.
 
 **Returned columns** (mapped onto the `TypeTag` DTO):
 
@@ -1835,20 +1869,12 @@ $result = $finvalda->objects()->update(level: 1, data: [
 ```php
 use Finvalda\Filters\TransactionFilter;
 use Finvalda\Filters\PaymentFilter;
-use Finvalda\Query\TransactionQuery;
 
-// Using filter DTO
 $filter = new TransactionFilter(
     dateFrom: '2024-01-01',
     dateTo: '2024-12-31',
     journalGroup: 'PARD_GRP',
 );
-
-// Or using fluent query builder
-$filter = TransactionQuery::create()
-    ->dateRange('2024-01-01', '2024-12-31')
-    ->journalGroup('PARD_GRP')
-    ->toFilter();
 
 // Sales
 $response = $finvalda->transactions()->sales($filter);
@@ -2017,10 +2043,12 @@ $response = $finvalda->orderManagement()->orderedProducts(dateFrom: '2024-01-01'
 ### Pricing & Discounts
 
 ```php
-// Combined client + item prices
-$response = $finvalda->pricing()->clientItemPrices(clientCode: 'CLI001', itemCode: 'PROD001');
-$response = $finvalda->pricing()->clientTypeItemPrices(clientTypeCode: 'VIP', itemCode: 'PROD001');
-$response = $finvalda->pricing()->clientItemTypePrices(clientCode: 'CLI001', itemTypeCode: 'ELECTRONICS');
+// Combined client + item prices. These endpoints take NO client or item
+// filter — they return the whole matrix, so narrow the rows yourself.
+$response = $finvalda->pricing()->clientItemPrices();
+$response = $finvalda->pricing()->clientTypeItemPrices(modifiedSince: '2024-01-01');
+$response = $finvalda->pricing()->clientItemTypePrices();
+$response = $finvalda->pricing()->clientTypeItemTypePrices();
 
 // Product discounts and additional prices
 $response = $finvalda->pricing()->clientProductDiscounts('CLI001');
@@ -2039,9 +2067,6 @@ $response = $finvalda->pricing()->clientTypeServiceDiscounts('VIP');
 //   client[Type]  ×  Product|Service[Type]  ×  Discounts|AdditionalPrices
 // All of the following are available (each takes the relevant code plus
 // optional modifiedSince / createdSince date filters):
-$finvalda->pricing()->clientItemTypePrices(clientCode: 'CLI001', itemTypeCode: 'ELECTRONICS');
-$finvalda->pricing()->clientTypeItemPrices(clientTypeCode: 'VIP', itemCode: 'PROD001');
-$finvalda->pricing()->clientTypeItemTypePrices(clientTypeCode: 'VIP', itemTypeCode: 'ELECTRONICS');
 $finvalda->pricing()->clientProductTypeAdditionalPrices('CLI001');
 $finvalda->pricing()->clientServiceTypeDiscounts('CLI001');
 $finvalda->pricing()->clientServiceTypeAdditionalPrices('CLI001');
@@ -2069,21 +2094,17 @@ $response = $finvalda->pricing()->recommendedPrice([
 ```php
 use Finvalda\Enums\DocumentEntityType;
 
-// Upload
+// Upload (InsertDocument) — content travels hex-encoded
 $result = $finvalda->documents()->uploadFile('invoice.pdf', '/path/to/invoice.pdf');
-$result = $finvalda->documents()->upload('doc.pdf', $hexContent);
+$result = $finvalda->documents()->upload('doc.pdf', $hexContent, description: 'Signed copy', finUser: 'ADMIN');
 
-// Attach to entity
-$result = $finvalda->documents()->attach(
-    DocumentEntityType::Sale,
-    entityCode: 'CLI001',
-    filename: 'invoice.pdf',
-    journal: 'PARD',
-    number: 123,
-);
+// Attach to an entity: a description by its code, an operation by journal + number
+$result = $finvalda->documents()->attachTo(DocumentEntityType::Client, 'CLI001', 'invoice.pdf');
+$result = $finvalda->documents()->attachTo(DocumentEntityType::Sale, 'PARD', 'invoice.pdf', 123);
 
-// Get attached documents
-$response = $finvalda->documents()->attached(DocumentEntityType::Client, 'CLI001');
+// Documents attached to one entity; files arrive hex-encoded under
+// $response->raw['result']['enitityDocs'][n]['docs'][m] as {name, data}
+$response = $finvalda->documents()->attachedTo(DocumentEntityType::Sale, 'PARD', 123);
 
 // Delete
 $result = $finvalda->documents()->delete('invoice.pdf');
@@ -2137,6 +2158,17 @@ $response = $finvalda->descriptions()->fixedAssets();
 $response = $finvalda->descriptions()->barCodes(['Codes' => ['PROD001']]);
 $response = $finvalda->descriptions()->prices(['Client' => 'CLI001']);
 $response = $finvalda->descriptions()->currencyRates('2024-01-01', '2024-12-31', ['USD', 'GBP']);
+
+// Address cards take two filter objects: Clients and Address
+$response = $finvalda->descriptions()->addresses(
+    clients: ['Codes' => ['CLI001']],
+    addresses: ['Codes' => ['SAN1'], 'Tag1' => 'X'],
+);
+
+// Any extra readParams key (merged last) for shapes the helpers don't cover
+$response = $finvalda->descriptions()->get(DescriptionType::Address, ['Codes' => ['CLI001']], readParams: [
+    'Address' => ['Codes' => ['SAN1']],
+]);
 
 // Additional description types
 $response = $finvalda->descriptions()->get(DescriptionType::OperationStatuses);
@@ -2224,52 +2256,13 @@ try {
 ### User Permissions
 
 ```php
-$response = $finvalda->permissions()->warehouses();
-$response = $finvalda->permissions()->clients();
-$response = $finvalda->permissions()->operationTypes();
-$response = $finvalda->permissions()->operationJournals();
-```
-
-## Pagination
-
-For large datasets, use lazy pagination with the `Cursor` class:
-
-```php
-use Finvalda\Pagination\Cursor;
-use Finvalda\Pagination\LazyCollection;
-
-// Create a cursor for clients
-$cursor = new Cursor(
-    fetcher: fn($modifiedSince, $createdSince) =>
-        $finvalda->clients()->all($modifiedSince, $createdSince)->data,
-    dateExtractor: fn($item) => isset($item['tKoregavimoData'])
-        ? new \DateTime($item['tKoregavimoData'])
-        : null,
-    // Recommended: a stable identity per record so duplicates from
-    // overlapping date ranges are skipped reliably. Without it, items
-    // are compared by full content.
-    idExtractor: fn($item) => $item['sKodas'],
-);
-
-// Iterate lazily (memory efficient)
-foreach ($cursor->modifiedSince('2024-01-01')->getIterator() as $clientData) {
-    echo $clientData['sPavadinimas'] . "\n";
-}
-
-// Take first N items
-$first100 = $cursor->take(100);
-
-// Get all as array
-$allClients = $cursor->all();
-
-// LazyCollection for generator-based iteration
-$lazy = LazyCollection::make($finvalda->clients()->all()->data);
-
-$filtered = $lazy
-    ->filter(fn($c) => ($c['dSkola'] ?? 0) > 0)
-    ->map(fn($c) => $c['sPavadinimas'])
-    ->take(10)
-    ->all();
+// GetUserPermissions answers every class for one Finvalda user (finUser);
+// the helpers return that class's permitted entities as [{id1, id2}, ...]
+$response = $finvalda->permissions()->forUser('S5');              // raw Response
+$warehouses = $finvalda->permissions()->warehouses('S5');     // id1 = warehouse code
+$clients = $finvalda->permissions()->clients('S5');           // id1 = client code
+$types = $finvalda->permissions()->operationTypes('S5');      // id1 = op class, id2 = type code
+$journals = $finvalda->permissions()->operationJournals('S5'); // id1 = op class, id2 = journal
 ```
 
 ## Error Handling
@@ -2281,7 +2274,9 @@ use Finvalda\Exceptions\ValidationException;
 use Finvalda\Exceptions\NotFoundException;
 use Finvalda\Exceptions\NetworkException;
 use Finvalda\Exceptions\ServerException;
-use Finvalda\Exceptions\RetryExhaustedException;
+use Finvalda\Exceptions\HttpException;
+use Finvalda\Exceptions\OperationFailedException;
+use Finvalda\Exceptions\MissingCountryException;
 
 try {
     $client = $finvalda->clients()->find('CLI001');
@@ -2292,12 +2287,11 @@ try {
 } catch (NetworkException $e) {
     echo "Network error (connection failed, timeout): {$e->getMessage()}";
 } catch (ServerException $e) {
-    echo "Server error (5xx): {$e->getMessage()}";
-} catch (RetryExhaustedException $e) {
-    echo "All {$e->attempts} retry attempts failed: {$e->getMessage()}";
+    echo "Server error ({$e->getCode()}): {$e->getMessage()}";
+} catch (HttpException $e) {
+    echo "HTTP error ({$e->getCode()}): {$e->getMessage()}";   // other 4xx; $e->response holds the response
 } catch (ValidationException $e) {
-    $errors = $e->getErrors();
-    $allMessages = $e->getAllErrors();
+    echo "Invalid input: {$e->getMessage()}";
 } catch (FinvaldaException $e) {
     echo "API error: {$e->getMessage()}";
 }
@@ -2317,7 +2311,33 @@ if ($result->success) {
 } else {
     echo "Error #{$result->errorCode}: {$result->error}";
 }
+
+// Or let a failure throw: Response::throw() raises FinvaldaException,
+// OperationResult::throw() raises OperationFailedException (errorCode, journal, number).
+$data = $finvalda->clients()->list()->throw()->data;
+
+try {
+    $result = $finvalda->clients()->create($data)->throw();
+} catch (MissingCountryException $e) {
+    // "Country 'IQ' not found!": countries are maintained in Finvalda by hand
+    echo "Ask the accountant to add country {$e->countryCode}";
+} catch (OperationFailedException $e) {
+    echo "Error #{$e->errorCode}: {$e->getMessage()}";
+}
+
+// Without throw(): $result->missingCountryCode() is 'IQ' for that refusal, else null.
 ```
+
+`find()` throws `NotFoundException` for a code that does not exist and `FinvaldaException`
+when the request itself failed, so a guard can fail closed. (`GetKlientas` answers an
+unknown client with `Fail` and no error text, unlike products and services; the SDK maps
+that to `NotFoundException`.)
+
+An exception's message never carries a credential: Guzzle embeds the request URI in its
+own messages (and `GetFvsUser` sends `sPassword` in the query), so the SDK scrubs those
+values and does not chain Guzzle's exception as `previous`. With a retry policy, the
+exception thrown after the last attempt is the same `NetworkException`/`ServerException`
+you get without one.
 
 ## Server-Configured Parameters
 

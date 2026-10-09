@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Finvalda\Builders;
 
+use Finvalda\Builders\Concerns\SetsDocumentNumber;
+use Finvalda\Builders\Concerns\SetsEmployeeByName;
+use Finvalda\Builders\Concerns\SetsMarked;
+use Finvalda\Builders\Concerns\SetsName;
+use Finvalda\Builders\Concerns\SetsNote;
 use Finvalda\Enums\OperationClass;
 
 /**
@@ -25,6 +30,12 @@ use Finvalda\Enums\OperationClass;
  */
 final class UvmCancellationBuilder extends OperationBuilder
 {
+    use SetsDocumentNumber;
+    use SetsEmployeeByName;
+    use SetsMarked;
+    use SetsName;
+    use SetsNote;
+
     /** @var array<int, array<string, mixed>> */
     protected array $cancellations = [];
 
@@ -33,20 +44,9 @@ final class UvmCancellationBuilder extends OperationBuilder
         return OperationClass::UvmCancellation;
     }
 
-    protected function getHeaderKey(): string
+    protected function lineMethodHint(): string
     {
-        return 'UVMAnulDok';
-    }
-
-    protected function getProductLinesKey(): string
-    {
-        return 'UVMAnulDokDetEil';
-    }
-
-    protected function getServiceLinesKey(): string
-    {
-        // Cancellations don't have service lines
-        return 'UVMAnulDokPaslaugaDetEil';
+        return 'addCancellation()';
     }
 
     /**
@@ -59,8 +59,6 @@ final class UvmCancellationBuilder extends OperationBuilder
      */
     public function build(): array
     {
-        $this->assertNoGenericLines('addCancellation()');
-
         $payload = $this->header;
 
         if (! empty($this->cancellations)) {
@@ -71,46 +69,6 @@ final class UvmCancellationBuilder extends OperationBuilder
     }
 
     // --- UVM cancellation-specific methods ---
-
-    /**
-     * Set the operation name/title.
-     */
-    public function name(string $name): self
-    {
-        $this->header['sPavadinimas'] = $name;
-
-        return $this;
-    }
-
-    /**
-     * Set a note/comment.
-     */
-    public function note(string $note): self
-    {
-        $this->header['sPastaba'] = $note;
-
-        return $this;
-    }
-
-    /**
-     * Set the employee name.
-     */
-    public function employee(string $name): self
-    {
-        $this->header['sDarbuotojas'] = $name;
-
-        return $this;
-    }
-
-    /**
-     * Set the marked/flagged status.
-     */
-    public function marked(bool $marked = true): self
-    {
-        $this->header['nPozymis'] = $marked ? 1 : 0;
-
-        return $this;
-    }
 
     /**
      * Add a cancellation reference to an existing UVM operation.
