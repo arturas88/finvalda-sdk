@@ -123,6 +123,20 @@ class JsonLinesLoggerTest extends TestCase
         $this->assertSame(5, $entry['params']['nKiekis']);
     }
 
+    public function test_a_cut_through_a_multibyte_character_still_logs_the_record(): void
+    {
+        $path = $this->dir . '/finvalda.log';
+
+        // "ė" is two bytes; a 10-byte budget falls between them.
+        (new JsonLinesLogger($path, maxBodyBytes: 10))->debug('Finvalda API response', [
+            'body' => str_repeat('a', 9) . 'ėėė',
+        ]);
+
+        $entry = json_decode(trim(file_get_contents($path)), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('aaaaaaaaa... [truncated 6 bytes]', $entry['body']);
+    }
+
     public function test_it_stringifies_a_stringable_level(): void
     {
         $path = $this->dir . '/finvalda.log';

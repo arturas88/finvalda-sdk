@@ -28,8 +28,17 @@ final class BodyTruncator
             return $body;
         }
 
-        $omitted = strlen($body) - $maxBytes;
+        // Never cut inside a UTF-8 character: step back off continuation bytes.
+        // A split character made the whole record un-encodable as JSON, so
+        // JsonLinesLogger dropped it.
+        $cut = $maxBytes;
 
-        return substr($body, 0, $maxBytes) . "... [truncated {$omitted} bytes]";
+        while ($cut > 0 && (ord($body[$cut]) & 0xC0) === 0x80) {
+            $cut--;
+        }
+
+        $omitted = strlen($body) - $cut;
+
+        return substr($body, 0, $cut) . "... [truncated {$omitted} bytes]";
     }
 }

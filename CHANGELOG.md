@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.1] - 2026-10-15
+
+### Fixed
+
+- **`BodyTruncator` no longer cuts inside a UTF-8 character.** A body over the byte
+  budget was cut at an exact byte, so a Lithuanian letter on the boundary left half a
+  character. `JsonLinesLogger` could then not encode the record and dropped it whole
+  (seen in production: two `GetOperations` responses missing from `finvalda.log`).
+  The cut now steps back to the start of that character; the marker counts the extra
+  bytes.
+
 ## [3.7.0] - 2026-07-31
 
 ### Added — logging controls
