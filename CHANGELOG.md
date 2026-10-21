@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-10-21
+
+### Added
+
+- **Guzzle 8 support.** `guzzlehttp/guzzle` is now `^7.0 || ^8.0`. Guzzle 8 removed
+  `RequestException::getResponse()` / `hasResponse()` (the response lives on
+  `ResponseException` only) and added `NetworkTimeoutException` beside
+  `ConnectException`. `Support\GuzzleResponse` reads both versions the same way:
+  `of()` returns the response when the exception carries one, `isNetworkFailure()` checks
+  PSR-18 `NetworkExceptionInterface`. `HttpClient` (error mapping, recording) and
+  `RetryHandler` use it. The test suite and PHPStan pass on Guzzle 7.16 and 8.3.
+
 ## [3.7.1] - 2026-10-15
 
 ### Fixed

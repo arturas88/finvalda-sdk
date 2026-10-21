@@ -17,13 +17,12 @@ use Finvalda\Responses\Response;
 use Finvalda\Retry\RetryHandler;
 use Finvalda\Support\BodyTruncator;
 use Finvalda\Support\FilePayloadElider;
+use Finvalda\Support\GuzzleResponse;
 use Finvalda\Support\OutboundNumericNormalizer;
 use Finvalda\Support\Redactor;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
-use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\UriResolver;
 use GuzzleHttp\Psr7\Utils;
 use Psr\Log\LoggerInterface;
@@ -382,7 +381,7 @@ final class HttpClient
             return;
         }
 
-        $response = $e instanceof RequestException && $e->hasResponse() ? $e->getResponse() : null;
+        $response = GuzzleResponse::of($e);
 
         $recorder->record(new Exchange(
             method: $method,
@@ -697,7 +696,7 @@ final class HttpClient
     private function wrapGuzzleException(GuzzleException $e): FinvaldaException
     {
         // Connection/network errors (DNS failure, timeout, connection refused)
-        if ($e instanceof ConnectException) {
+        if (GuzzleResponse::isNetworkFailure($e)) {
             return new NetworkException(
                 'Network error: ' . $e->getMessage(),
                 0,
@@ -706,8 +705,10 @@ final class HttpClient
         }
 
         // HTTP errors with response
-        if ($e instanceof RequestException && $e->hasResponse()) {
-            $statusCode = $e->getResponse()->getStatusCode();
+        $response = GuzzleResponse::of($e);
+
+        if ($response !== null) {
+            $statusCode = $response->getStatusCode();
 
             // Server errors (5xx)
             if ($statusCode >= 500) {

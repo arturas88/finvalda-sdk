@@ -7,8 +7,7 @@ namespace Finvalda\Retry;
 use Finvalda\Exceptions\NetworkException;
 use Finvalda\Exceptions\RetryExhaustedException;
 use Finvalda\Exceptions\ServerException;
-use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
+use Finvalda\Support\GuzzleResponse;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -84,14 +83,14 @@ final class RetryHandler
      */
     private function isRetryable(Throwable $exception): bool
     {
-        if ($exception instanceof ConnectException || $exception instanceof NetworkException) {
+        if (GuzzleResponse::isNetworkFailure($exception) || $exception instanceof NetworkException) {
             return $this->policy->retryOnNetworkError;
         }
 
-        if ($exception instanceof RequestException && $exception->hasResponse()) {
-            $statusCode = $exception->getResponse()->getStatusCode();
+        $response = GuzzleResponse::of($exception);
 
-            return $this->policy->isRetryableStatusCode($statusCode);
+        if ($response !== null) {
+            return $this->policy->isRetryableStatusCode($response->getStatusCode());
         }
 
         if ($exception instanceof ServerException) {
