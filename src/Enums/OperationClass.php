@@ -33,7 +33,7 @@ enum OperationClass: string
 
     // Payments
     case Inflow = 'IplDok';
-    case Disbursement = 'IsmokasDok';
+    case Disbursement = 'IsmDok'; // the server refuses IsmokasDok: "Wrong ItemClassName"
     case Clearing = 'UzskaitaDok';
 
     // Production

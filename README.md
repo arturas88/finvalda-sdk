@@ -1074,29 +1074,39 @@ $result = $finvalda->purchaseReturn()
 
 ### Creating Payments
 
+Inflow (`IplDok`) and disbursement (`IsmDok`) follow the FVS reference: `nTipas` is required (0 advance, 1 FIFO,
+3 named documents), each row carries `dSumaV`, and a settled document is named by series + number. There is no
+header amount or bank account: the server-side parameter decides the journal, the operation type and with them the
+account (see [Server-Configured Parameters](#server-configured-parameters)).
+
 ```php
-// Payment received (inflow)
+// Payment received, settling two named sales (nTipas 3)
 $result = $finvalda->inflow()
     ->client('CLI001')
     ->date('2024-01-15')
-    ->amount(500.00)
     ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for invoice SF-001')
-    ->forDocument('SF-001', 'PARD', 123, amount: 500.00)
-    ->save('INFLOW');
+    ->name('Payment for SF-001')
+    ->note('Bank ref 2024011500001')
+    ->settle('SF', '000001', 500.00)
+    ->settle('SF', '000002', 120.00)
+    ->save('BANK_IN');
 
-// Payment out (disbursement)
+// Advance payment out (nTipas 0)
 $result = $finvalda->disbursement()
     ->client('SUP001')
     ->date('2024-01-15')
-    ->amount(1000.00)
-    ->currency('EUR')
-    ->bankAccount('BANK01')
-    ->description('Payment for purchase PO-001')
-    ->forDocument('PO-001', 'PIRK', 456, amount: 1000.00)
-    ->save('DISBURSEMENT');
+    ->advance()
+    ->line(1000.00, 'Advance')
+    ->save('BANK_OUT');
+
+// Let Finvalda settle the oldest open documents (nTipas 1)
+$finvalda->inflow()->client('CLI001')->date('2024-01-15')->settleFifo()->line(300.00)->save('BANK_IN');
 ```
+
+`amount()`, `bankAccount()`, `cashRegister()`, `isAdvance()`, `responsiblePerson()` and `forDocument()` are deprecated
+since 3.9.0: they send fields the reference does not have. Whether a call is licensed is decided per machine: a server
+can accept `IplDok` and answer `This function is not licensed in this machine!` for `IsmDok` or `DeleteOperation`
+(`AccessDeniedException`).
 
 ### Builder Advanced Usage
 
