@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-11-11
+
+### Fixed
+
+- **Disbursements used a class name the server refuses.** `OperationClass::Disbursement` and `DisbursementBuilder`
+  sent `IsmokasDok` / `IsmokasDokDetEil`; a live server answers `Wrong ItemClassName`. The FVS reference names them
+  `IsmDok` / `IsmDokDetEil`.
+- **Payment rows sat outside the operation wrapper.** `InflowBuilder` and `DisbursementBuilder` added the
+  `*DetEil` rows next to `{"IplDok": {...}}` instead of inside it, so the server saw an operation with no rows.
+
+### Added
+
+- Payment builders (shared `Concerns\BuildsPaymentOperation`) with the reference's fields: `advance()` (nTipas 0),
+  `settleFifo()` (1), `type()`, `settle($series, $document, $amount, $name)` (nTipas 3, row `dSumaV` + `sSerija` +
+  `sDokumentas`), `line($amount, $name, $extra)`, `name()` (sPavadinimas), `note()` (sPastaba), `issueDate()`,
+  `clientCompanyCode()`, `document()`, `marked()`. `addProduct()` / `addService()` on a payment throw.
+  Verified against a live server: `IplDok` with nTipas 3 and these rows books and settles the named sale.
+
+### Deprecated
+
+- `amount()` (header `dSuma`), `bankAccount()` (`sBankoSask`), `cashRegister()` (`sKasa`), `isAdvance()` (`bAvansas`),
+  `responsiblePerson()` and `forDocument()` (row `sZurnalas`/`nNumeris`/`dSuma`) on the payment builders: none of these
+  fields is in the reference. They still send what they sent; use `settle()`, `line()`, `advance()`.
+
 ## [3.8.0] - 2026-10-21
 
 ### Added
